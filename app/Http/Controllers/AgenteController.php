@@ -89,7 +89,7 @@ class AgenteController extends Controller
                     a.legajo, 
                     COUNT(c.id) as cargos_activos,
                     SUM(c.horas_catedra) as total_horas_catedra,
-                    GROUP_CONCAT(DISTINCT c.establecimiento, '|||') as escuelas
+                    GROUP_CONCAT(c.establecimiento, '|||') as escuelas
                 FROM agentes a
                 LEFT JOIN agente_cargos c ON a.dni = c.dni
                 {$whereClause}
