@@ -6,7 +6,11 @@ import { GlassCard } from '../Components/GlassCard';
 import { Pagination } from '../Components/Pagination';
 
 const Traslados = () => {
-  const { traslados, loadingTraslados, openAgentModal } = useGlobal();
+  const { traslados, loadingTraslados, fetchTraslados, openAgentModal } = useGlobal();
+
+  useEffect(() => {
+    fetchTraslados();
+  }, []);
 
   // Navigation states
   const [view, setView] = useState('padron'); // 'padron' | 'dispersion' | 'pares_criticos'

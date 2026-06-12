@@ -7,7 +7,11 @@ import { GlassCard } from '../Components/GlassCard';
 import { Pagination } from '../Components/Pagination';
 
 const Designaciones = () => {
-  const { analytics, loadingAnalytics, openAgentModal } = useGlobal();
+  const { analytics, loadingAnalytics, fetchAnalytics, openAgentModal } = useGlobal();
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
 
   // Navigation states
   const [view, setView] = useState('padron'); // 'padron' | 'auditoria' | 'escuelas'

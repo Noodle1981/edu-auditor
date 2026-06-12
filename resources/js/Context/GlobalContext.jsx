@@ -73,8 +73,6 @@ export const GlobalProvider = ({ children }) => {
 
   useEffect(() => {
     fetchStats();
-    fetchAnalytics();
-    fetchTraslados();
   }, []);
 
   return (
@@ -89,7 +87,10 @@ export const GlobalProvider = ({ children }) => {
       setSelectedAgentDni,
       openAgentModal,
       closeAgentModal,
-      refreshAll
+      refreshAll,
+      fetchStats,
+      fetchAnalytics,
+      fetchTraslados
     }}>
       {children}
     </GlobalContext.Provider>
