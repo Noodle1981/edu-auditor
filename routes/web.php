@@ -36,6 +36,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Agentes
     Route::get('/agentes', [AgenteController::class, 'index'])->name('agentes');
+    Route::get('/auditoria-unica', [AgenteController::class, 'auditoriaUnicaPage'])->name('auditoria-unica');
     Route::get('/api/agentes', [AgenteController::class, 'search']);
     Route::get('/api/agentes/{dni}', [AgenteController::class, 'detail']);
 

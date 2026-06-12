@@ -16,6 +16,11 @@ class AgenteController extends Controller
         return Inertia::render('Agentes');
     }
 
+    public function auditoriaUnicaPage()
+    {
+        return Inertia::render('AuditoriaUnica');
+    }
+
     public function search(Request $request)
     {
         try {

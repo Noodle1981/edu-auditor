@@ -13,6 +13,7 @@ export const Sidebar = () => {
     { href: '/designaciones', label: 'Buscar Designaciones', icon: 'fa-solid fa-briefcase' },
     { href: '/traslados', label: 'Traslados y Distancias', icon: 'fa-solid fa-map-location-dot' },
     { href: '/auditoria', label: 'Auditoría', icon: 'fa-solid fa-scale-balanced' },
+    { href: '/auditoria-unica', label: 'Auditoría Única', icon: 'fa-solid fa-file-shield' },
   ];
 
   if (isAdmin) {
