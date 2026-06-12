@@ -30,15 +30,9 @@ export default function Welcome({ auth }) {
                             <>
                                 <Link
                                     href={route('login')}
-                                    className="px-5 py-2.5 rounded-xl bg-white border border-gray-150 hover:bg-gray-50 text-gray-700 text-xs font-black uppercase tracking-wider transition-all duration-200 active:scale-95 shadow-sm cursor-pointer"
-                                >
-                                    Iniciar Sesión
-                                </Link>
-                                <Link
-                                    href={route('register')}
                                     className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FE8204] to-[#ff5e00] hover:from-[#ff5e00] hover:to-[#e04f00] text-white text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-md shadow-[#FE8204]/25 hover:shadow-lg active:scale-95 cursor-pointer"
                                 >
-                                    Registrarse
+                                    Iniciar Sesión <i className="fa-solid fa-arrow-right-to-bracket ml-1.5"></i>
                                 </Link>
                             </>
                         )}
