@@ -534,7 +534,7 @@ const Dashboard = () => {
               <div className="flex flex-col">
                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{card.label}</span>
                 <h3 className={`text-3xl font-black ${card.valColor} mt-1 tracking-tight leading-none`}>
-                  {card.value.toLocaleString('es-AR')}
+                  {(card.value ?? 0).toLocaleString('es-AR')}
                 </h3>
                 <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mt-2 flex items-center gap-1.5 leading-none">
                   <i className={`${card.subIcon} opacity-70`}></i>
