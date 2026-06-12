@@ -1,11 +1,16 @@
-import re
 import csv
-import sqlite3
 import os
+import sys
+import re
 
+# Add root folder to sys.path to import db_helper
 base_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(base_dir)
+
+import db_helper
+
 csv_path = os.path.join(base_dir, "Designaciones.csv")
-db_path = os.path.join(base_dir, "designaciones.db")
+db_path = os.path.join(base_dir, "database", "database.sqlite")
 
 print("Starting Database Creation Process for Designaciones...")
 if not os.path.exists(csv_path):
@@ -21,7 +26,6 @@ expected_turns_raw_str = (
     "MAÑANA CON JORNADA EXTENDIDA, TARDE/NOCHE, INTERTURNO / TARDE Y DIURNO"
 )
 
-# Clean and normalize expected turns list, sorting by length descending to match longest first
 expected_turns = []
 for turn_phrase in expected_turns_raw_str.split(','):
     normalized = turn_phrase.replace('/', ' / ').strip().upper()
@@ -29,7 +33,6 @@ for turn_phrase in expected_turns_raw_str.split(','):
         expected_turns.append(normalized)
 expected_turns = sorted(list(set(expected_turns)), key=len, reverse=True)
 
-# Helper function to find matching turn in text
 def find_matching_turn(text):
     if not text or not isinstance(text, str):
         return None
@@ -39,13 +42,11 @@ def find_matching_turn(text):
             return turn
     return None
 
-# Helper to combine turns
 def combine_turns(current_turno, col_val):
     if not col_val or not isinstance(col_val, str):
         return current_turno
     
     col_upper = col_val.strip().upper()
-    # Trigger values for combination
     triggers = [
         "TARDE Y/O VESPERTINO", "TARDE Y VESPERTINO", "VESPERTINO", 
         "TARDE Y MAÑANA", "NOCHE", "INTERTURNO Y TARDE", "MAÑANA", 
@@ -62,10 +63,12 @@ def combine_turns(current_turno, col_val):
                 return col_upper
     return current_turno
 
+conn = None
+
 try:
     print("Step 1: Reading and grouping raw lines from CSV...")
-    with open(csv_path, 'r', encoding='utf-8', errors='replace') as f:
-        raw_lines = [line.replace('PRODUCCIÓN: DIBUJO, PINTURA, ESCULTURA Y GRABADO', 'PRODUCCIÓN: DIBUJO - PINTURA - ESCULTURA Y GRABADO').replace('PRODUCCIÓ: DIBUJO, PINTURA, ESCULTURA Y GRABADO', 'PRODUCCIÓ: DIBUJO - PINTURA - ESCULTURA Y GRABADO') for line in f.readlines()]
+    lines = db_helper.safe_open_csv(csv_path)
+    raw_lines = [line.replace('PRODUCCIÓN: DIBUJO, PINTURA, ESCULTURA Y GRABADO', 'PRODUCCIÓN: DIBUJO - PINTURA - ESCULTURA Y GRABADO').replace('PRODUCCIÓ: DIBUJO, PINTURA, ESCULTURA Y GRABADO', 'PRODUCCIÓ: DIBUJO - PINTURA - ESCULTURA Y GRABADO') for line in lines]
     
     header_line = raw_lines[0].strip()
     raw_lines = raw_lines[1:]
@@ -73,7 +76,6 @@ try:
     logical_rows_str = []
     current_row_str = ""
     
-    # Group lines that belong to the same logical record
     for line in raw_lines:
         if re.match(r'^"?\d+,', line):
             if current_row_str:
@@ -87,9 +89,8 @@ try:
         
     print(f"Grouped {len(logical_rows_str)} logical records from CSV.")
     
-    # Establish SQLite connection (re-runnable, will delete table if exists)
     print("Step 2: Connecting to SQLite and creating table structure...")
-    conn = sqlite3.connect(db_path)
+    conn = db_helper.get_db_connection(db_path)
     cursor = conn.cursor()
     
     cursor.execute("DROP TABLE IF EXISTS designaciones")
@@ -113,33 +114,34 @@ try:
             situacion_revista TEXT,
             norma_legal TEXT,
             observaciones TEXT,
-            control_id TEXT
+            control_id TEXT,
+            FOREIGN KEY (dni) REFERENCES agentes(dni) ON DELETE CASCADE
         )
     """)
     
     print("Step 3: Parsing and normalising records...")
     insert_data = []
+    insert_agentes = []
+    inserted_dnis = set()
     
     for idx, row_str in enumerate(logical_rows_str):
-        # Robust parsing for wrapped or unwrapped CSV rows
         cleaned_str = row_str.replace('\n', ' ').replace('\r', ' ').strip()
         if cleaned_str.startswith('"') and cleaned_str.endswith('"'):
             cleaned_str = cleaned_str[1:-1]
-            cleaned_str = cleaned_str.replace('""', '"')
-            parsed_row = next(csv.reader([cleaned_str]))
-        else:
-            parsed_row = next(csv.reader([cleaned_str]))
+        cleaned_str = cleaned_str.replace('""', '"')
         
-        # Extract columns and pad if needed
-        # We need at least 16 columns.
+        reader = csv.reader([cleaned_str])
+        try:
+            parsed_row = next(reader)
+        except csv.Error:
+            continue
+            
         if len(parsed_row) < 16:
             parsed_row += [''] * (16 - len(parsed_row))
             
-        # Clean basic values
-        centro = int(parsed_row[0].strip()) if parsed_row[0].strip().isdigit() else 0
+        centro = int(parsed_row[0].strip()) if parsed_row[0].strip().isdigit() else None
         establecimiento = parsed_row[1].strip()
         
-        # Escalafon normalization
         escalafon = parsed_row[2].strip().replace('"', '')
         escalafon = re.sub(r'\s+', ' ', escalafon).upper()
         escalafon = re.sub(r'ARTE Y DISEÑO', 'DOCENTE', escalafon)
@@ -147,7 +149,6 @@ try:
         
         cupof = parsed_row[3].strip()
         
-        # CUE dynamic extraction
         cue = None
         if cupof and '-' in cupof:
             cue_part = cupof.split('-')[0].strip()
@@ -156,34 +157,27 @@ try:
                 
         cargo_horas = parsed_row[4].strip()
         
-        # Extract hours cátedra
         horas_catedra = 0
         match_hs = re.search(r'(\d+)\s*Hs', cargo_horas, re.IGNORECASE)
         if match_hs:
             horas_catedra = int(match_hs.group(1))
         
-        # Turno normalization
-        col_temporal_turno = parsed_row[5].strip() # raw turno field
-        col_plan_estudio = parsed_row[6].strip()   # NombrePlanDeEstudio_1
+        col_temporal_turno = parsed_row[5].strip()
+        col_plan_estudio = parsed_row[6].strip()
         
-        # Start with matching Raw Turno exactly
         turno = None
         col_temp_upper = col_temporal_turno.upper()
         if col_temp_upper in expected_turns:
             turno = col_temp_upper
             
-        # If Turno is empty/null, try to extract it from cargo_horas (TIPO_DE_CUPOF)
         if not turno:
             turno = find_matching_turn(cargo_horas)
             
-        # If still empty, try to match within the Raw Turno itself
         if not turno and col_temporal_turno:
             turno = find_matching_turn(col_temporal_turno)
             
-        # Second Pass: Combine Turno with Plan Estudio
         turno = combine_turns(turno, col_plan_estudio)
         
-        # Clean up strings
         if turno:
             turno = turno.strip()
             if turno.upper() == 'NONE' or turno == '':
@@ -191,18 +185,22 @@ try:
                 
         plan_estudio = col_plan_estudio.replace('"', '').strip()
         
-        # Agent Name
         nombre_agente = parsed_row[7].strip().replace('"', '')
         nombre_agente = re.sub(r'\s+', ' ', nombre_agente).upper()
         
         dni = parsed_row[8].strip()
         genero = parsed_row[9].strip().upper()
         legajo = parsed_row[10].strip()
-        fecha_alta = parsed_row[11].strip()
+        fecha_alta = db_helper.normalize_date(parsed_row[11].strip())
         situacion_revista = parsed_row[12].strip().upper()
         norma_legal = parsed_row[13].strip()
         observaciones = parsed_row[14].strip()
         control_id = parsed_row[15].strip()
+        
+        # Build unique agents (to prevent FK failures)
+        if dni and dni not in inserted_dnis:
+            insert_agentes.append((dni, nombre_agente, genero, legajo, fecha_alta))
+            inserted_dnis.add(dni)
         
         insert_data.append((
             centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
@@ -210,7 +208,14 @@ try:
             fecha_alta, situacion_revista, norma_legal, observaciones, control_id
         ))
 
-    print(f"Step 4: Inserting {len(insert_data)} rows into designaciones database...")
+    print(f"Step 4a: Inserting {len(insert_agentes)} unique agents from designaciones...")
+    cursor.executemany("""
+        INSERT OR IGNORE INTO agentes (
+            dni, nombre_agente, genero, legajo, fecha_alta
+        ) VALUES (?, ?, ?, ?, ?)
+    """, insert_agentes)
+
+    print(f"Step 4b: Inserting {len(insert_data)} rows into designaciones database...")
     cursor.executemany("""
         INSERT INTO designaciones (
             centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
@@ -228,10 +233,11 @@ try:
     cursor.execute("CREATE INDEX idx_designaciones_escalafon ON designaciones(escalafon)")
     cursor.execute("CREATE INDEX idx_designaciones_horas ON designaciones(horas_catedra)")
     
-    conn.commit()
-    conn.close()
+    db_helper.safe_db_close(conn, success=True)
     print("Database creation and population completed successfully!")
     print(f"New separate database file created at: {db_path}")
 
 except Exception as e:
+    db_helper.safe_db_close(conn, success=False)
     print(f"Database population process failed! Error: {e}")
+    raise

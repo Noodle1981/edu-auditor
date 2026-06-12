@@ -1,21 +1,27 @@
-import re
 import csv
-import sqlite3
 import os
+import sys
+import re
 
+# Add root folder to sys.path to import db_helper
 base_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(base_dir)
+
+import db_helper
+
 csv_path = os.path.join(base_dir, "Licencia.csv")
-db_path = os.path.join(base_dir, "licencias.db")
+db_path = os.path.join(base_dir, "database", "database.sqlite")
 
 print("Starting Database Creation Process for Licencias...")
 if not os.path.exists(csv_path):
     print(f"Error: CSV file not found at {csv_path}!")
     exit(1)
 
+conn = None
+
 try:
     print("Step 1: Reading raw lines and skipping report headers...")
-    with open(csv_path, 'r', encoding='utf-8', errors='replace') as f:
-        raw_lines = f.readlines()
+    raw_lines = db_helper.safe_open_csv(csv_path)
         
     # Find header starting with 'IdTramite'
     header_idx = -1
@@ -52,7 +58,7 @@ try:
     
     # Establish SQLite connection (re-runnable, will delete table if exists)
     print("Step 3: Connecting to SQLite and creating table structure...")
-    conn = sqlite3.connect(db_path)
+    conn = db_helper.get_db_connection(db_path)
     cursor = conn.cursor()
     
     cursor.execute("DROP TABLE IF EXISTS licencias")
@@ -69,12 +75,15 @@ try:
             fecha_inicio TEXT,
             fecha_fin TEXT,
             dias INTEGER,
-            referencia_interna INTEGER
+            referencia_interna INTEGER,
+            FOREIGN KEY (dni) REFERENCES agentes(dni) ON DELETE CASCADE
         )
     """)
     
     print("Step 4: Parsing and normalising records...")
     insert_data = []
+    insert_agentes = []
+    inserted_dnis = set()
     
     for idx, row_str in enumerate(logical_rows_str):
         cleaned_str = row_str.replace('\n', ' ').replace('\r', ' ').strip()
@@ -89,7 +98,7 @@ try:
             parsed_row += [''] * (11 - len(parsed_row))
             
         id_tramite = int(parsed_row[0].strip()) if parsed_row[0].strip().isdigit() else 0
-        fecha_carga = parsed_row[1].strip()
+        fecha_carga = db_helper.normalize_datetime(parsed_row[1].strip())
         
         # Agent Name
         nombre_agente = parsed_row[2].strip().replace('"', '')
@@ -99,18 +108,30 @@ try:
         genero = parsed_row[4].strip().upper()
         tipo_licencia = parsed_row[5].strip()
         documento_respaldo = parsed_row[6].strip()
-        fecha_inicio = parsed_row[7].strip()
-        fecha_fin = parsed_row[8].strip()
+        fecha_inicio = db_helper.normalize_date(parsed_row[7].strip())
+        fecha_fin = db_helper.normalize_date(parsed_row[8].strip())
         
         dias = int(parsed_row[9].strip()) if parsed_row[9].strip().isdigit() else 0
         referencia_interna = int(parsed_row[10].strip()) if parsed_row[10].strip().isdigit() else 0
+        
+        # Build unique agents (to prevent FK failures)
+        if dni and dni not in inserted_dnis:
+            insert_agentes.append((dni, nombre_agente, genero, None, None))
+            inserted_dnis.add(dni)
         
         insert_data.append((
             id_tramite, fecha_carga, nombre_agente, dni, genero, tipo_licencia,
             documento_respaldo, fecha_inicio, fecha_fin, dias, referencia_interna
         ))
 
-    print(f"Step 5: Inserting {len(insert_data)} rows into licencias database...")
+    print(f"Step 5a: Inserting {len(insert_agentes)} unique agents from licencias...")
+    cursor.executemany("""
+        INSERT OR IGNORE INTO agentes (
+            dni, nombre_agente, genero, legajo, fecha_alta
+        ) VALUES (?, ?, ?, ?, ?)
+    """, insert_agentes)
+
+    print(f"Step 5b: Inserting {len(insert_data)} rows into licencias database...")
     cursor.executemany("""
         INSERT INTO licencias (
             id_tramite, fecha_carga, nombre_agente, dni, genero, tipo_licencia,
@@ -125,10 +146,11 @@ try:
     cursor.execute("CREATE INDEX idx_licencias_inicio ON licencias(fecha_inicio)")
     cursor.execute("CREATE INDEX idx_licencias_fin ON licencias(fecha_fin)")
     
-    conn.commit()
-    conn.close()
+    db_helper.safe_db_close(conn, success=True)
     print("Database creation and population completed successfully!")
     print(f"New separate database file created at: {db_path}")
 
 except Exception as e:
+    db_helper.safe_db_close(conn, success=False)
     print(f"Database population process failed! Error: {e}")
+    raise

@@ -33,3 +33,5 @@ Thumbs.db
 _old_frontend/
 _old_database/
 .agents/
+__pycache__/
+*.pyc

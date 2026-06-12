@@ -18,6 +18,8 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();
+            $table->string('role')->default('administrativos');
+            $table->timestamp('password_changed_at')->nullable();
             $table->timestamps();
         });
 
