@@ -355,4 +355,343 @@ class AgenteController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
+    public function auditoriaAutomatizadaPage()
+    {
+        return Inertia::render('AuditoriaAutomatizada');
+    }
+
+    public function getLocalAnalysis($dni)
+    {
+        try {
+            $agentInfo = DB::selectOne("SELECT dni, nombre_agente, genero, legajo, fecha_alta FROM agentes WHERE dni = ?", [$dni]);
+            if (!$agentInfo) {
+                return response()->json(['error' => 'No se encontró ningún agente con el DNI ingresado.'], 404);
+            }
+
+            $cargos = DB::select("
+                SELECT centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
+                       turno, plan_estudio, situacion_revista, norma_legal, observaciones
+                FROM agente_cargos 
+                WHERE dni = ?
+            ", [$dni]);
+
+            $designaciones = DB::select("
+                SELECT centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
+                       turno, plan_estudio, situacion_revista, norma_legal, observaciones
+                FROM designaciones 
+                WHERE dni = ?
+            ", [$dni]);
+
+            $licencias = DB::select("
+                SELECT id_tramite, fecha_carga, tipo_licencia, fecha_inicio, fecha_fin, dias, documento_respaldo
+                FROM licencias 
+                WHERE dni = ?
+            ", [$dni]);
+
+            // Fetch physical school details
+            $cues = [];
+            foreach ($cargos as $c) {
+                if ($c->cue !== null) $cues[] = $c->cue;
+            }
+            $cues = array_unique($cues);
+
+            $escuelasFisicas = [];
+            if (!empty($cues)) {
+                $placeholders = implode(',', array_fill(0, count($cues), '?'));
+                $rowsEst = DB::select("
+                    SELECT e.cue, e.nombre as nombre_establecimiento,
+                           ed.latitud, ed.longitud, ed.calle, ed.numero_puerta, ed.localidad
+                    FROM establecimientos e
+                    LEFT JOIN edificios ed ON e.edificio_id = ed.id
+                    WHERE e.cue IN ({$placeholders})
+                ", array_values($cues));
+                foreach ($rowsEst as $r) {
+                    $escuelasFisicas[$r->cue] = $r;
+                }
+            }
+
+            // Perform calculations
+            $totalRealHours = 0;
+            $totalEstimatedHours = 0;
+            $cargosDetalles = [];
+
+            foreach ($cargos as $idx => $c) {
+                $horas = (int)$c->horas_catedra;
+                $totalRealHours += $horas;
+
+                // Estimate hours if 0 (e.g. Maestro de Grado)
+                $estHoras = $horas;
+                $motivoEstimacion = '';
+                if ($horas === 0) {
+                    $desc = strtolower(($c->cargo_horas ?: '') . ' ' . ($c->plan_estudio ?: ''));
+                    if (str_contains($desc, 'extendida')) {
+                        $estHoras = 35;
+                        $motivoEstimacion = '(Estimado: Jornada Extendida)';
+                    } elseif (str_contains($desc, 'completa') || str_contains($desc, 'completo')) {
+                        $estHoras = 40;
+                        $motivoEstimacion = '(Estimado: Jornada Completa)';
+                    } elseif (str_contains($desc, 'simple')) {
+                        $estHoras = 20;
+                        $motivoEstimacion = '(Estimado: Jornada Simple)';
+                    } else {
+                        $estHoras = 20;
+                        $motivoEstimacion = '(Estimado por defecto)';
+                    }
+                }
+                $totalEstimatedHours += $estHoras;
+
+                $cargosDetalles[] = [
+                    'cargo' => $c->cargo_horas ?: 'Cargo no especificado',
+                    'escuela' => $c->establecimiento ?: 'Escuela no especificada',
+                    'cue' => $c->cue,
+                    'turno' => $c->turno ?: 'No especificado',
+                    'horas_reales' => $horas,
+                    'horas_estimadas' => $estHoras,
+                    'motivo_estimacion' => $motivoEstimacion,
+                    'situacion_revista' => $c->situacion_revista ?: 'No especificada',
+                ];
+            }
+
+            // Incompatibilidades
+            $incompHoraria = $totalEstimatedHours > 50;
+
+            // Geo dispersion & travel risk
+            $distanciaComentarios = [];
+            $highRiskGeo = false;
+            $escuelasList = array_values($escuelasFisicas);
+            $numEscuelas = count($escuelasList);
+            for ($i = 0; $i < $numEscuelas; $i++) {
+                for ($j = $i + 1; $j < $numEscuelas; $j++) {
+                    $e1 = $escuelasList[$i];
+                    $e2 = $escuelasList[$j];
+                    if (isset($e1->latitud) && isset($e1->longitud) && isset($e2->latitud) && isset($e2->longitud) &&
+                        $e1->latitud !== null && $e1->longitud !== null && $e2->latitud !== null && $e2->longitud !== null) {
+                        $dist = $this->calculateDistance($e1->latitud, $e1->longitud, $e2->latitud, $e2->longitud);
+                        $distStr = number_format($dist, 2) . " km";
+                        $distanciaComentarios[] = "- Distancia entre **{$e1->nombre_establecimiento}** (CUE: {$e1->cue}) y **{$e2->nombre_establecimiento}** (CUE: {$e2->cue}): **{$distStr}**.";
+                        if ($dist > 10) {
+                            $highRiskGeo = true;
+                        }
+                    } else {
+                        $distanciaComentarios[] = "- Falta geolocalización completa para comparar **{$e1->nombre_establecimiento}** y **{$e2->nombre_establecimiento}**.";
+                    }
+                }
+            }
+
+            // Discrepancias administrativas
+            $discrepancias = [];
+            
+            // 1. Fecha de alta futura
+            if ($agentInfo->fecha_alta) {
+                $alta = \Carbon\Carbon::parse($agentInfo->fecha_alta);
+                if ($alta->isFuture()) {
+                    $discrepancias[] = "Fecha de alta registrada es futura: **{$agentInfo->fecha_alta}** (inconsistencia cronológica).";
+                }
+            }
+
+            // 2. Overlapping turns
+            $turnosActivos = [];
+            foreach ($cargos as $c) {
+                if ($c->turno) {
+                    $turnoNorm = strtolower(trim($c->turno));
+                    if (str_contains($turnoNorm, 'mañana')) {
+                        $turnosActivos['mañana'][] = $c;
+                    } elseif (str_contains($turnoNorm, 'tarde')) {
+                        $turnosActivos['tarde'][] = $c;
+                    } elseif (str_contains($turnoNorm, 'noche') || str_contains($turnoNorm, 'vespertino')) {
+                        $turnosActivos['noche'][] = $c;
+                    }
+                }
+            }
+            foreach ($turnosActivos as $t => $list) {
+                if (count($list) > 1) {
+                    $cargosNombres = implode(" y ", array_map(fn($item) => "'{$item->cargo_horas}' en '{$item->establecimiento}'", $list));
+                    $discrepancias[] = "Posible superposición horaria directa: El docente posee **" . count($list) . "** cargos en el **Turno " . ucfirst($t) . "** ({$cargosNombres}).";
+                }
+            }
+
+            // 3. Cargos sin coincidencia en designaciones
+            if (count($cargos) !== count($designaciones)) {
+                $discrepancias[] = "Discrepancia en registros de cargos: Se registran **" . count($cargos) . "** cargos activos en planta pero figuran **" . count($designaciones) . "** designaciones históricas en el sistema.";
+            }
+
+            // Generate report in Markdown
+            $hoy = \Carbon\Carbon::now()->locale('es')->isoFormat('D [de] MMMM [de] YYYY');
+            $nombre = e($agentInfo->nombre_agente);
+            $dniDoc = number_format((int)$dni, 0, ',', '.');
+            
+            $markdown = "*MINISTERIO DE EDUCACIÓN\n";
+            $markdown .= "*AUDITORÍA INTERNA DE RECURSOS HUMANOS DOCENTES\n";
+            $markdown .= "*INFORME DE AUDITORÍA LOCAL (REGLADO - LOCAL)\n";
+            $markdown .= "*Número de Informe: AUDIRH-LOCAL-" . date('Y') . "-{$dni}\n";
+            $markdown .= "*Fecha: {$hoy}\n";
+            $markdown .= "*Dirigido a: Dirección de Recursos Humanos Docentes\n";
+            $markdown .= "*De: Departamento de Auditoría y Control de Gestión\n";
+            $markdown .= "*Asunto: Auditoría de Perfil Docente – Agente {$nombre} (DNI: {$dniDoc})\n";
+            $markdown .= "--\n\n";
+
+            $markdown .= "*1. INTRODUCCIÓN\n";
+            $markdown .= "El presente informe detalla los hallazgos de la auditoría local reglada realizada sobre el perfil laboral del agente **{$nombre}**, con DNI **{$dniDoc}** y Legajo **{$agentInfo->legajo}**, a partir de los datos registrados en la base de datos del Ministerio de Educación. El objetivo es identificar de manera inmediata incompatibilidades horarias, riesgos geográficos por dispersión y discrepancias en los registros administrativos.\n\n";
+
+            $markdown .= "*2. DATOS DEL AGENTE AUDITADO\n";
+            $markdown .= "DNI: **{$agentInfo->dni}**\n";
+            $markdown .= "Nombre Completo: **{$nombre}**\n";
+            $markdown .= "Género: **" . ($agentInfo->genero === 'F' ? 'Femenino' : 'Masculino') . "**\n";
+            $markdown .= "Legajo: **" . ($agentInfo->legajo ?: 'Sin legajo') . "**\n";
+            $markdown .= "Fecha de Alta Registrada: **" . ($agentInfo->fecha_alta ? date('d/m/Y', strtotime($agentInfo->fecha_alta)) : 'No registrada') . "**\n";
+            $markdown .= "Total de Cargos Activos Registrados: **" . count($cargos) . "**\n";
+            $markdown .= "Total de Horas Cátedra Registradas: **{$totalRealHours} hs** (Horas equivalentes estimadas: **{$totalEstimatedHours} hs**)\n\n";
+
+            $markdown .= "*3. HALLAZGOS DETALLADOS\n";
+            
+            // 3.1 Incompatibilidades Horarias
+            $markdown .= "*3.1. Incompatibilidades Horarias Críticas (Límite de 50 horas semanales)\n";
+            if ($incompHoraria) {
+                $markdown .= "⚠️ **ALERTA CRÍTICA**: La carga horaria total del agente (**{$totalEstimatedHours} horas semanales**) supera el límite legal de 50 horas establecido por la normativa vigente.\n\n";
+            } else {
+                $markdown .= "✅ **SITUACIÓN REGULAR**: La carga horaria estimada (**{$totalEstimatedHours} horas semanales**) se encuentra dentro del límite legal permitido de 50 horas.\n\n";
+            }
+            
+            foreach ($cargosDetalles as $idx => $cd) {
+                $num = $idx + 1;
+                $markdown .= "**Cargo {$num}**: {$cd['cargo']} en *{$cd['escuela']}* (CUE: {$cd['cue']}).\n";
+                $markdown .= "- Turno: *{$cd['turno']}*\n";
+                $markdown .= "- Carga horaria: **{$cd['horas_reales']} hs** {$cd['motivo_estimacion']}\n";
+                $markdown .= "- Situación de Revista: *{$cd['situacion_revista']}*\n\n";
+            }
+
+            // 3.2 Geo Dispersion
+            $markdown .= "*3.2. Riesgo de Superposición por Dispersión Geográfica\n";
+            if ($numEscuelas > 1) {
+                $markdown .= "El agente desempeña funciones en **{$numEscuelas}** establecimientos educativos diferentes.\n";
+                foreach ($distanciaComentarios as $dc) {
+                    $markdown .= "{$dc}\n";
+                }
+                if ($highRiskGeo) {
+                    $markdown .= "⚠️ **ALERTA DE RIESGO GEOGRÁFICO**: Se detectan distancias mayores a 10 km entre escuelas, lo que sumado a los turnos de desempeño genera un riesgo crítico de ausentismo o tardanzas debido a tiempos de traslado suficientes.\n\n";
+                } else {
+                    $markdown .= "✅ **SITUACIÓN GEOGRÁFICA**: Las distancias entre las escuelas de desempeño son bajas o moderadas, permitiendo traslados seguros entre jornadas.\n\n";
+                }
+            } else {
+                $markdown .= "✅ No hay dispersión geográfica ya que el agente trabaja en un único establecimiento educativo.\n\n";
+            }
+
+            // 3.3 Discrepancias
+            $markdown .= "*3.3. Discrepancias Administrativas\n";
+            if (count($discrepancias) > 0) {
+                foreach ($discrepancias as $d) {
+                    $markdown .= "- {$d}\n";
+                }
+            } else {
+                $markdown .= "✅ No se han detectado discrepancias administrativas en los registros analizados.\n";
+            }
+            $markdown .= "\n";
+
+            // 4. Conclusiones
+            $markdown .= "*4. CONCLUSIONES GENERALES\n";
+            if ($incompHoraria || $highRiskGeo || count($discrepancias) > 0) {
+                $markdown .= "El perfil del agente presenta irregularidades que requieren intervención de Recursos Humanos. ";
+                if ($incompHoraria) {
+                    $markdown .= "Existe incompatibilidad horaria severa por superación del límite de 50 horas. ";
+                }
+                if ($highRiskGeo) {
+                    $markdown .= "Existe riesgo geográfico por dispersión escolar relevante. ";
+                }
+                if (count($discrepancias) > 0) {
+                    $markdown .= "Se observan discrepancias en los turnos y/o fechas administrativas registradas.";
+                }
+            } else {
+                $markdown .= "El perfil auditado se encuentra en estado regular y cumple con las normativas horarias y geográficas del Ministerio de Educación.";
+            }
+            $markdown .= "\n\n";
+
+            // 5. Recomendaciones
+            $markdown .= "*5. SUGERENCIAS Y ACCIONES RECOMENDADAS PARA EL ÁREA DE RECURSOS HUMANOS\n";
+            $markdown .= "*5.1. Acciones Inmediatas y Específicas del Caso:\n";
+            if ($incompHoraria) {
+                $markdown .= "- **Citar de urgencia al docente** para que efectúe la opción por cargo y regularice su situación horaria excedida (opción por cargos hasta un máximo de 50 hs).\n";
+            }
+            if ($highRiskGeo) {
+                $markdown .= "- **Revisar hojas de asistencia firmadas** de los establecimientos involucrados para verificar el cumplimiento efectivo de horarios de entrada y salida.\n";
+            }
+            if (count($discrepancias) > 0) {
+                $markdown .= "- **Corregir y validar las discrepancias de registro** (fechas de alta futuras, designaciones históricas redundantes o turnos cruzados) en el sistema SIAME.\n";
+            }
+            if (!$incompHoraria && !$highRiskGeo && count($discrepancias) === 0) {
+                $markdown .= "- Mantener el perfil en estado activo y archivar el reporte de auditoría preventiva.\n";
+            }
+            $markdown .= "\n";
+            $markdown .= "*5.2. Acciones de Política y Procedimiento:\n";
+            $markdown .= "- Reforzar los controles automáticos de carga horaria en el sistema SIAME al momento de registrar una nueva designación para alertar antes de la confirmación.\n";
+            $markdown .= "- Estandarizar la carga de equivalencias horarias para cargos de jornada completa y extendida.\n\n";
+
+            $markdown .= "--\n";
+            $markdown .= "Sin otro particular, se remite este reporte local automatizado para el inicio de las acciones administrativas de control correspondientes.\n\n";
+            $markdown .= "Atentamente,\n\n";
+            $markdown .= "[Firma Digital del Sistema Local SIAME]\n";
+            $markdown .= "*Departamento de Auditoría y Control de Gestión\n";
+            $markdown .= "*Ministerio de Educación\n";
+
+            return response()->json([
+                'report' => $markdown,
+                'agent' => [
+                    'dni' => $agentInfo->dni,
+                    'nombre_agente' => $agentInfo->nombre_agente
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    private function calculateDistance($lat1, $lon1, $lat2, $lon2)
+    {
+        $earthRadius = 6371; // in km
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat/2) * sin($dLat/2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon/2) * sin($dLon/2);
+        $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+        return $earthRadius * $c;
+    }
+
+    private function getAgentConsolidatedData($dni)
+    {
+        $agentInfo = DB::selectOne("SELECT dni, nombre_agente, genero, legajo, fecha_alta FROM agentes WHERE dni = ?", [$dni]);
+        if (!$agentInfo) return null;
+
+        $cargos = DB::select("
+            SELECT centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
+                   turno, plan_estudio, situacion_revista, norma_legal, observaciones
+            FROM agente_cargos 
+            WHERE dni = ?
+        ", [$dni]);
+
+        $designaciones = DB::select("
+            SELECT centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
+                   turno, plan_estudio, situacion_revista, norma_legal, observaciones
+            FROM designaciones 
+            WHERE dni = ?
+        ", [$dni]);
+
+        $licencias = DB::select("
+            SELECT id_tramite, fecha_carga, tipo_licencia, fecha_inicio, fecha_fin, dias, documento_respaldo
+            FROM licencias 
+            WHERE dni = ?
+        ", [$dni]);
+
+        return [
+            'dni' => $agentInfo->dni,
+            'nombre_agente' => $agentInfo->nombre_agente,
+            'genero' => $agentInfo->genero,
+            'legajo' => $agentInfo->legajo,
+            'fecha_alta' => $agentInfo->fecha_alta,
+            'total_cargos_activos' => count($cargos),
+            'total_horas_catedra' => array_sum(array_map(fn($c) => (int)$c->horas_catedra, $cargos)),
+            'cargos_activos' => $cargos,
+            'designaciones' => $designaciones,
+            'licencias' => $licencias
+        ];
+    }
 }

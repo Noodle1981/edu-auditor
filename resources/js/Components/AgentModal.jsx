@@ -226,7 +226,7 @@ export const AgentModal = () => {
                           <>
                             Este agente goza actualmente de una licencia:{' '}
                             <strong>{profile.auditoria.licencias_activas?.map((l) => l.tipo_licencia).join(', ') || ''}</strong>. Se
-                            debería suspender el cobro de Asignaciones Familiares no correspondientes o validar con su respaldo:{' '}
+                            debería validar su situación con el documento de respaldo:{' '}
                             <strong>{profile.auditoria.licencias_activas?.[0]?.documento_respaldo || ''}</strong>.
                           </>
                         ) : profile.auditoria?.alerta_incompatibilidad_horas ? (
@@ -238,10 +238,10 @@ export const AgentModal = () => {
                         ) : profile.auditoria?.alerta_multi_cargo ? (
                           <>
                             El agente se desempeña en <strong>{profile.cargos_count} cargos activos</strong> dentro de los límites
-                            horarios estatutarios. Sus haberes nominales consolidados deben cruzarse para determinar tramo de AF.
+                            horarios estatutarios.
                           </>
                         ) : (
-                          <>Agente con cargo único y situación regularizada. Apto para percibir Asignaciones Familiares de forma directa.</>
+                          <>Agente con cargo único y situación regularizada.</>
                         )}
                       </p>
                     </div>

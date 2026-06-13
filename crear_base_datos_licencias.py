@@ -89,9 +89,10 @@ try:
         cleaned_str = row_str.replace('\n', ' ').replace('\r', ' ').strip()
         if cleaned_str.startswith('"') and cleaned_str.endswith('"'):
             cleaned_str = cleaned_str[1:-1]
-        cleaned_str = cleaned_str.replace('""', '"')
+            cleaned_str = cleaned_str.replace('""', '"')
         
         reader = csv.reader([cleaned_str])
+
         parsed_row = next(reader)
         
         if len(parsed_row) < 11:

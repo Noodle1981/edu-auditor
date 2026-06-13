@@ -139,7 +139,7 @@ try:
         cleaned_str = row_str.replace('\n', ' ').replace('\r', ' ').strip()
         if cleaned_str.startswith('"') and cleaned_str.endswith('"'):
             cleaned_str = cleaned_str[1:-1]
-        cleaned_str = cleaned_str.replace('""', '"')
+            cleaned_str = cleaned_str.replace('""', '"')
         
         reader = csv.reader([cleaned_str])
         try:
@@ -166,15 +166,56 @@ try:
             if cue_part.isdigit():
                 cue = int(cue_part)
                 
-        cargo_horas = parsed_row[4].strip()
-        
+        # Handle shifted columns using right-to-left mapping
+        if len(parsed_row) > 16:
+            nombre_agente = parsed_row[-9].strip().replace('"', '')
+            dni = parsed_row[-8].strip()
+            genero = parsed_row[-7].strip().upper()
+            legajo = parsed_row[-6].strip()
+            fecha_alta = db_helper.normalize_date(parsed_row[-5].strip())
+            situacion_revista = parsed_row[-4].strip().upper()
+            norma_legal = parsed_row[-3].strip()
+            observaciones = parsed_row[-2].strip()
+            control_id = parsed_row[-1].strip()
+            
+            # Reconstruct shifted intermediate columns
+            intermediate = parsed_row[4:-9]
+            turno_idx = -1
+            for i, val in enumerate(intermediate):
+                if val.strip().upper() in expected_turns:
+                    turno_idx = i
+                    break
+            
+            if turno_idx >= 0:
+                cargo_horas = ", ".join(intermediate[:turno_idx]).strip()
+                col_temporal_turno = intermediate[turno_idx].strip()
+                col_plan_estudio = ", ".join(intermediate[turno_idx+1:]).strip()
+            else:
+                cargo_horas = ", ".join(intermediate[:-1]).strip()
+                col_temporal_turno = ""
+                col_plan_estudio = intermediate[-1].strip()
+        else:
+            cargo_horas = parsed_row[4].strip()
+            col_temporal_turno = parsed_row[5].strip()
+            col_plan_estudio = parsed_row[6].strip()
+            nombre_agente = parsed_row[7].strip().replace('"', '')
+            dni = parsed_row[8].strip()
+            genero = parsed_row[9].strip().upper()
+            legajo = parsed_row[10].strip()
+            fecha_alta = db_helper.normalize_date(parsed_row[11].strip())
+            situacion_revista = parsed_row[12].strip().upper()
+            norma_legal = parsed_row[13].strip()
+            observaciones = parsed_row[14].strip()
+            control_id = parsed_row[15].strip()
+
+        # Skip template/header selector rows
+        if not dni or "textbox" in dni.lower() or "numerodesector" in nombre_agente.lower() or "[todas]" in nombre_agente.lower():
+            continue
+            
         horas_catedra = 0
         match_hs = re.search(r'(\d+)\s*Hs', cargo_horas, re.IGNORECASE)
         if match_hs:
             horas_catedra = int(match_hs.group(1))
-        
-        col_temporal_turno = parsed_row[5].strip()
-        col_plan_estudio = parsed_row[6].strip()
         
         turno = None
         col_temp_upper = col_temporal_turno.upper()
@@ -195,18 +236,7 @@ try:
                 turno = None
                 
         plan_estudio = col_plan_estudio.replace('"', '').strip()
-        
-        nombre_agente = parsed_row[7].strip().replace('"', '')
-        nombre_agente = re.sub(r'\s+', ' ', nombre_agente).upper()
-        
-        dni = parsed_row[8].strip()
-        genero = parsed_row[9].strip().upper()
-        legajo = parsed_row[10].strip()
-        fecha_alta = db_helper.normalize_date(parsed_row[11].strip())
-        situacion_revista = parsed_row[12].strip().upper()
-        norma_legal = parsed_row[13].strip()
-        observaciones = parsed_row[14].strip()
-        control_id = parsed_row[15].strip()
+
         
         # Build unique agents
         if dni and dni not in inserted_dnis:
