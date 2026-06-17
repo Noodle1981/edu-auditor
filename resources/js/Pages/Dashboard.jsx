@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head } from '@inertiajs/react';
 import SIAMELayout from '../Layouts/SIAMELayout';
 import { useGlobal } from '../Context/GlobalContext';
@@ -26,14 +26,33 @@ ChartJS.register(
 );
 
 const Dashboard = () => {
-  const { stats, loadingStats } = useGlobal();
+  const { stats, loadingStats, fetchStats } = useGlobal();
   const [activeTab, setActiveTab] = useState('principal');
+
+  useEffect(() => {
+    fetchStats(true);
+  }, []);
 
   if (loadingStats || !stats) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-gray-400">
-        <i className="fa-solid fa-spinner fa-spin text-4xl text-[#FE8204] mb-4"></i>
-        <p className="text-xs font-black uppercase tracking-widest">Generando tableros analíticos...</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-gray-400 gap-4">
+        {loadingStats ? (
+          <>
+            <i className="fa-solid fa-spinner fa-spin text-4xl text-[#FE8204]"></i>
+            <p className="text-xs font-black uppercase tracking-widest text-gray-400 animate-pulse">Generando tableros analíticos...</p>
+          </>
+        ) : (
+          <>
+            <i className="fa-solid fa-circle-exclamation text-4xl text-red-500"></i>
+            <p className="text-xs font-black uppercase tracking-widest text-red-500">Error al cargar estadísticas</p>
+            <button
+              onClick={() => fetchStats(true)}
+              className="mt-2 px-5 py-3 bg-[#FE8204] hover:bg-[#ff5e00] text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all border border-[#FE8204] shadow-sm shadow-[#FE8204]/20 cursor-pointer"
+            >
+              Reintentar Carga
+            </button>
+          </>
+        )}
       </div>
     );
   }

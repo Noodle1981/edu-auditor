@@ -1,7 +1,17 @@
 ---
-description: Reestructuración proyecto
+description: Vamos a hacer modificaciones
 ---
 
-Necesito hacer una nueva versíon, vamos a amar un monolito, back laravel y fron react, es decir nos evitamos api entre ellas, usaremos todas las buenas practicas de seguridad, vamos usar 2 usuarios, admin y user
+vamos a darle una funcionalidad a http://paradeb_instrumentacion.test/auditoria, para accesos directos a componentes importantes, es decir ahi necesito de http://paradeb_instrumentacion.test/licencias
 
-el contexto del proyecto es el siguiente, tenemos achivos csv, que se cargan mediante mediante la logica de pyhton, es decir que cada vez que suba Designaciónes.csv, Licencias.csv, reporte_agentes.csv, los crear_base_datos_agentes.py, crear_base_datos_designaciones.py y crear_base_datos_licencias se encargaran de alimentar a la db, si bien hay 4 bases distintas, yo necesito unificarla para una sola db. database.sqlite, crear la logica de los modelos, eloquent, tablas, ect. ademas tambien crear los controladores necesarios, cada py, deberia alimetar a una sola db. usar el react creado con las vista creadas, por supuesto usar las rutas para que laravel muestre los datos de la nueva db. este es el nuevo repositorio https://github.com/Noodle1981/edu-auditor.git, trabajar sobre una rama feature/laraveliando. Si tienes dudas, sugerencias, para implementar un plan de etapa, sprint, ect. puedes hacerlo.
+<button class="px-5 py-3 text-xs font-black uppercase tracking-wider rounded-xl flex items-center gap-2 cursor-pointer transition-all border bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20">⚖️ Tablero de Auditoría</button> y tambien <button class="px-5 py-3 text-xs font-black uppercase tracking-wider rounded-xl flex items-center gap-2 cursor-pointer transition-all border bg-white text-gray-500 hover:text-gray-900 border-gray-100 hover:bg-gray-50">⚖️ Tablero de Auditoría</button>
+
+de http://paradeb_instrumentacion.test/designaciones necesito 
+
+<button class="px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-white border border-cyan-100 text-cyan-700 hover:bg-cyan-50 hover:text-cyan-800 shadow-sm active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"><i class="fa-solid fa-scale-balanced text-cyan-600"></i> Auditoría de Planta</button>
+
+y 
+
+#app > div > div.flex-1.flex.flex-col.min-w-0 > main > div > div.flex.flex-col.sm\:flex-row.justify-between.items-start.sm\:items-center.gap-4.bg-orange-50\/15.border.border-orange-100\/50.rounded-2xl.p-5.shadow-sm > div.flex.gap-3 > button.px-4.py-2\.5.rounded-xl.text-xs.font-black.uppercase.tracking-wider.bg-white.border.border-blue-100.text-blue-700.hover\:bg-blue-50.hover\:text-blue-800.shadow-sm.active\:scale-95.transition-all.flex.items-center.gap-1\.5.cursor-pointer
+
+es decir que en http://paradeb_instrumentacion.test/auditoria hay que sacar todo y poner lo puse antes, como botones de accesos, te doy la libertad de ponerlo como quieras, aunque te sugeririas cuadros sobre botones, que representen a diferente tipo de auditoria, por ejemplo Designaciones y Licencia,  en donde buscas los botones debes quitarlo de esas vistas, revisar si se pueden usar los mismo controladores

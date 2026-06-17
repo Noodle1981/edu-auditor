@@ -72,14 +72,18 @@ class AnalyticsController extends Controller
                 LIMIT 10
             ");
 
-            // 5. Top escuelas por designaciones
+            // 5. All schools by designaciones with geography and levels
             $escuelasDesignaciones = DB::select("
-                SELECT cue, establecimiento, COUNT(*) as count, COUNT(DISTINCT dni) as docentes_unicos
-                FROM designaciones
-                WHERE cue IS NOT NULL AND establecimiento != ''
-                GROUP BY cue, establecimiento
+                SELECT d.cue, d.establecimiento, COUNT(d.id) as count, COUNT(DISTINCT d.dni) as docentes_unicos,
+                       ed.zona_departamento as departamento,
+                       GROUP_CONCAT(DISTINCT m.nivel_educativo) as nivel_educativo
+                FROM designaciones d
+                LEFT JOIN establecimientos e ON d.cue = e.cue
+                LEFT JOIN edificios ed ON e.edificio_id = ed.id
+                LEFT JOIN modalidades m ON m.establecimiento_id = e.id
+                WHERE d.cue IS NOT NULL AND d.establecimiento != ''
+                GROUP BY d.cue, d.establecimiento
                 ORDER BY count DESC
-                LIMIT 6
             ");
 
             return response()->json([

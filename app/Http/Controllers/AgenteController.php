@@ -267,13 +267,27 @@ class AgenteController extends Controller
                 }
             }
 
+            $totalHoras = (int)$profile['total_horas_catedra'];
+            $tieneLicencia = count($activeLics) > 0;
+            
+            $horasLicenciadas = $tieneLicencia ? $totalHoras : 0;
+            $horasActivasNetas = $tieneLicencia ? 0 : $totalHoras;
+            
+            $statusAuditoria = 'regular';
+            if ($totalHoras > self::MAX_HOURS_THRESHOLD) {
+                $statusAuditoria = $tieneLicencia ? 'exceso_justificado' : 'incompatibilidad_critica';
+            }
+
             $profile['auditoria'] = [
-                'alerta_incompatibilidad_horas' => $profile['total_horas_catedra'] > self::MAX_HOURS_THRESHOLD,
+                'alerta_incompatibilidad_horas' => $totalHoras > self::MAX_HOURS_THRESHOLD,
                 'alerta_multi_cargo' => $profile['cargos_count'] > 1,
                 'licencias_activas' => $activeLics,
-                'tiene_licencia_activa' => count($activeLics) > 0,
+                'tiene_licencia_activa' => $tieneLicencia,
+                'horas_licenciadas' => $horasLicenciadas,
+                'horas_activas_netas' => $horasActivasNetas,
+                'status_auditoria' => $statusAuditoria,
                 'coincide_en_designaciones' => count($profile['designaciones']) > 0,
-                'requiere_auditoria_af' => ($profile['total_horas_catedra'] > self::MAX_HOURS_THRESHOLD) || ($profile['cargos_count'] > 1) || (count($activeLics) > 0)
+                'requiere_auditoria_af' => ($totalHoras > self::MAX_HOURS_THRESHOLD) || ($profile['cargos_count'] > 1) || $tieneLicencia
             ];
 
             return response()->json($profile);
@@ -294,8 +308,49 @@ class AgenteController extends Controller
                 GROUP BY a.dni, a.nombre_agente, a.legajo
                 HAVING total_horas > ?
                 ORDER BY total_horas DESC
-                LIMIT 15
             ", [self::MAX_HOURS_THRESHOLD]);
+
+            $today = Carbon::today();
+            foreach ($excesoHoras as $item) {
+                $licencias = DB::select("
+                    SELECT fecha_inicio, fecha_fin
+                    FROM licencias
+                    WHERE dni = ?
+                ", [$item->dni]);
+                
+                $tieneLicenciaActiva = false;
+                foreach ($licencias as $lic) {
+                    try {
+                        $startStr = $lic->fecha_inicio;
+                        $endStr = $lic->fecha_fin;
+                        
+                        $parseDate = function($dateStr) {
+                            if (str_contains($dateStr, '/')) {
+                                $p = array_map('intval', explode('/', $dateStr));
+                                if ($p[2] < 100) $p[2] += 2000;
+                                return Carbon::create($p[2], $p[1], $p[0]);
+                            } elseif (str_contains($dateStr, '-')) {
+                                $p = array_map('intval', explode('-', $dateStr));
+                                if ($p[0] < 100) $p[0] += 2000;
+                                return Carbon::create($p[0], $p[1], $p[2]);
+                            }
+                            return null;
+                        };
+                        
+                        $startDate = $parseDate($startStr);
+                        $endDate = $parseDate($endStr);
+                        
+                        if ($startDate && $endDate && $startDate->lte($today) && $today->lte($endDate)) {
+                            $tieneLicenciaActiva = true;
+                            break;
+                        }
+                    } catch (\Exception $e) {
+                        // skip
+                    }
+                }
+                $item->tiene_licencia_activa = $tieneLicenciaActiva;
+                $item->status_auditoria = $tieneLicenciaActiva ? 'exceso_justificado' : 'incompatibilidad_critica';
+            }
 
             // 2. Multi-cargos (cargos >= 3 and hours = 0)
             $multiCargos = DB::select("
@@ -305,7 +360,6 @@ class AgenteController extends Controller
                 GROUP BY a.dni, a.nombre_agente, a.legajo
                 HAVING cargos_activos >= 3 AND total_horas = 0
                 ORDER BY cargos_activos DESC
-                LIMIT 15
             ");
 
             // 3. Recent licenses
@@ -453,6 +507,47 @@ class AgenteController extends Controller
                 ];
             }
 
+            // Check active licenses
+            $activeLics = [];
+            $today = Carbon::today();
+            foreach ($licencias as $lic) {
+                try {
+                    $startStr = $lic->fecha_inicio;
+                    $endStr = $lic->fecha_fin;
+                    
+                    $parseDate = function($dateStr) {
+                        if (str_contains($dateStr, '/')) {
+                            $p = array_map('intval', explode('/', $dateStr));
+                            if ($p[2] < 100) $p[2] += 2000;
+                            return Carbon::create($p[2], $p[1], $p[0]);
+                        } elseif (str_contains($dateStr, '-')) {
+                            $p = array_map('intval', explode('-', $dateStr));
+                            if ($p[0] < 100) $p[0] += 2000;
+                            return Carbon::create($p[0], $p[1], $p[2]);
+                        }
+                        return null;
+                    };
+                    
+                    $startDate = $parseDate($startStr);
+                    $endDate = $parseDate($endStr);
+                    
+                    if ($startDate && $endDate && $startDate->lte($today) && $today->lte($endDate)) {
+                        $activeLics[] = $lic;
+                    }
+                } catch (\Exception $e) {
+                    // skip
+                }
+            }
+            
+            $tieneLicencia = count($activeLics) > 0;
+            $horasLicenciadas = $tieneLicencia ? $totalEstimatedHours : 0;
+            $horasActivasNetas = $tieneLicencia ? 0 : $totalEstimatedHours;
+            
+            $statusAuditoria = 'regular';
+            if ($totalEstimatedHours > self::MAX_HOURS_THRESHOLD) {
+                $statusAuditoria = $tieneLicencia ? 'exceso_justificado' : 'incompatibilidad_critica';
+            }
+
             // Incompatibilidades
             $incompHoraria = $totalEstimatedHours > 50;
 
@@ -541,16 +636,28 @@ class AgenteController extends Controller
             $markdown .= "Legajo: **" . ($agentInfo->legajo ?: 'Sin legajo') . "**\n";
             $markdown .= "Fecha de Alta Registrada: **" . ($agentInfo->fecha_alta ? date('d/m/Y', strtotime($agentInfo->fecha_alta)) : 'No registrada') . "**\n";
             $markdown .= "Total de Cargos Activos Registrados: **" . count($cargos) . "**\n";
-            $markdown .= "Total de Horas Cátedra Registradas: **{$totalRealHours} hs** (Horas equivalentes estimadas: **{$totalEstimatedHours} hs**)\n\n";
+            $markdown .= "Total de Horas Cátedra Registradas: **{$totalRealHours} hs** (Equivalentes estimadas: **{$totalEstimatedHours} hs**)\n";
+            $markdown .= "Horas Licenciadas (Activas Hoy): **{$horasLicenciadas} hs**\n";
+            $markdown .= "Horas Activas Netas (Trabajo Efectivo): **{$horasActivasNetas} hs**\n";
+            
+            if ($statusAuditoria === 'regular') {
+                $markdown .= "Estado de Compatibilidad: ✅ **REGULAR** (Cumple la normativa de límite de 50 hs)\n\n";
+            } elseif ($statusAuditoria === 'exceso_justificado') {
+                $markdown .= "Estado de Compatibilidad: 🟨 **EXCESO JUSTIFICADO** (Supera 50 hs registradas, pero cuenta con licencias vigentes hoy que reducen su carga activa)\n\n";
+            } else {
+                $markdown .= "Estado de Compatibilidad: ❌ **INCOMPATIBILIDAD CRÍTICA** (Supera 50 hs semanales de forma activa sin licencias vigentes hoy)\n\n";
+            }
 
             $markdown .= "*3. HALLAZGOS DETALLADOS\n";
             
             // 3.1 Incompatibilidades Horarias
             $markdown .= "*3.1. Incompatibilidades Horarias Críticas (Límite de 50 horas semanales)\n";
-            if ($incompHoraria) {
-                $markdown .= "⚠️ **ALERTA CRÍTICA**: La carga horaria total del agente (**{$totalEstimatedHours} horas semanales**) supera el límite legal de 50 horas establecido por la normativa vigente.\n\n";
+            if ($statusAuditoria === 'incompatibilidad_critica') {
+                $markdown .= "⚠️ **ALERTA CRÍTICA**: La carga horaria activa neta del agente (**{$horasActivasNetas} horas semanales**) supera el límite legal de 50 horas sin justificación de licencia activa hoy.\n\n";
+            } elseif ($statusAuditoria === 'exceso_justificado') {
+                $markdown .= "ℹ️ **EXCESO REGULARIZADO**: El agente registra un total de **{$totalEstimatedHours} horas**, pero al poseer licencias vigentes hoy, sus horas activas netas son **{$horasActivasNetas} horas**, regularizando su carga de trabajo efectivo frente a alumnos.\n\n";
             } else {
-                $markdown .= "✅ **SITUACIÓN REGULAR**: La carga horaria estimada (**{$totalEstimatedHours} horas semanales**) se encuentra dentro del límite legal permitido de 50 horas.\n\n";
+                $markdown .= "✅ **SITUACIÓN REGULAR**: La carga horaria activa (**{$horasActivasNetas} horas semanales**) se encuentra dentro del límite legal permitido de 50 horas.\n\n";
             }
             
             foreach ($cargosDetalles as $idx => $cd) {
@@ -609,8 +716,11 @@ class AgenteController extends Controller
             // 5. Recomendaciones
             $markdown .= "*5. SUGERENCIAS Y ACCIONES RECOMENDADAS PARA EL ÁREA DE RECURSOS HUMANOS\n";
             $markdown .= "*5.1. Acciones Inmediatas y Específicas del Caso:\n";
-            if ($incompHoraria) {
-                $markdown .= "- **Citar de urgencia al docente** para que efectúe la opción por cargo y regularice su situación horaria excedida (opción por cargos hasta un máximo de 50 hs).\n";
+            if ($statusAuditoria === 'incompatibilidad_critica') {
+                $markdown .= "- **Citar de urgencia al docente** para que efectúe la opción por cargo y regularice su situación horaria excedida de forma activa (opción por cargos hasta un máximo de 50 hs).\n";
+            } elseif ($statusAuditoria === 'exceso_justificado') {
+                $markdown .= "- **Monitorear la vigencia y renovación de las licencias activas** (ej. plazos, justificaciones de licencias de largo tratamiento o cargo de mayor jerarquía).\n";
+                $markdown .= "- **Auditar la carga efectiva y suplencias** en los establecimientos donde el docente tiene licencia para asegurar la cobertura regular de clases.\n";
             }
             if ($highRiskGeo) {
                 $markdown .= "- **Revisar hojas de asistencia firmadas** de los establecimientos involucrados para verificar el cumplimiento efectivo de horarios de entrada y salida.\n";
@@ -618,7 +728,7 @@ class AgenteController extends Controller
             if (count($discrepancias) > 0) {
                 $markdown .= "- **Corregir y validar las discrepancias de registro** (fechas de alta futuras, designaciones históricas redundantes o turnos cruzados) en el sistema SIAME.\n";
             }
-            if (!$incompHoraria && !$highRiskGeo && count($discrepancias) === 0) {
+            if ($statusAuditoria === 'regular' && !$highRiskGeo && count($discrepancias) === 0) {
                 $markdown .= "- Mantener el perfil en estado activo y archivar el reporte de auditoría preventiva.\n";
             }
             $markdown .= "\n";

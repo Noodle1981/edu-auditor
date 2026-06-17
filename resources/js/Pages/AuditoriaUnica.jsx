@@ -215,25 +215,45 @@ export default function AuditoriaUnica() {
                     </div>
 
                     {/* Workload Metrics */}
-                    <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6">
                         <div className="border border-gray-100 rounded-2xl p-6 bg-white flex justify-between items-center shadow-sm">
                             <div>
-                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Total Cargos Activos</span>
-                                <span className="text-2xl font-black text-gray-800 mt-1.5 block">{agentData.cargos_count} plazas</span>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Cargos Activos</span>
+                                <span className="text-xl font-black text-gray-800 mt-1.5 block">{agentData.cargos_count} plazas</span>
                             </div>
-                            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center text-xl">
+                            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center text-lg">
                                 <i className="fa-solid fa-briefcase"></i>
                             </div>
                         </div>
                         <div className="border border-gray-100 rounded-2xl p-6 bg-white flex justify-between items-center shadow-sm">
                             <div>
-                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Total Horas Cátedra</span>
-                                <span className="text-2xl font-black text-gray-800 mt-1.5 block">{(agentData.total_horas_catedra ?? 0)} Horas</span>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Horas Registradas</span>
+                                <span className="text-xl font-black text-gray-800 mt-1.5 block">{(agentData.total_horas_catedra ?? 0)} hs</span>
                             </div>
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${
-                                agentData.total_horas_catedra > 50 ? 'bg-red-50 text-red-500 animate-pulse' : 'bg-emerald-50 text-emerald-500'
-                            }`}>
+                            <div className="w-12 h-12 rounded-xl bg-gray-50 text-gray-500 flex items-center justify-center text-lg">
                                 <i className="fa-solid fa-clock"></i>
+                            </div>
+                        </div>
+                        <div className="border border-gray-100 rounded-2xl p-6 bg-white flex justify-between items-center shadow-sm">
+                            <div>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Horas Licenciadas</span>
+                                <span className="text-xl font-black text-purple-600 mt-1.5 block">{(agentData.auditoria.horas_licenciadas ?? 0)} hs</span>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center text-lg">
+                                <i className="fa-solid fa-hospital-user"></i>
+                            </div>
+                        </div>
+                        <div className="border border-gray-100 rounded-2xl p-6 bg-white flex justify-between items-center shadow-sm">
+                            <div>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Horas Activas Netas</span>
+                                <span className={`text-xl font-black mt-1.5 block ${
+                                    (agentData.auditoria.horas_activas_netas ?? 0) > 50 ? 'text-red-650' : 'text-emerald-650'
+                                }`}>{(agentData.auditoria.horas_activas_netas ?? 0)} hs</span>
+                            </div>
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg ${
+                                (agentData.auditoria.horas_activas_netas ?? 0) > 50 ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-500'
+                            }`}>
+                                <i className="fa-solid fa-user-check"></i>
                             </div>
                         </div>
                     </div>
@@ -246,16 +266,28 @@ export default function AuditoriaUnica() {
                         </h4>
                         
                         <div className="space-y-3">
-                            {/* Hours Alert */}
-                            {agentData.total_horas_catedra > 50 ? (
+                            {/* Hours Audit Alert - 3 States */}
+                            {agentData.auditoria.status_auditoria === 'incompatibilidad_critica' ? (
                                 <div className="flex gap-4 p-5 rounded-2xl bg-red-50/50 border border-red-100 text-red-900">
                                     <div className="text-red-500 text-xl mt-0.5">
                                         <i className="fa-solid fa-circle-exclamation animate-bounce"></i>
                                     </div>
                                     <div>
-                                        <h5 className="text-xs font-black uppercase tracking-wider">Exceso de Horas Reglamentarias</h5>
+                                        <h5 className="text-xs font-black uppercase tracking-wider">Incompatibilidad Horaria Crítica</h5>
                                         <p className="text-xs font-semibold text-gray-650 mt-1 leading-relaxed">
-                                            El agente acumula un total de <strong>{agentData.total_horas_catedra} horas cátedra</strong>, excediendo el límite máximo de 50 horas cátedra semanales permitido por el estatuto provincial en <strong>{agentData.total_horas_catedra - 50} horas</strong>.
+                                            El docente acumula un total de <strong>{agentData.total_horas_catedra} horas registradas</strong> de manera totalmente activa (sin licencias vigentes hoy), excediendo el límite estatutario permitido de 50 horas en <strong>{agentData.total_horas_catedra - 50} horas</strong>. Se requiere citación inmediata para opción de cargos.
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : agentData.auditoria.status_auditoria === 'exceso_justificado' ? (
+                                <div className="flex gap-4 p-5 rounded-2xl bg-amber-50/50 border border-amber-100 text-amber-900">
+                                    <div className="text-amber-500 text-xl mt-0.5">
+                                        <i className="fa-solid fa-circle-info"></i>
+                                    </div>
+                                    <div>
+                                        <h5 className="text-xs font-black uppercase tracking-wider">Exceso de Horas Justificado por Licencia</h5>
+                                        <p className="text-xs font-semibold text-gray-650 mt-1 leading-relaxed">
+                                            El docente registra <strong>{agentData.total_horas_catedra} horas de cátedra</strong>, superando el límite de 50 horas, pero cuenta con licencias vigentes hoy que reducen su carga activa efectiva a <strong>{agentData.auditoria.horas_activas_netas} horas</strong>. La situación se encuentra justificada administrativamente.
                                         </p>
                                     </div>
                                 </div>
@@ -265,9 +297,9 @@ export default function AuditoriaUnica() {
                                         <i className="fa-solid fa-circle-check"></i>
                                     </div>
                                     <div>
-                                        <h5 className="text-xs font-black uppercase tracking-wider">Carga Horaria Reglamentaria</h5>
+                                        <h5 className="text-xs font-black uppercase tracking-wider">Carga Horaria Regular</h5>
                                         <p className="text-xs font-semibold text-gray-650 mt-1 leading-relaxed">
-                                            El agente posee una carga de <strong>{agentData.total_horas_catedra} horas</strong>, cumpliendo con los límites de incompatibilidad horaria.
+                                            El agente posee una carga horaria total de <strong>{agentData.total_horas_catedra} horas</strong>, cumpliendo con los límites de compatibilidad regulados.
                                         </p>
                                     </div>
                                 </div>
@@ -281,7 +313,7 @@ export default function AuditoriaUnica() {
                                     </div>
                                     <div>
                                         <h5 className="text-xs font-black uppercase tracking-wider">Alta Dispersión Geográfica</h5>
-                                        <p className="text-xs font-semibold text-gray-600 mt-1 leading-relaxed">
+                                        <p className="text-xs font-semibold text-gray-650 mt-1 leading-relaxed">
                                             El agente cumple funciones simultáneas en <strong>{Object.keys(agentData.escuelas_fisicas).length} establecimientos educativos diferentes</strong>. Esto incrementa significativamente el riesgo de superposición horaria por tiempos de traslado físico entre escuelas.
                                         </p>
                                     </div>
@@ -296,8 +328,8 @@ export default function AuditoriaUnica() {
                                     </div>
                                     <div>
                                         <h5 className="text-xs font-black uppercase tracking-wider">Trámite de Licencia Activo</h5>
-                                        <p className="text-xs font-semibold text-gray-600 mt-1 leading-relaxed">
-                                            El agente posee un total de <strong>{agentData.auditoria.licencias_activas.length} licencia(s) vigentes</strong> en la fecha de hoy. Se sugiere cruzar el cumplimiento con la carga efectiva para auditar suplencias.
+                                        <p className="text-xs font-semibold text-gray-650 mt-1 leading-relaxed">
+                                            El agente posee un total de <strong>{agentData.auditoria.licencias_activas.length} licencia(s) vigentes</strong> en la fecha de hoy. Las licencias vigentes justifican un total de <strong>{agentData.auditoria.horas_licenciadas} horas</strong>.
                                         </p>
                                     </div>
                                 </div>

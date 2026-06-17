@@ -15,13 +15,19 @@ export const GlobalProvider = ({ children }) => {
 
   const fetchStats = async (force = false) => {
     if (stats && !force) return;
-    setLoadingStats(true);
+    if (!stats) {
+      setLoadingStats(true);
+    }
     try {
       const res = await fetch('/api/stats');
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       const data = await res.json();
       setStats(data);
     } catch (e) {
       console.error('Error fetching dashboard stats:', e);
+      setStats(null);
     } finally {
       setLoadingStats(false);
     }
@@ -29,13 +35,19 @@ export const GlobalProvider = ({ children }) => {
 
   const fetchAnalytics = async (force = false) => {
     if (analytics && !force) return;
-    setLoadingAnalytics(true);
+    if (!analytics) {
+      setLoadingAnalytics(true);
+    }
     try {
       const res = await fetch('/api/analytics/advanced');
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       const data = await res.json();
       setAnalytics(data);
     } catch (e) {
       console.error('Error fetching advanced analytics:', e);
+      setAnalytics(null);
     } finally {
       setLoadingAnalytics(false);
     }
@@ -43,17 +55,24 @@ export const GlobalProvider = ({ children }) => {
 
   const fetchTraslados = async (force = false) => {
     if (traslados && !force) return;
-    setLoadingTraslados(true);
+    if (!traslados) {
+      setLoadingTraslados(true);
+    }
     try {
       const res = await fetch('/api/traslados/audit');
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       const data = await res.json();
       setTraslados(data);
     } catch (e) {
       console.error('Error fetching traslados audit:', e);
+      setTraslados(null);
     } finally {
       setLoadingTraslados(false);
     }
   };
+
 
   const openAgentModal = (dni) => {
     setSelectedAgentDni(dni);

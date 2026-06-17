@@ -181,9 +181,9 @@ export const AgentModal = () => {
                   {/* Recommendation / Evaluation Card */}
                   <div
                     className={`border rounded-[24px] p-6 flex gap-4 items-start shadow-sm transition-all ${
-                      profile.auditoria?.tiene_licencia_activa
+                      profile.auditoria?.status_auditoria === 'exceso_justificado'
                         ? 'bg-purple-50/40 border-purple-100 text-purple-900'
-                        : profile.auditoria?.alerta_incompatibilidad_horas
+                        : profile.auditoria?.status_auditoria === 'incompatibilidad_critica'
                         ? 'bg-red-50/40 border-red-100 text-red-900'
                         : profile.auditoria?.alerta_multi_cargo
                         ? 'bg-cyan-50/40 border-cyan-100 text-cyan-900'
@@ -192,18 +192,18 @@ export const AgentModal = () => {
                   >
                     <div
                       className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm ${
-                        profile.auditoria?.tiene_licencia_activa
+                        profile.auditoria?.status_auditoria === 'exceso_justificado'
                           ? 'bg-purple-100 text-purple-700'
-                          : profile.auditoria?.alerta_incompatibilidad_horas
-                          ? 'bg-red-100 text-red-700'
+                          : profile.auditoria?.status_auditoria === 'incompatibilidad_critica'
+                          ? 'bg-red-100 text-red-700 animate-pulse'
                           : profile.auditoria?.alerta_multi_cargo
                           ? 'bg-cyan-100 text-cyan-700'
                           : 'bg-emerald-100 text-emerald-700'
                       }`}
                     >
-                      {profile.auditoria?.tiene_licencia_activa ? (
-                        <i className="fa-solid fa-file-medical"></i>
-                      ) : profile.auditoria?.alerta_incompatibilidad_horas ? (
+                      {profile.auditoria?.status_auditoria === 'exceso_justificado' ? (
+                        <i className="fa-solid fa-hospital-user"></i>
+                      ) : profile.auditoria?.status_auditoria === 'incompatibilidad_critica' ? (
                         <i className="fa-solid fa-triangle-exclamation"></i>
                       ) : profile.auditoria?.alerta_multi_cargo ? (
                         <i className="fa-solid fa-arrows-split-up-and-left"></i>
@@ -213,35 +213,29 @@ export const AgentModal = () => {
                     </div>
                     <div className="flex-1 flex flex-col gap-1.5">
                       <h4 className="font-black text-sm uppercase tracking-wider">
-                        {profile.auditoria?.tiene_licencia_activa
-                          ? 'Licencia Médica Activa Detectada'
-                          : profile.auditoria?.alerta_incompatibilidad_horas
-                          ? 'Exceso Horario Crítico Detectado'
+                        {profile.auditoria?.status_auditoria === 'exceso_justificado'
+                          ? 'Exceso Horario Justificado por Licencia'
+                          : profile.auditoria?.status_auditoria === 'incompatibilidad_critica'
+                          ? 'Incompatibilidad Horaria Crítica'
                           : profile.auditoria?.alerta_multi_cargo
                           ? 'Multicargo Regular en Planta'
                           : 'Situación Regular Apta'}
                       </h4>
                       <p className="text-xs leading-relaxed font-semibold">
-                        {profile.auditoria?.tiene_licencia_activa ? (
+                        {profile.auditoria?.status_auditoria === 'exceso_justificado' ? (
                           <>
-                            Este agente goza actualmente de una licencia:{' '}
-                            <strong>{profile.auditoria.licencias_activas?.map((l) => l.tipo_licencia).join(', ') || ''}</strong>. Se
-                            debería validar su situación con el documento de respaldo:{' '}
-                            <strong>{profile.auditoria.licencias_activas?.[0]?.documento_respaldo || ''}</strong>.
+                            El agente acumula <strong>{profile.total_horas_catedra} horas registradas</strong>, superando el límite de 50 hs, pero cuenta con licencias vigentes hoy (<strong>{profile.auditoria.licencias_activas?.map((l) => l.tipo_licencia).join(', ') || ''}</strong>). Carga activa neta: <strong>{profile.auditoria.horas_activas_netas} hs</strong>.
                           </>
-                        ) : profile.auditoria?.alerta_incompatibilidad_horas ? (
+                        ) : profile.auditoria?.status_auditoria === 'incompatibilidad_critica' ? (
                           <>
-                            El docente acumula un total de <strong>{profile.total_horas_catedra} Horas Cátedra</strong>, lo cual{' '}
-                            <span className="text-red-700 font-bold">supera el tope legal de 50 horas cátedra</span>. Requiere
-                            auditoría de compatibilidad de horarios inter-escuela.
+                            El docente acumula un total de <strong>{profile.total_horas_catedra} Horas Cátedra</strong> activas, lo cual <span className="text-red-700 font-bold">supera el tope legal de 50 horas</span> sin licencias registradas hoy. Requiere citación de urgencia para regularización de cargos.
                           </>
                         ) : profile.auditoria?.alerta_multi_cargo ? (
                           <>
-                            El agente se desempeña en <strong>{profile.cargos_count} cargos activos</strong> dentro de los límites
-                            horarios estatutarios.
+                            El agente se desempeña en <strong>{profile.cargos_count} cargos activos</strong> dentro de los límites horarios estatutarios. Carga horaria activa: <strong>{profile.total_horas_catedra} hs</strong>.
                           </>
                         ) : (
-                          <>Agente con cargo único y situación regularizada.</>
+                          <>Agente con cargo único y situación regularizada. Carga horaria activa: <strong>{profile.total_horas_catedra} hs</strong>.</>
                         )}
                       </p>
                     </div>
