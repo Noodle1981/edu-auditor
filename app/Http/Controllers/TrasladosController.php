@@ -13,19 +13,25 @@ class TrasladosController extends Controller
         return Inertia::render('Traslados');
     }
 
-    public function audit()
+    public function audit(Request $request)
     {
         try {
+            $year = (int)$request->query('year');
+            if (!$year) {
+                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
+                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
+            }
+
             // Find agents with multiple CUEs in agente_cargos
             $multiSchoolAgents = DB::select("
                 SELECT c.dni, a.nombre_agente, COUNT(DISTINCT c.cue) as school_count
                 FROM agente_cargos c
                 JOIN agentes a ON c.dni = a.dni
-                WHERE c.cue IS NOT NULL
+                WHERE c.cue IS NOT NULL AND c.anio = ?
                 GROUP BY c.dni, a.nombre_agente
                 HAVING school_count > 1
                 LIMIT 150
-            ");
+            ", [$year]);
 
             $auditResults = [];
 
@@ -59,8 +65,8 @@ class TrasladosController extends Controller
                     FROM agente_cargos c
                     LEFT JOIN establecimientos e ON c.cue = e.cue
                     LEFT JOIN edificios ed ON e.edificio_id = ed.id
-                    WHERE c.dni IN ({$placeholders}) AND c.cue IS NOT NULL
-                ", $dnis);
+                    WHERE c.dni IN ({$placeholders}) AND c.cue IS NOT NULL AND c.anio = ?
+                ", array_merge($dnis, [$year]));
                 foreach ($allCargos as $c) {
                     $cargosByDni[$c->dni][] = $c;
                 }

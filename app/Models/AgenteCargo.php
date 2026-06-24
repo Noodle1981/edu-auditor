@@ -14,7 +14,7 @@ class AgenteCargo extends Model
     protected $fillable = [
         'dni', 'centro', 'establecimiento', 'escalafon', 'cupof', 'cue',
         'cargo_horas', 'horas_catedra', 'turno', 'plan_estudio',
-        'situacion_revista', 'norma_legal', 'observaciones', 'control_id'
+        'situacion_revista', 'norma_legal', 'observaciones', 'control_id', 'anio'
     ];
 
     public function agente(): BelongsTo

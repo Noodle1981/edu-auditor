@@ -14,7 +14,7 @@ class Designacion extends Model
     protected $fillable = [
         'centro', 'establecimiento', 'escalafon', 'cupof', 'cue', 'cargo_horas',
         'horas_catedra', 'turno', 'plan_estudio', 'nombre_agente', 'dni', 'genero',
-        'legajo', 'fecha_alta', 'situacion_revista', 'norma_legal', 'observaciones', 'control_id'
+        'legajo', 'fecha_alta', 'situacion_revista', 'norma_legal', 'observaciones', 'control_id', 'anio'
     ];
 
     public function agente(): BelongsTo

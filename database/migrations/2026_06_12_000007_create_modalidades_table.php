@@ -34,6 +34,10 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
         });
+
+        // Run python script to seed schools database
+        $process = new \Symfony\Component\Process\Process(['python', base_path('crear_base_datos_escuela.py')]);
+        $process->run();
     }
 
     /**

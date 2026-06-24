@@ -1,0 +1,98 @@
+*MINISTERIO DE EDUCACIÓN
+*AUDITORÍA INTERNA DE RECURSOS HUMANOS DOCENTES
+*INFORME DE AUDITORÍA EJECUTIVO
+*Número de Informe: AUDIRH-2026-003
+*Fecha: 28 de mayo de 2026 (considerando la fecha de la última licencia)
+*Dirigido a: Dirección de Recursos Humanos Docentes
+*De: Departamento de Auditoría y Control de Gestión
+*Asunto: Auditoría de Perfil Docente – Agente ESCALERA, MARCIA GISELLE (DNI: 31.929.846)
+--
+*1. INTRODUCCIÓN
+El presente informe detalla los hallazgos de la auditoría realizada sobre el perfil laboral del agente ESCALERA, MARCIA GISELLE, con DNI 31.929.846 y Legajo 3793054, a partir de la información registrada en la base de datos del Ministerio de Educación. El objetivo de esta auditoría es identificar posibles incompatibilidades horarias, riesgos de superposición geográfica, discrepancias administrativas y proponer acciones correctivas para optimizar la gestión de los recursos humanos docentes.
+
+*2. DATOS DEL AGENTE AUDITADO
+DNI: 31.929.846
+Nombre Completo: ESCALERA, MARCIA GISELLE
+Género: Femenino
+Legajo: 3793054
+Fecha de Alta Registrada: 08/04/2026 (Nota: Esta fecha es futura, lo cual se abordará en las discrepancias administrativas).
+Total de Cargos Activos Registrados: 2
+Total de Horas Cátedra Registradas: 0 (Corresponde a la tipología de "Maestro de Grado", donde la carga horaria se define por la jornada y no por horas cátedra explícitas).
+*3. HALLAZGOS DETALLADOS
+*3.1. Incompatibilidades Horarias Críticas (Superación del Límite de 50 horas semanales)
+El análisis de los cargos activos del agente revela una incompatibilidad horaria severa y una excedencia significativa del límite máximo de horas de dedicación.
+
+Cargo 1: Maestro de Grado Educación Primaria Jornada Extendida (Centro 852 - DR. ALBERT SCHWEITZER PRIMARIO COMUN).
+Una "Jornada Extendida" en Educación Primaria implica una carga horaria diaria considerable, generalmente entre 7 y 8 horas pedagógicas efectivas, lo que se traduce en una dedicación de aproximadamente 35 a 40 horas semanales. Además, incluye la permanencia en el establecimiento durante el turno de la mañana y parte del turno de la tarde.
+Turno: Mañana (Jornada Extendida)
+Cargo 2: Maestro de Grado - Educación Primaria - Jornada Simple (Centro 816 - PRESIDENTE SARMIENTO PRIMARIO COMUN).
+Una "Jornada Simple" en Educación Primaria se corresponde con una carga horaria diaria de aproximadamente 4 a 5 horas pedagógicas efectivas, lo que se traduce en una dedicación de aproximadamente 20 a 25 horas semanales.
+Turno: Tarde
+*Análisis de Incompatibilidad:
+La combinación de una "Jornada Extendida" y una "Jornada Simple en Turno Tarde" es inviable en la práctica. Una "Jornada Extendida" ocupa típicamente el horario que va desde la mañana hasta las primeras horas de la tarde (ej., 08:00 a 16:00 hs). Por otro lado, una "Jornada Simple Tarde" se desarrollaría generalmente entre las 13:00 y las 18:00 hs.
+
+Existe una superposición horaria directa y crítica entre ambos cargos, ya que el horario final de la jornada extendida y el horario de inicio de la jornada simple de la tarde se solapan.
+
+*Estimación de Carga Horaria Total:
+Considerando las estimaciones conservadoras:
+
+Jornada Extendida: 35 horas/semana
+Jornada Simple: 20 horas/semana
+Carga Horaria Total Estimada: 55 horas/semana.
+Si consideramos las estimaciones más elevadas:
+
+Jornada Extendida: 40 horas/semana
+Jornada Simple: 25 horas/semana
+Carga Horaria Total Estimada: 65 horas/semana.
+En ambos escenarios, la carga horaria excede significativamente el límite establecido de 50 horas semanales, constituyendo una incompatibilidad crítica y un incumplimiento normativo grave.
+
+*3.2. Riesgo de Superposición por Dispersión Geográfica
+Centro 1: DR. ALBERT SCHWEITZER PRIMARIO COMUN (CUE: 700019900)
+Centro 2: PRESIDENTE SARMIENTO PRIMARIO COMUN (CUE: 700012200)
+Dado que no se dispone de coordenadas geográficas o direcciones exactas, la evaluación se basa en la implicancia de los turnos y la tipología de las jornadas.
+
+El riesgo de superposición por dispersión geográfica es extremadamente alto, incluso sin conocer la distancia precisa entre las escuelas, debido a la incompatibilidad horaria intrínseca de los cargos:
+
+Jornada Extendida (Mañana): Requiere la presencia del docente en el Centro 852 durante la mañana y parte de la tarde.
+Jornada Simple (Tarde): Requiere la presencia del docente en el Centro 816 durante la tarde.
+El tiempo de traslado entre establecimientos, por mínimo que sea, agrava la imposibilidad de cumplir con ambas funciones de manera efectiva y reglamentaria, ya que ambas jornadas se solapan en sus tramos finales e iniciales, respectivamente. La realización de ambos cargos simultáneamente implicaría ausentismo en alguna de las instituciones, afectando la continuidad pedagógica y el cumplimiento de las obligaciones contractuales.
+
+*3.3. Discrepancias Administrativas
+Se han identificado las siguientes discrepancias en los registros:
+
+Fecha de Alta Futura: La `fecha_alta` del agente figura como "2026-04-08". Esta fecha es posterior a la fecha actual de este informe (28/05/2026) y, más críticamente, es anterior a las fechas de las normas legales de designación (ej. DISPOSICION DDC/00637/108/26) y de las licencias registradas (inicio 26/05/2026). Esto indica una inconsistencia cronológica fundamental en los datos de ingreso del agente al sistema o una posible configuración incorrecta de la base de datos (ej. datos de prueba no marcados como tales).
+Redundancia en Cargos Activos y Designaciones: Las secciones `cargos_activos` y `designaciones` contienen exactamente la misma información. Si `designaciones` está destinada a reflejar un historial de nombramientos o un estado diferente al actual, esta redundancia sugiere una falta de diferenciación o un posible error en la categorización de los datos.
+Ausencia de Cuantificación Horaria Explícita para Cargos de Maestro de Grado: Aunque es común que para "Maestro de Grado" no se registren `horas_catedra`, la falta de un campo que convierta la "Jornada Extendida" o "Jornada Simple" a un valor horario estándar para cálculos internos dificulta la automatización de la detección de incompatibilidades. El valor `total_horas_catedra: 0` para un docente con dos cargos de jornada completa/extendida es engañoso si se interpreta como carga laboral nula.
+*4. CONCLUSIONES GENERALES
+El perfil del agente ESCALERA, MARCIA GISELLE, presenta incompatibilidades horarias críticas y un riesgo de superposición geográfica inviable debido a la naturaleza de los cargos de "Maestro de Grado Jornada Extendida" y "Maestro de Grado Jornada Simple" con turnos superpuestos. La carga horaria estimada excede con creces el límite reglamentario. Adicionalmente, se han detectado inconsistencias cronológicas significativas en la `fecha_alta` y redundancias en los datos de cargos. La situación actual del agente, si los datos son reales y actuales, es insostenible y contraviene la normativa vigente.
+
+*5. SUGERENCIAS Y ACCIONES RECOMENDADAS PARA EL ÁREA DE RECURSOS HUMANOS
+Basado en los hallazgos, se recomiendan las siguientes acciones:
+
+*5.1. Acciones Inmediatas y Específicas del Caso:
+Verificación Urgente de Datos: Contactar de inmediato a la Dirección de Informática y/o el área responsable del registro de datos para verificar la validez y actualidad de la `fecha_alta` del agente y de las designaciones. Determinar si los datos corresponden a un escenario de prueba, una proyección futura o un error de carga.
+Citación y Clarificación con el Agente: En caso de confirmarse la vigencia de los cargos, citar a la agente ESCALERA, MARCIA GISELLE, para que aclare la situación de sus designaciones y manifieste cuál de los dos cargos puede ejercer de forma efectiva y reglamentaria.
+Regularización de la Situación Laboral: Exigir al agente la renuncia o desafectación de uno de los cargos incompatibles, priorizando la estabilidad laboral (cargo de Titular en Presidente Sarmiento) y la continuidad pedagógica.
+Aclaración de Licencias: Verificar si la licencia por "afecciones o lesiones de corto tratamiento" registrada (26/05/2026 al 27/05/2026) fue efectiva para ambos cargos o si se aplicó a uno solo, lo cual podría indicar ya una gestión irregular de la situación.
+*5.2. Acciones de Política y Procedimiento:
+Revisión y Refuerzo de Normativa de Incompatibilidad: Emitir una circular recordatoria o actualizar la normativa interna sobre el límite máximo de horas de dedicación docente (50 horas semanales), especificando claramente cómo se cuantifican los cargos de "Jornada Extendida" y "Jornada Simple" en términos de horas para primaria.
+Procedimiento de Alta de Cargos: Reforzar los procedimientos de control y validación en el alta de nuevos cargos para prevenir la asignación de roles incompatibles en términos de horarios y la generación de registros con fechas futuras o inconsistentes.
+*5.3. Sugerencias para Mejora de Sistemas de Información:
+Automatización de Detección de Incompatibilidades:
+Implementar reglas de negocio en el sistema para detectar automáticamente solapamientos de turnos y excedencia de la carga horaria máxima para docentes de primaria, basándose en la tipología de "Jornada Extendida/Simple".
+Desarrollar un campo de "Carga Horaria Equivalente" para cargos de primaria que convierta automáticamente la "Jornada" en un valor horario estándar para facilitar los cálculos de auditoría.
+Integración de Datos Geográficos: Considerar la incorporación de datos geográficos (e.g., coordenadas, distancias entre CUEs) para la detección automatizada de riesgos de superposición por dispersión geográfica, lo cual complementaría la detección horaria.
+Mejora de la Validación de Datos: Implementar validaciones más estrictas para:
+Evitar el registro de `fecha_alta` posteriores a la fecha actual del sistema, a menos que se trate de una funcionalidad específica para planificación futura y esté claramente marcada.
+Asegurar la consistencia cronológica de todos los registros asociados al agente (ej., fecha de alta, designaciones, licencias).
+Clarificación de Estructura de Datos: Revisar la estructura de la base de datos para diferenciar claramente entre `cargos_activos`, `designaciones` históricas o pendientes, y otros tipos de relaciones laborales, eliminando redundancias y ambigüedades.
+--
+Sin otro particular, se solicita a la Dirección de Recursos Humanos Docentes tomar las medidas correspondientes y mantener informado a este Departamento sobre las acciones implementadas.
+
+Atentamente,
+
+[Firma Digital del Auditor Experto]
+
+*Departamento de Auditoría y Control de Gestión
+*Ministerio de Educación
+SIAME IA — Ministerio de Educación

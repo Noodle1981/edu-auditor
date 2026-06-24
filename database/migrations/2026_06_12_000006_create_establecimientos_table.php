@@ -20,6 +20,8 @@ return new class extends Migration
             $table->string('establecimiento_cabecera')->nullable();
             $table->timestamps();
             $table->softDeletes();
+
+            $table->index('cue', 'idx_establecimientos_cue');
         });
     }
 

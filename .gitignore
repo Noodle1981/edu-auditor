@@ -30,8 +30,7 @@ Thumbs.db
 *.db
 *.sqlite
 *.csv
-_old_frontend/
-_old_database/
 .agents/
 __pycache__/
 *.pyc
+scratch*

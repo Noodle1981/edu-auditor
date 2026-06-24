@@ -37,10 +37,15 @@ class AgenteController extends Controller
             if ($page < 1) $page = 1;
             if ($limit < 1 || $limit > 100) $limit = 20;
             $offset = ($page - 1) * $limit;
+            $year = (int)$request->input('year');
+            if (!$year) {
+                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
+                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
+            }
 
             // Build queries dynamically
-            $bindings = [];
-            $whereClause = "WHERE 1=1";
+            $bindings = [$year];
+            $whereClause = "WHERE c.anio = ?";
 
             if ($search !== '') {
                 $whereClause .= " AND (a.dni LIKE ? OR a.nombre_agente LIKE ? OR a.legajo LIKE ?)";
@@ -106,8 +111,117 @@ class AgenteController extends Controller
             $dataBindings = array_merge($bindings, [$limit, $offset]);
             $rows = DB::select($dataQuery, $dataBindings);
 
+            $dnis = array_column($rows, 'dni');
+            $cargosRows = [];
+            $licenciasRows = [];
+            $suplentesByCupof = [];
+
+            if (!empty($dnis)) {
+                $placeholders = implode(',', array_fill(0, count($dnis), '?'));
+                
+                // Fetch cargos
+                $cargosRows = DB::select("
+                    SELECT id, dni, centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra, turno, plan_estudio, situacion_revista, norma_legal
+                    FROM agente_cargos
+                    WHERE anio = ? AND dni IN ({$placeholders})
+                ", array_merge([$year], $dnis));
+
+                // Fetch active licencias
+                $today = Carbon::today()->setYear($year);
+                $todayStr = $today->format('Y-m-d');
+                $licenciasRows = DB::select("
+                    SELECT id, dni, tipo_licencia, fecha_inicio, fecha_fin
+                    FROM licencias
+                    WHERE fecha_inicio <= ? AND fecha_fin >= ? AND dni IN ({$placeholders})
+                ", array_merge([$todayStr, $todayStr], $dnis));
+
+                // Fetch suplentes map for these cupofs
+                $cupofs = array_filter(array_column($cargosRows, 'cupof'));
+                if (!empty($cupofs)) {
+                    $cupofs = array_unique($cupofs);
+                    $cupofPlaceholders = implode(',', array_fill(0, count($cupofs), '?'));
+                    $suplentesRows = DB::select("
+                        SELECT ac.cupof, ac.dni, ac.situacion_revista, a.nombre_agente
+                        FROM agente_cargos ac
+                        LEFT JOIN agentes a ON a.dni = ac.dni
+                        WHERE ac.anio = ? AND ac.situacion_revista IN ('SUPLENTE', 'REEMPLAZANTE') AND ac.cupof IN ({$cupofPlaceholders})
+                    ", array_merge([$year], $cupofs));
+                    foreach ($suplentesRows as $supl) {
+                        $suplentesByCupof[$supl->cupof] = $supl;
+                    }
+                }
+            }
+
+            $cargosByDni = [];
+            foreach ($cargosRows as $c) {
+                $cargosByDni[$c->dni][] = $c;
+            }
+
+            $licenciasByDni = [];
+            foreach ($licenciasRows as $lic) {
+                $licenciasByDni[$lic->dni][] = $lic;
+            }
+
+            $excludedLics = array_map([self::class, 'normalizeLicenseName'], self::getExcludedLicenseTypes());
+            $today = Carbon::today()->setYear($year);
+
             $data = [];
             foreach ($rows as $r) {
+                $dni = $r->dni;
+                $cargos = $cargosByDni[$dni] ?? [];
+                
+                // Perform quick audit on these cargos to determine coverage/activo state
+                $cargoAudit = $this->buildCargoAudit($cargos, $year, $suplentesByCupof);
+
+                // Match licenses
+                $agentLics = $licenciasByDni[$dni] ?? [];
+                $activeLics = [];
+                foreach ($agentLics as $lic) {
+                    $start = self::parseAuditDate($lic->fecha_inicio);
+                    $end = self::parseAuditDate($lic->fecha_fin);
+                    if ($start && $end && $start->lte($today) && $today->lte($end)) {
+                        $normDb = self::normalizeLicenseName($lic->tipo_licencia);
+                        if (in_array($normDb, $excludedLics)) {
+                            $activeLics[] = $lic;
+                        }
+                    }
+                }
+                $activeLicCount = count($activeLics);
+
+                $cargosWithSuplente = 0;
+                foreach ($cargoAudit as &$ca) {
+                    if ($ca['tiene_suplente']) {
+                        $ca['estado_cobertura'] = 'cubierto_suplente';
+                        $cargosWithSuplente++;
+                    } else {
+                        $ca['estado_cobertura'] = 'pendiente';
+                    }
+                }
+                unset($ca);
+
+                $unmatchedLicsCount = max(0, $activeLicCount - $cargosWithSuplente);
+
+                usort($cargoAudit, function($a, $b) {
+                    if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') return 1;
+                    if ($a['estado_cobertura'] !== 'cubierto_suplente' && $b['estado_cobertura'] === 'cubierto_suplente') return -1;
+                    return $b['horas_equivalentes'] <=> $a['horas_equivalentes'];
+                });
+
+                $matchedFromLicCount = 0;
+                foreach ($cargoAudit as &$ca) {
+                    if ($ca['estado_cobertura'] === 'pendiente') {
+                        if ($matchedFromLicCount < $unmatchedLicsCount) {
+                            $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
+                            $matchedFromLicCount++;
+                        } else {
+                            $ca['estado_cobertura'] = 'activo';
+                        }
+                    }
+                }
+                unset($ca);
+
+                $jergaInfo = $this->getCargoHorasJergaInfo($cargoAudit);
+
                 // Split and clean schools string to get unique list
                 $escuelas = $r->escuelas;
                 if ($escuelas) {
@@ -124,7 +238,13 @@ class AgenteController extends Controller
                     'legajo' => $r->legajo,
                     'cargos_activos' => (int)$r->cargos_activos,
                     'total_horas_catedra' => (int)$r->total_horas_catedra,
-                    'escuelas' => $escuelas
+                    'escuelas' => $escuelas,
+                    'cargos_funcionales_total' => $jergaInfo['cargos_funcionales_total'],
+                    'horas_catedra_total' => $jergaInfo['horas_catedra_total'],
+                    'cargos_funcionales_activo' => $jergaInfo['cargos_funcionales_activo'],
+                    'horas_catedra_activo' => $jergaInfo['horas_catedra_activo'],
+                    'jerga_total' => $jergaInfo['jerga_total'],
+                    'jerga_activa' => $jergaInfo['jerga_activa']
                 ];
             }
 
@@ -151,7 +271,25 @@ class AgenteController extends Controller
             // 1. Fetch parent agent info
             $agentInfo = DB::selectOne("SELECT dni, nombre_agente, genero, legajo, fecha_alta FROM agentes WHERE dni = ?", [$dni]);
             if (!$agentInfo) {
+                $search = trim($dni);
+                $agentInfo = DB::selectOne("
+                    SELECT dni, nombre_agente, genero, legajo, fecha_alta 
+                    FROM agentes 
+                    WHERE legajo = ? OR UPPER(nombre_agente) = ? OR nombre_agente LIKE ?
+                    LIMIT 1
+                ", [$search, strtoupper($search), "%{$search}%"]);
+                if ($agentInfo) {
+                    $dni = $agentInfo->dni;
+                }
+            }
+            if (!$agentInfo) {
                 return response()->json(['error' => 'Agent not found in unified database'], 404);
+            }
+
+            $year = (int)request()->query('year');
+            if (!$year) {
+                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
+                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
             }
 
             // 2. Fetch active cargos
@@ -159,9 +297,9 @@ class AgenteController extends Controller
                 SELECT id, centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
                        turno, plan_estudio, situacion_revista, norma_legal, observaciones, control_id 
                 FROM agente_cargos 
-                WHERE dni = ?
+                WHERE dni = ? AND anio = ?
                 ORDER BY id DESC
-            ", [$dni]);
+            ", [$dni, $year]);
 
             // Add fields to match what frontend expects
             foreach ($rowsAgentes as $r) {
@@ -188,9 +326,9 @@ class AgenteController extends Controller
                        turno, plan_estudio, nombre_agente, dni, genero, legajo, 
                        fecha_alta, situacion_revista, norma_legal, observaciones, control_id 
                 FROM designaciones 
-                WHERE dni = ?
+                WHERE dni = ? AND anio = ?
                 ORDER BY fecha_alta DESC
-            ", [$dni]);
+            ", [$dni, $year]);
             $profile['designaciones'] = $rowsDesig;
 
             // Collect unique CUEs
@@ -235,59 +373,113 @@ class AgenteController extends Controller
                 $profile['escuelas_fisicas'] = (object)$escuelasFisicas;
             }
 
-            // 5. Automated Audit (Active licenses)
+            // 5. Automated Audit (Active licenses & cargo-level coverage)
             $activeLics = [];
-            $today = Carbon::today();
+            $today = Carbon::today()->setYear($year);
+            $excludedLics = array_map([self::class, 'normalizeLicenseName'], self::getExcludedLicenseTypes());
+
             foreach ($profile['licencias'] as $lic) {
-                try {
-                    $startStr = $lic->fecha_inicio;
-                    $endStr = $lic->fecha_fin;
-
-                    $parseDate = function($dateStr) {
-                        if (str_contains($dateStr, '/')) {
-                            $p = array_map('intval', explode('/', $dateStr));
-                            if ($p[2] < 100) $p[2] += 2000;
-                            return Carbon::create($p[2], $p[1], $p[0]);
-                        } elseif (str_contains($dateStr, '-')) {
-                            $p = array_map('intval', explode('-', $dateStr));
-                            if ($p[0] < 100) $p[0] += 2000;
-                            return Carbon::create($p[0], $p[1], $p[2]);
-                        }
-                        return null;
-                    };
-
-                    $startDate = $parseDate($startStr);
-                    $endDate = $parseDate($endStr);
-
-                    if ($startDate && $endDate && $startDate->lte($today) && $today->lte($endDate)) {
+                $start = self::parseAuditDate($lic->fecha_inicio);
+                $end = self::parseAuditDate($lic->fecha_fin);
+                if ($start && $end && $start->lte($today) && $today->lte($end)) {
+                    $normDb = self::normalizeLicenseName($lic->tipo_licencia);
+                    if (in_array($normDb, $excludedLics)) {
                         $activeLics[] = $lic;
                     }
-                } catch (\Exception $e) {
-                    // skip
+                }
+            }
+            $activeLicCount = count($activeLics);
+
+            // Audit each cargo
+            $cargoAudit = $this->buildCargoAudit($rowsAgentes, $year);
+
+            // Match suplentes first
+            $cargosWithSuplente = 0;
+            foreach ($cargoAudit as &$ca) {
+                if ($ca['tiene_suplente']) {
+                    $ca['estado_cobertura'] = 'cubierto_suplente';
+                    $cargosWithSuplente++;
+                } else {
+                    $ca['estado_cobertura'] = 'pendiente';
+                }
+            }
+            unset($ca);
+
+            // Distribute remaining active licenses to remaining cargos (highest hours first)
+            $unmatchedLicsCount = max(0, $activeLicCount - $cargosWithSuplente);
+
+            usort($cargoAudit, function($a, $b) {
+                if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') return 1;
+                if ($a['estado_cobertura'] !== 'cubierto_suplente' && $b['estado_cobertura'] === 'cubierto_suplente') return -1;
+                return $b['horas_equivalentes'] <=> $a['horas_equivalentes'];
+            });
+
+            $matchedFromLicCount = 0;
+            foreach ($cargoAudit as &$ca) {
+                if ($ca['estado_cobertura'] === 'pendiente') {
+                    if ($matchedFromLicCount < $unmatchedLicsCount) {
+                        $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
+                        $matchedFromLicCount++;
+                    } else {
+                        $ca['estado_cobertura'] = 'activo';
+                    }
+                }
+            }
+            unset($ca);
+
+            // Restore original order
+            usort($cargoAudit, function($a, $b) {
+                return $b['id'] <=> $a['id'];
+            });
+
+            // Calculate totals
+            $totalHorasEquiv = 0;
+            $horasCubiertas = 0;
+            $horasActivas = 0;
+            $tieneLicenciaSinSuplente = false;
+
+            foreach ($cargoAudit as $ca) {
+                $hs = $ca['horas_equivalentes'];
+                $totalHorasEquiv += $hs;
+                if ($ca['estado_cobertura'] === 'cubierto_suplente' || $ca['estado_cobertura'] === 'licencia_sin_suplente_db') {
+                    $horasCubiertas += $hs;
+                    if ($ca['estado_cobertura'] === 'licencia_sin_suplente_db') {
+                        $tieneLicenciaSinSuplente = true;
+                    }
+                } else {
+                    $horasActivas += $hs;
                 }
             }
 
-            $totalHoras = (int)$profile['total_horas_catedra'];
-            $tieneLicencia = count($activeLics) > 0;
-            
-            $horasLicenciadas = $tieneLicencia ? $totalHoras : 0;
-            $horasActivasNetas = $tieneLicencia ? 0 : $totalHoras;
-            
             $statusAuditoria = 'regular';
-            if ($totalHoras > self::MAX_HOURS_THRESHOLD) {
-                $statusAuditoria = $tieneLicencia ? 'exceso_justificado' : 'incompatibilidad_critica';
+            if ($horasActivas > self::MAX_HOURS_THRESHOLD) {
+                $statusAuditoria = 'incompatibilidad_critica';
+            } elseif ($totalHorasEquiv > self::MAX_HOURS_THRESHOLD && $horasCubiertas > 0) {
+                $statusAuditoria = 'exceso_justificado';
             }
 
+            // Update the profile cargos to be the enriched cargo audit list
+            $profile['cargos'] = $cargoAudit;
+            $profile['total_horas_catedra'] = $totalHorasEquiv; // total including equivalencies for compatibility
+
+            $jergaInfo = $this->getCargoHorasJergaInfo($cargoAudit);
+            $profile['cargos_funcionales_total'] = $jergaInfo['cargos_funcionales_total'];
+            $profile['horas_catedra_total'] = $jergaInfo['horas_catedra_total'];
+            $profile['cargos_funcionales_activo'] = $jergaInfo['cargos_funcionales_activo'];
+            $profile['horas_catedra_activo'] = $jergaInfo['horas_catedra_activo'];
+            $profile['jerga_total'] = $jergaInfo['jerga_total'];
+            $profile['jerga_activa'] = $jergaInfo['jerga_activa'];
+
             $profile['auditoria'] = [
-                'alerta_incompatibilidad_horas' => $totalHoras > self::MAX_HOURS_THRESHOLD,
+                'alerta_incompatibilidad_horas' => $horasActivas > self::MAX_HOURS_THRESHOLD,
                 'alerta_multi_cargo' => $profile['cargos_count'] > 1,
                 'licencias_activas' => $activeLics,
-                'tiene_licencia_activa' => $tieneLicencia,
-                'horas_licenciadas' => $horasLicenciadas,
-                'horas_activas_netas' => $horasActivasNetas,
+                'tiene_licencia_activa' => !empty($activeLics),
+                'horas_licenciadas' => $horasCubiertas,
+                'horas_activas_netas' => $horasActivas,
                 'status_auditoria' => $statusAuditoria,
                 'coincide_en_designaciones' => count($profile['designaciones']) > 0,
-                'requiere_auditoria_af' => ($totalHoras > self::MAX_HOURS_THRESHOLD) || ($profile['cargos_count'] > 1) || $tieneLicencia
+                'requiere_auditoria_af' => ($horasActivas > self::MAX_HOURS_THRESHOLD) || ($profile['cargos_count'] > 1) || !empty($activeLics)
             ];
 
             return response()->json($profile);
@@ -300,100 +492,218 @@ class AgenteController extends Controller
     public function auditorias()
     {
         try {
-            // 1. Excess hours (> self::MAX_HOURS_THRESHOLD)
-            $excesoHoras = DB::select("
+            ini_set('memory_limit', '512M');
+            $year = (int)request()->query('year');
+            if (!$year) {
+                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
+                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
+            }
+
+            $maxHoras = self::MAX_HOURS_THRESHOLD;
+            $today = Carbon::today()->setYear($year);
+            $todayStr = $today->format('Y-m-d');
+
+            // 1. Fetch active suplentes map
+            $suplentesByCupof = [];
+            $suplentesRows = DB::select("
+                SELECT ac.cupof, ac.dni, ac.situacion_revista, a.nombre_agente
+                FROM agente_cargos ac
+                LEFT JOIN agentes a ON a.dni = ac.dni
+                WHERE ac.anio = ? AND ac.situacion_revista IN ('SUPLENTE', 'REEMPLAZANTE') AND ac.cupof IS NOT NULL AND ac.cupof != ''
+            ", [$year]);
+            foreach ($suplentesRows as $r) {
+                $suplentesByCupof[$r->cupof] = $r;
+            }
+
+            // 2. Fetch candidates (agents with >1 cargo or hours > threshold)
+            $candidates = DB::select("
                 SELECT a.dni, a.nombre_agente, a.legajo, COUNT(c.id) as cargos_activos, SUM(c.horas_catedra) as total_horas
                 FROM agentes a
                 JOIN agente_cargos c ON a.dni = c.dni
+                WHERE c.anio = ?
                 GROUP BY a.dni, a.nombre_agente, a.legajo
-                HAVING total_horas > ?
-                ORDER BY total_horas DESC
-            ", [self::MAX_HOURS_THRESHOLD]);
+                HAVING total_horas > ? OR cargos_activos >= 2
+            ", [$year, $maxHoras]);
 
-            $today = Carbon::today();
-            foreach ($excesoHoras as $item) {
-                $licencias = DB::select("
-                    SELECT fecha_inicio, fecha_fin
-                    FROM licencias
-                    WHERE dni = ?
-                ", [$item->dni]);
+            // 3. Fetch active licenses (filter by date range)
+            $licenciasRows = DB::select("
+                SELECT id, dni, tipo_licencia, fecha_inicio, fecha_fin
+                FROM licencias
+                WHERE fecha_inicio <= ? AND fecha_fin >= ?
+            ", [$todayStr, $todayStr]);
+            $licenciasByDni = [];
+            foreach ($licenciasRows as $lic) {
+                $licenciasByDni[$lic->dni][] = $lic;
+            }
+
+            // 4. Fetch cargos for candidates
+            $cargosRows = DB::select("
+                SELECT id, dni, centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra, turno, plan_estudio, situacion_revista, norma_legal
+                FROM agente_cargos
+                WHERE anio = ?
+            ", [$year]);
+            $cargosByDni = [];
+            foreach ($cargosRows as $c) {
+                $cargosByDni[$c->dni][] = $c;
+            }
+
+            $excludedLics = array_map([self::class, 'normalizeLicenseName'], self::getExcludedLicenseTypes());
+
+            $excesoHoras = [];
+            $plazasSinCoberturaCount = 0;
+
+            foreach ($candidates as $cand) {
+                $dni = $cand->dni;
+                $cargos = $cargosByDni[$dni] ?? [];
                 
-                $tieneLicenciaActiva = false;
-                foreach ($licencias as $lic) {
-                    try {
-                        $startStr = $lic->fecha_inicio;
-                        $endStr = $lic->fecha_fin;
-                        
-                        $parseDate = function($dateStr) {
-                            if (str_contains($dateStr, '/')) {
-                                $p = array_map('intval', explode('/', $dateStr));
-                                if ($p[2] < 100) $p[2] += 2000;
-                                return Carbon::create($p[2], $p[1], $p[0]);
-                            } elseif (str_contains($dateStr, '-')) {
-                                $p = array_map('intval', explode('-', $dateStr));
-                                if ($p[0] < 100) $p[0] += 2000;
-                                return Carbon::create($p[0], $p[1], $p[2]);
-                            }
-                            return null;
-                        };
-                        
-                        $startDate = $parseDate($startStr);
-                        $endDate = $parseDate($endStr);
-                        
-                        if ($startDate && $endDate && $startDate->lte($today) && $today->lte($endDate)) {
-                            $tieneLicenciaActiva = true;
-                            break;
+                // Determine active licenses
+                $agentLics = $licenciasByDni[$dni] ?? [];
+                $activeLics = [];
+                foreach ($agentLics as $lic) {
+                    $start = self::parseAuditDate($lic->fecha_inicio);
+                    $end = self::parseAuditDate($lic->fecha_fin);
+                    if ($start && $end && $start->lte($today) && $today->lte($end)) {
+                        $normDb = self::normalizeLicenseName($lic->tipo_licencia);
+                        if (in_array($normDb, $excludedLics)) {
+                            $activeLics[] = $lic;
                         }
-                    } catch (\Exception $e) {
-                        // skip
                     }
                 }
-                $item->tiene_licencia_activa = $tieneLicenciaActiva;
-                $item->status_auditoria = $tieneLicenciaActiva ? 'exceso_justificado' : 'incompatibilidad_critica';
+                $activeLicCount = count($activeLics);
+
+                // Build cargo audit (using memory map lookup)
+                $cargoAudit = $this->buildCargoAudit($cargos, $year, $suplentesByCupof);
+
+                // Match licenses and suplentes to cargos
+                $cargosWithSuplente = 0;
+                foreach ($cargoAudit as &$ca) {
+                    if ($ca['tiene_suplente']) {
+                        $ca['estado_cobertura'] = 'cubierto_suplente';
+                        $cargosWithSuplente++;
+                    } else {
+                        $ca['estado_cobertura'] = 'pendiente';
+                    }
+                }
+                unset($ca);
+
+                $unmatchedLicsCount = max(0, $activeLicCount - $cargosWithSuplente);
+
+                usort($cargoAudit, function($a, $b) {
+                    if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') return 1;
+                    if ($a['estado_cobertura'] !== 'cubierto_suplente' && $b['estado_cobertura'] === 'cubierto_suplente') return -1;
+                    return $b['horas_equivalentes'] <=> $a['horas_equivalentes'];
+                });
+
+                $matchedFromLicCount = 0;
+                $tieneLicenciaSinSuplente = false;
+                foreach ($cargoAudit as &$ca) {
+                    if ($ca['estado_cobertura'] === 'pendiente') {
+                        if ($matchedFromLicCount < $unmatchedLicsCount) {
+                            $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
+                            $matchedFromLicCount++;
+                            $tieneLicenciaSinSuplente = true;
+                        } else {
+                            $ca['estado_cobertura'] = 'activo';
+                        }
+                    }
+                }
+                unset($ca);
+
+                if ($tieneLicenciaSinSuplente) {
+                    $plazasSinCoberturaCount++;
+                }
+
+                // Sum hours
+                $totalHorasEquiv = 0;
+                $horasCubiertas = 0;
+                $horasActivas = 0;
+
+                foreach ($cargoAudit as $ca) {
+                    $hs = $ca['horas_equivalentes'];
+                    $totalHorasEquiv += $hs;
+                    if ($ca['estado_cobertura'] === 'cubierto_suplente' || $ca['estado_cobertura'] === 'licencia_sin_suplente_db') {
+                        $horasCubiertas += $hs;
+                    } else {
+                        $horasActivas += $hs;
+                    }
+                }
+
+                $jergaInfo = $this->getCargoHorasJergaInfo($cargoAudit);
+
+                // If they have excess hours, add them to excess list
+                if ($horasActivas > $maxHoras) {
+                    $excesoHoras[] = (object)[
+                        'dni' => $dni,
+                        'nombre_agente' => $cand->nombre_agente,
+                        'legajo' => $cand->legajo,
+                        'cargos_activos' => $cand->cargos_activos,
+                        'total_horas' => $totalHorasEquiv, // total with equiv
+                        'horas_activas_netas' => $horasActivas,
+                        'cargos_funcionales_total' => $jergaInfo['cargos_funcionales_total'],
+                        'horas_catedra_total' => $jergaInfo['horas_catedra_total'],
+                        'cargos_funcionales_activo' => $jergaInfo['cargos_funcionales_activo'],
+                        'horas_catedra_activo' => $jergaInfo['horas_catedra_activo'],
+                        'jerga_total' => $jergaInfo['jerga_total'],
+                        'jerga_activa' => $jergaInfo['jerga_activa'],
+                        'tiene_licencia_activa' => !empty($activeLics),
+                        'status_auditoria' => 'incompatibilidad_critica'
+                    ];
+                } elseif ($totalHorasEquiv > $maxHoras && $horasCubiertas > 0) {
+                    $excesoHoras[] = (object)[
+                        'dni' => $dni,
+                        'nombre_agente' => $cand->nombre_agente,
+                        'legajo' => $cand->legajo,
+                        'cargos_activos' => $cand->cargos_activos,
+                        'total_horas' => $totalHorasEquiv, // total with equiv
+                        'horas_activas_netas' => $horasActivas,
+                        'cargos_funcionales_total' => $jergaInfo['cargos_funcionales_total'],
+                        'horas_catedra_total' => $jergaInfo['horas_catedra_total'],
+                        'cargos_funcionales_activo' => $jergaInfo['cargos_funcionales_activo'],
+                        'horas_catedra_activo' => $jergaInfo['horas_catedra_activo'],
+                        'jerga_total' => $jergaInfo['jerga_total'],
+                        'jerga_activa' => $jergaInfo['jerga_activa'],
+                        'tiene_licencia_activa' => !empty($activeLics),
+                        'status_auditoria' => 'exceso_justificado'
+                    ];
+                }
             }
+
+            // Sort excesoHoras by total_horas DESC
+            usort($excesoHoras, function($a, $b) {
+                return $b->total_horas <=> $a->total_horas;
+            });
 
             // 2. Multi-cargos (cargos >= 3 and hours = 0)
             $multiCargos = DB::select("
                 SELECT a.dni, a.nombre_agente, a.legajo, COUNT(c.id) as cargos_activos, SUM(c.horas_catedra) as total_horas
                 FROM agentes a
                 JOIN agente_cargos c ON a.dni = c.dni
+                WHERE c.anio = ?
                 GROUP BY a.dni, a.nombre_agente, a.legajo
                 HAVING cargos_activos >= 3 AND total_horas = 0
                 ORDER BY cargos_activos DESC
-            ");
+            ", [$year]);
 
             // 3. Recent licenses
             $licenciasRecientes = DB::select("
                 SELECT id, dni, nombre_agente, tipo_licencia, fecha_inicio, fecha_fin, dias
                 FROM licencias
+                WHERE anio = ?
                 ORDER BY id DESC
                 LIMIT 15
-            ");
+            ", [$year]);
 
             // 4. Metrics calculation for dynamic audit panel
-            $totalAgentes = DB::table('agentes')->count();
-            $huerfanosCount = DB::selectOne("SELECT COUNT(*) as count FROM agentes WHERE legajo IS NULL OR legajo = ''")->count;
+            $totalAgentes = DB::table('agente_cargos')->where('anio', $year)->distinct()->count('dni');
+            $huerfanosCount = DB::selectOne("
+                SELECT COUNT(DISTINCT a.dni) as count 
+                FROM agentes a 
+                JOIN agente_cargos c ON a.dni = c.dni
+                WHERE c.anio = ? AND (a.legajo IS NULL OR a.legajo = '')
+            ", [$year])->count;
             $calidadIntegracion = $totalAgentes > 0 ? (1 - ($huerfanosCount / $totalAgentes)) * 100 : 100;
 
-            $totalExcesoCount = DB::selectOne("
-                SELECT COUNT(*) as count 
-                FROM (
-                    SELECT dni 
-                    FROM agente_cargos 
-                    GROUP BY dni 
-                    HAVING SUM(horas_catedra) > ?
-                )
-            ", [self::MAX_HOURS_THRESHOLD])->count;
-
-            $totalMultiCargosCount = DB::selectOne("
-                SELECT COUNT(*) as count 
-                FROM (
-                    SELECT dni 
-                    FROM agente_cargos 
-                    GROUP BY dni 
-                    HAVING COUNT(id) >= 3 AND SUM(horas_catedra) = 0
-                )
-            ")->count;
+            $totalMultiCargosCount = count($multiCargos);
 
             return response()->json([
                 'exceso_horas' => $excesoHoras,
@@ -401,8 +711,9 @@ class AgenteController extends Controller
                 'licencias_recientes' => $licenciasRecientes,
                 'calidad_integracion' => round($calidadIntegracion, 2),
                 'huerfanos_count' => $huerfanosCount,
-                'total_exceso' => $totalExcesoCount,
-                'total_multi' => $totalMultiCargosCount
+                'total_exceso' => count($excesoHoras),
+                'total_multi' => $totalMultiCargosCount,
+                'plazas_sin_cobertura_count' => $plazasSinCoberturaCount
             ]);
 
         } catch (\Exception $e) {
@@ -423,19 +734,25 @@ class AgenteController extends Controller
                 return response()->json(['error' => 'No se encontró ningún agente con el DNI ingresado.'], 404);
             }
 
+            $year = (int)request()->query('year');
+            if (!$year) {
+                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
+                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
+            }
+
             $cargos = DB::select("
-                SELECT centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
+                SELECT id, centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
                        turno, plan_estudio, situacion_revista, norma_legal, observaciones
                 FROM agente_cargos 
-                WHERE dni = ?
-            ", [$dni]);
+                WHERE dni = ? AND anio = ?
+            ", [$dni, $year]);
 
             $designaciones = DB::select("
                 SELECT centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
                        turno, plan_estudio, situacion_revista, norma_legal, observaciones
                 FROM designaciones 
-                WHERE dni = ?
-            ", [$dni]);
+                WHERE dni = ? AND anio = ?
+            ", [$dni, $year]);
 
             $licencias = DB::select("
                 SELECT id_tramite, fecha_carga, tipo_licencia, fecha_inicio, fecha_fin, dias, documento_respaldo
@@ -465,91 +782,115 @@ class AgenteController extends Controller
                 }
             }
 
-            // Perform calculations
-            $totalRealHours = 0;
-            $totalEstimatedHours = 0;
-            $cargosDetalles = [];
+            // Perform calculations using the updated cargo-level audit
+            $activeLics = [];
+            $today = Carbon::today()->setYear($year);
+            $excludedLics = array_map([self::class, 'normalizeLicenseName'], self::getExcludedLicenseTypes());
 
-            foreach ($cargos as $idx => $c) {
-                $horas = (int)$c->horas_catedra;
-                $totalRealHours += $horas;
-
-                // Estimate hours if 0 (e.g. Maestro de Grado)
-                $estHoras = $horas;
-                $motivoEstimacion = '';
-                if ($horas === 0) {
-                    $desc = strtolower(($c->cargo_horas ?: '') . ' ' . ($c->plan_estudio ?: ''));
-                    if (str_contains($desc, 'extendida')) {
-                        $estHoras = 35;
-                        $motivoEstimacion = '(Estimado: Jornada Extendida)';
-                    } elseif (str_contains($desc, 'completa') || str_contains($desc, 'completo')) {
-                        $estHoras = 40;
-                        $motivoEstimacion = '(Estimado: Jornada Completa)';
-                    } elseif (str_contains($desc, 'simple')) {
-                        $estHoras = 20;
-                        $motivoEstimacion = '(Estimado: Jornada Simple)';
-                    } else {
-                        $estHoras = 20;
-                        $motivoEstimacion = '(Estimado por defecto)';
+            foreach ($licencias as $lic) {
+                $start = self::parseAuditDate($lic->fecha_inicio);
+                $end = self::parseAuditDate($lic->fecha_fin);
+                if ($start && $end && $start->lte($today) && $today->lte($end)) {
+                    $normDb = self::normalizeLicenseName($lic->tipo_licencia);
+                    if (in_array($normDb, $excludedLics)) {
+                        $activeLics[] = $lic;
                     }
                 }
-                $totalEstimatedHours += $estHoras;
+            }
+            $activeLicCount = count($activeLics);
+
+            // Audit each cargo
+            $cargoAudit = $this->buildCargoAudit($cargos, $year);
+
+            // Match suplentes first
+            $cargosWithSuplente = 0;
+            foreach ($cargoAudit as &$ca) {
+                if ($ca['tiene_suplente']) {
+                    $ca['estado_cobertura'] = 'cubierto_suplente';
+                    $cargosWithSuplente++;
+                } else {
+                    $ca['estado_cobertura'] = 'pendiente';
+                }
+            }
+            unset($ca);
+
+            // Distribute remaining active licenses to remaining cargos (highest hours first)
+            $unmatchedLicsCount = max(0, $activeLicCount - $cargosWithSuplente);
+
+            usort($cargoAudit, function($a, $b) {
+                if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') return 1;
+                if ($a['estado_cobertura'] !== 'cubierto_suplente' && $b['estado_cobertura'] === 'cubierto_suplente') return -1;
+                return $b['horas_equivalentes'] <=> $a['horas_equivalentes'];
+            });
+
+            $matchedFromLicCount = 0;
+            foreach ($cargoAudit as &$ca) {
+                if ($ca['estado_cobertura'] === 'pendiente') {
+                    if ($matchedFromLicCount < $unmatchedLicsCount) {
+                        $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
+                        $matchedFromLicCount++;
+                    } else {
+                        $ca['estado_cobertura'] = 'activo';
+                    }
+                }
+            }
+            unset($ca);
+
+            // Restore original order
+            usort($cargoAudit, function($a, $b) {
+                return $b['id'] <=> $a['id'];
+            });
+
+            $totalRealHours = array_sum(array_map(fn($c) => (int)$c->horas_catedra, $cargos));
+            $totalEstimatedHours = 0;
+            $horasCubiertas = 0;
+            $horasActivasNetas = 0;
+
+            $cargosDetalles = [];
+            foreach ($cargoAudit as $idx => $ca) {
+                $hs = $ca['horas_equivalentes'];
+                $totalEstimatedHours += $hs;
+                if ($ca['estado_cobertura'] === 'cubierto_suplente' || $ca['estado_cobertura'] === 'licencia_sin_suplente_db') {
+                    $horasCubiertas += $hs;
+                } else {
+                    $horasActivasNetas += $hs;
+                }
+
+                $motivoEstimacion = '';
+                if ((int)$ca['horas_catedra'] === 0) {
+                    $motivoEstimacion = ' (' . $ca['etiqueta_equivalencia'] . ')';
+                }
+
+                $coberturaLabel = 'Activo';
+                if ($ca['estado_cobertura'] === 'cubierto_suplente') {
+                    $coberturaLabel = 'Cubierto por suplente (DNI: ' . ($ca['suplente_dni'] ?? '-') . ' - ' . ($ca['suplente_nombre'] ?? '-') . ')';
+                } elseif ($ca['estado_cobertura'] === 'licencia_sin_suplente_db') {
+                    $coberturaLabel = 'Licenciado sin suplente registrado';
+                }
 
                 $cargosDetalles[] = [
-                    'cargo' => $c->cargo_horas ?: 'Cargo no especificado',
-                    'escuela' => $c->establecimiento ?: 'Escuela no especificada',
-                    'cue' => $c->cue,
-                    'turno' => $c->turno ?: 'No especificado',
-                    'horas_reales' => $horas,
-                    'horas_estimadas' => $estHoras,
+                    'cargo' => $ca['cargo_horas'] ?: 'Cargo no especificado',
+                    'escuela' => $ca['establecimiento'] ?: 'Escuela no especificada',
+                    'cue' => $ca['cue'],
+                    'turno' => $ca['turno'] ?: 'No especificado',
+                    'horas_reales' => (int)$ca['horas_catedra'],
+                    'horas_estimadas' => $hs,
                     'motivo_estimacion' => $motivoEstimacion,
-                    'situacion_revista' => $c->situacion_revista ?: 'No especificada',
+                    'situacion_revista' => $ca['situacion_revista'] ?: 'No especificada',
+                    'cobertura_label' => $coberturaLabel
                 ];
             }
 
-            // Check active licenses
-            $activeLics = [];
-            $today = Carbon::today();
-            foreach ($licencias as $lic) {
-                try {
-                    $startStr = $lic->fecha_inicio;
-                    $endStr = $lic->fecha_fin;
-                    
-                    $parseDate = function($dateStr) {
-                        if (str_contains($dateStr, '/')) {
-                            $p = array_map('intval', explode('/', $dateStr));
-                            if ($p[2] < 100) $p[2] += 2000;
-                            return Carbon::create($p[2], $p[1], $p[0]);
-                        } elseif (str_contains($dateStr, '-')) {
-                            $p = array_map('intval', explode('-', $dateStr));
-                            if ($p[0] < 100) $p[0] += 2000;
-                            return Carbon::create($p[0], $p[1], $p[2]);
-                        }
-                        return null;
-                    };
-                    
-                    $startDate = $parseDate($startStr);
-                    $endDate = $parseDate($endStr);
-                    
-                    if ($startDate && $endDate && $startDate->lte($today) && $today->lte($endDate)) {
-                        $activeLics[] = $lic;
-                    }
-                } catch (\Exception $e) {
-                    // skip
-                }
-            }
-            
-            $tieneLicencia = count($activeLics) > 0;
-            $horasLicenciadas = $tieneLicencia ? $totalEstimatedHours : 0;
-            $horasActivasNetas = $tieneLicencia ? 0 : $totalEstimatedHours;
-            
             $statusAuditoria = 'regular';
-            if ($totalEstimatedHours > self::MAX_HOURS_THRESHOLD) {
-                $statusAuditoria = $tieneLicencia ? 'exceso_justificado' : 'incompatibilidad_critica';
+            if ($horasActivasNetas > self::MAX_HOURS_THRESHOLD) {
+                $statusAuditoria = 'incompatibilidad_critica';
+            } elseif ($totalEstimatedHours > self::MAX_HOURS_THRESHOLD && $horasCubiertas > 0) {
+                $statusAuditoria = 'exceso_justificado';
             }
 
             // Incompatibilidades
-            $incompHoraria = $totalEstimatedHours > 50;
+            $incompHoraria = $horasActivasNetas > self::MAX_HOURS_THRESHOLD;
+            $horasLicenciadas = $horasCubiertas;
 
             // Geo dispersion & travel risk
             $distanciaComentarios = [];
@@ -664,8 +1005,9 @@ class AgenteController extends Controller
                 $num = $idx + 1;
                 $markdown .= "**Cargo {$num}**: {$cd['cargo']} en *{$cd['escuela']}* (CUE: {$cd['cue']}).\n";
                 $markdown .= "- Turno: *{$cd['turno']}*\n";
-                $markdown .= "- Carga horaria: **{$cd['horas_reales']} hs** {$cd['motivo_estimacion']}\n";
-                $markdown .= "- Situación de Revista: *{$cd['situacion_revista']}*\n\n";
+                $markdown .= "- Carga horaria: **{$cd['horas_estimadas']} hs**{$cd['motivo_estimacion']}\n";
+                $markdown .= "- Situación de Revista: *{$cd['situacion_revista']}*\n";
+                $markdown .= "- Cobertura: *{$cd['cobertura_label']}*\n\n";
             }
 
             // 3.2 Geo Dispersion
@@ -766,24 +1108,29 @@ class AgenteController extends Controller
         return $earthRadius * $c;
     }
 
-    private function getAgentConsolidatedData($dni)
+    private function getAgentConsolidatedData($dni, $year = null)
     {
         $agentInfo = DB::selectOne("SELECT dni, nombre_agente, genero, legajo, fecha_alta FROM agentes WHERE dni = ?", [$dni]);
         if (!$agentInfo) return null;
+
+        if (!$year) {
+            $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
+            $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
+        }
 
         $cargos = DB::select("
             SELECT centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
                    turno, plan_estudio, situacion_revista, norma_legal, observaciones
             FROM agente_cargos 
-            WHERE dni = ?
-        ", [$dni]);
+            WHERE dni = ? AND anio = ?
+        ", [$dni, $year]);
 
         $designaciones = DB::select("
             SELECT centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
                    turno, plan_estudio, situacion_revista, norma_legal, observaciones
             FROM designaciones 
-            WHERE dni = ?
-        ", [$dni]);
+            WHERE dni = ? AND anio = ?
+        ", [$dni, $year]);
 
         $licencias = DB::select("
             SELECT id_tramite, fecha_carga, tipo_licencia, fecha_inicio, fecha_fin, dias, documento_respaldo
@@ -803,5 +1150,226 @@ class AgenteController extends Controller
             'designaciones' => $designaciones,
             'licencias' => $licencias
         ];
+    }
+
+    public static function getCargoCostEquivalencia($cargoHoras, $planEstudio): array
+    {
+        $cfg = config('auditoria.equivalencias_cargo', []);
+        $desc = strtolower(($cargoHoras ?? '') . ' ' . ($planEstudio ?? ''));
+        foreach ($cfg as $rule) {
+            foreach ($rule['palabras_clave'] as $kw) {
+                if (str_contains($desc, strtolower($kw))) {
+                    return ['horas' => $rule['horas_equivalentes'], 'etiqueta' => $rule['etiqueta']];
+                }
+            }
+        }
+        $def = config('auditoria.equivalencia_cargo_defecto', ['horas_equivalentes' => 25, 'etiqueta' => 'Cargo sin clasificar (estimado)']);
+        return ['horas' => $def['horas_equivalentes'], 'etiqueta' => $def['etiqueta']];
+    }
+
+    public static function parseAuditDate($dateStr): ?Carbon
+    {
+        if (!$dateStr) return null;
+        try {
+            if (str_contains($dateStr, '/')) {
+                $p = array_map('intval', explode('/', $dateStr));
+                if ($p[2] < 100) $p[2] += 2000;
+                return Carbon::create($p[2], $p[1], $p[0]);
+            } elseif (str_contains($dateStr, '-')) {
+                $p = array_map('intval', explode('-', $dateStr));
+                if ($p[0] < 100) $p[0] += 2000;
+                return Carbon::create($p[0], $p[1], $p[2]);
+            }
+        } catch (\Exception $e) {}
+        return null;
+    }
+
+    private function buildCargoAudit(array $cargos, int $year, ?array $suplentesByCupof = null): array
+    {
+        $result = [];
+        foreach ($cargos as $c) {
+            $horasReales = (int)$c->horas_catedra;
+
+            // Determinar si es una hora cátedra con dato faltante (0 hs pero descripción de HC)
+            // vs un cargo real sin horas (director, maestro, etc.) que merece equivalencia.
+            // Si es HC con dato faltante → usamos 0 hs sin estimar, para no inflar el total.
+            $esDatoFaltante = ($horasReales === 0) && self::esHoraCatedraConDatoFaltante(
+                $c->cupof ?? '',
+                $c->cargo_horas ?? ''
+            );
+
+            if ($horasReales > 0) {
+                // Tiene horas reales registradas
+                $tipoCargo = 'horas_catedra';
+                $eq = ['horas' => $horasReales, 'etiqueta' => 'Horas Cátedra'];
+            } elseif ($esDatoFaltante) {
+                // Hora cátedra con 0 en CSV: dato incompleto, no se estima
+                $tipoCargo = 'horas_catedra_dato_faltante';
+                $eq = ['horas' => 0, 'etiqueta' => 'HC sin cantidad registrada'];
+            } else {
+                // Cargo real (director, maestro, etc.) con horas=0: aplicar equivalencia
+                $tipoCargo = 'cargo';
+                $eq = self::getCargoCostEquivalencia($c->cargo_horas, $c->plan_estudio ?? '');
+            }
+
+            $tieneSuplente = false;
+            $suplenteInfo = null;
+
+            if (!empty($c->cupof)) {
+                if (is_array($suplentesByCupof)) {
+                    if (isset($suplentesByCupof[$c->cupof])) {
+                        $supl = $suplentesByCupof[$c->cupof];
+                        if ($supl->dni != $c->dni) {
+                            $tieneSuplente = true;
+                            $suplenteInfo = $supl;
+                        }
+                    }
+                } else {
+                    $suplentes = DB::select("
+                        SELECT ac.dni, a.nombre_agente, ac.situacion_revista
+                        FROM agente_cargos ac
+                        LEFT JOIN agentes a ON a.dni = ac.dni
+                        WHERE ac.cupof = ? AND ac.dni != ? AND ac.anio = ?
+                          AND ac.situacion_revista IN ('SUPLENTE', 'REEMPLAZANTE')
+                        LIMIT 1
+                    ", [$c->cupof, $c->dni ?? '', $year]);
+                    if (!empty($suplentes)) {
+                        $tieneSuplente = true;
+                        $suplenteInfo = $suplentes[0];
+                    }
+                }
+            }
+
+            $entry = (array)$c;
+            $entry['tipo_cargo'] = $tipoCargo;
+            $entry['horas_equivalentes'] = $eq['horas'];
+            $entry['etiqueta_equivalencia'] = $eq['etiqueta'];
+            $entry['dato_faltante'] = $esDatoFaltante;
+            $entry['tiene_suplente'] = $tieneSuplente;
+            $entry['suplente_dni'] = $suplenteInfo?->dni ?? null;
+            $entry['suplente_nombre'] = $suplenteInfo?->nombre_agente ?? null;
+            $result[] = $entry;
+        }
+        return $result;
+    }
+
+    /**
+     * Detecta si un cargo con horas_catedra=0 es en realidad una hora cátedra
+     * con datos incompletos en el CSV (no un cargo directivo/funcional).
+     *
+     * Señales de dato faltante:
+     *  - El cupof tiene prefijo "HC" (Hora Cátedra) → definitivamente es HC
+     *  - cargo_horas dice "Horas de Cátedra" genérico sin especificar cantidad
+     *
+     * Los cargos reales (director, maestro, etc.) tienen prefijos como:
+     *  VRP (Vicerrector), R12 (Rector/Director), DIR, MAE, ACP, etc.
+     */
+    private static function esHoraCatedraConDatoFaltante(string $cupof, string $cargoHoras): bool
+    {
+        // Verificar por prefijo del cupof (la parte entre guiones, ej: 700004800-HC2-...)
+        if (preg_match('/-HC\d*-/i', $cupof)) {
+            return true;
+        }
+
+        // Verificar por descripción: "Horas de Cátedra" sin cantidad explícita
+        // Si dice "X Hs. Cátedra" tiene cantidad → no es dato faltante
+        $desc = strtolower(trim($cargoHoras));
+        if (str_contains($desc, 'horas de cátedra') || str_contains($desc, 'horas de catedra')) {
+            // Si tiene patrón de cantidad (ej: "4 Hs.", "3 Hs.") → tiene dato real pero horas_catedra=0 por otro motivo
+            // Si es solo "Horas de Cátedra Secundario" sin número → dato faltante
+            if (!preg_match('/\d+\s*hs\.?/i', $cargoHoras)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function getExcludedLicenseTypes()
+    {
+        $filePath = base_path('licencias_clasificacion.md');
+        if (!file_exists($filePath)) {
+            return [];
+        }
+
+        $content = file_get_contents($filePath);
+        $lines = explode("\n", $content);
+        $excluded = [];
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (str_starts_with($line, '|')) {
+                $parts = explode('|', $line);
+                if (count($parts) >= 4) {
+                    $licenseType = trim($parts[1]);
+                    $value = trim($parts[2]);
+                    if ($value === '1') {
+                        $excluded[] = $licenseType;
+                    }
+                }
+            }
+        }
+
+        return $excluded;
+    }
+
+    private function getCargoHorasJergaInfo(array $cargoAudit): array
+    {
+        $cargosFuncionalesTotal = 0;
+        $horasCatedraTotal = 0;
+        $cargosFuncionalesActivo = 0;
+        $horasCatedraActivo = 0;
+
+        foreach ($cargoAudit as $ca) {
+            $hs = $ca['horas_equivalentes'];
+            $isCargo = ($ca['tipo_cargo'] === 'cargo');
+            
+            if ($isCargo) {
+                $cargosFuncionalesTotal++;
+                if (($ca['estado_cobertura'] ?? 'activo') === 'activo') {
+                    $cargosFuncionalesActivo++;
+                }
+            } else {
+                $horasCatedraTotal += $hs;
+                if (($ca['estado_cobertura'] ?? 'activo') === 'activo') {
+                    $horasCatedraActivo += $hs;
+                }
+            }
+        }
+
+        $buildJerga = function($cargosCount, $horasCount) {
+            $partes = [];
+            if ($cargosCount > 0) {
+                $partes[] = $cargosCount . ' ' . ($cargosCount === 1 ? 'cargo' : 'cargos');
+            }
+            if ($horasCount > 0) {
+                $partes[] = $horasCount . ' horas cátedras';
+            }
+            if (empty($partes)) {
+                return '0 horas cátedras';
+            }
+            return implode(' y ', $partes);
+        };
+
+        return [
+            'cargos_funcionales_total' => $cargosFuncionalesTotal,
+            'horas_catedra_total' => $horasCatedraTotal,
+            'cargos_funcionales_activo' => $cargosFuncionalesActivo,
+            'horas_catedra_activo' => $horasCatedraActivo,
+            'jerga_total' => $buildJerga($cargosFuncionalesTotal, $horasCatedraTotal),
+            'jerga_activa' => $buildJerga($cargosFuncionalesActivo, $horasCatedraActivo),
+        ];
+    }
+
+    public static function normalizeLicenseName($name)
+    {
+        $name = strtoupper(trim($name));
+        $name = str_replace(
+            ['Á', 'É', 'Í', 'Ó', 'Ú', 'Ü', 'Ñ', 'º', 'ª', '°'],
+            ['A', 'E', 'I', 'O', 'U', 'U', 'N', '', '', ''],
+            $name
+        );
+        $name = preg_replace('/\s+/', ' ', $name);
+        return trim($name);
     }
 }

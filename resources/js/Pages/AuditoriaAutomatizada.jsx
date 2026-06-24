@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import SIAMELayout from '@/Layouts/SIAMELayout';
 import { Head } from '@inertiajs/react';
+import { useGlobal } from '../Context/GlobalContext';
 
 export default function AuditoriaAutomatizada() {
+    const { activeYear } = useGlobal();
     const [dni, setDni] = useState('');
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
@@ -18,7 +20,7 @@ export default function AuditoriaAutomatizada() {
         setReportData(null);
 
         try {
-            const res = await fetch(`/api/agentes/${cleanDni}/analisis-local`);
+            const res = await fetch(`/api/agentes/${cleanDni}/analisis-local?year=${activeYear}`);
             if (!res.ok) {
                 if (res.status === 404) {
                     throw new Error('No se encontró ningún agente con el DNI ingresado.');

@@ -24,6 +24,7 @@ return new class extends Migration
             $table->date('fecha_fin')->nullable();
             $table->integer('dias')->nullable();
             $table->integer('referencia_interna')->nullable();
+            $table->integer('anio')->nullable()->index();
 
             // Foreign Key and Indexes
             $table->foreign('dni')->references('dni')->on('agentes')->onDelete('cascade');

@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AgenteController;
 use App\Http\Controllers\LicenciaController;
 use App\Http\Controllers\DesignacionController;
+use App\Http\Controllers\EstablecimientoController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\TrasladosController;
 use App\Http\Controllers\ImportController;
@@ -17,6 +18,9 @@ use App\Http\Controllers\ImportController;
 // Renders the welcome page or redirects if logged in
 Route::get('/', function () {
     if (Auth::check()) {
+        if (Auth::user()->role === 'admin') {
+            return redirect()->route('importar');
+        }
         return redirect()->route('dashboard');
     }
     return Inertia::render('Welcome', [
@@ -34,27 +38,45 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/stats', [DashboardController::class, 'stats']);
 
-    // Agentes
-    Route::get('/agentes', [AgenteController::class, 'index'])->name('agentes');
-    Route::get('/auditoria-unica', [AgenteController::class, 'auditoriaUnicaPage'])->name('auditoria-unica');
+    // Redirects for deprecated views (Hub integration)
+    Route::get('/agentes', function () {
+        return redirect()->route('auditoria', ['tab' => 'agentes']);
+    })->name('agentes');
+
+    Route::get('/auditoria-unica', function () {
+        return redirect()->route('auditoria', ['tab' => 'auditoria-unica']);
+    })->name('auditoria-unica');
+
     Route::get('/auditoria-automatizada', [AgenteController::class, 'auditoriaAutomatizadaPage'])->name('auditoria-automatizada');
     Route::get('/api/agentes', [AgenteController::class, 'search']);
     Route::get('/api/agentes/{dni}', [AgenteController::class, 'detail']);
     Route::get('/api/agentes/{dni}/analisis-local', [AgenteController::class, 'getLocalAnalysis']);
 
-    // Licencias
-    Route::get('/licencias', [LicenciaController::class, 'index'])->name('licencias');
+    // Licencias (Redirect + API)
+    Route::get('/licencias', function () {
+        return redirect()->route('auditoria', ['tab' => 'licencias']);
+    })->name('licencias');
     Route::get('/api/licencias/search', [LicenciaController::class, 'search']);
 
-    // Designaciones
-    Route::get('/designaciones', [DesignacionController::class, 'index'])->name('designaciones');
+    // Designaciones (Redirect + API)
+    Route::get('/designaciones', function () {
+        return redirect()->route('auditoria', ['tab' => 'designaciones']);
+    })->name('designaciones');
     Route::get('/api/designaciones/search', [DesignacionController::class, 'search']);
+
+    // Establecimientos
+    Route::get('/establecimientos', [EstablecimientoController::class, 'index'])->name('establecimientos');
+    Route::get('/api/establecimientos', [EstablecimientoController::class, 'search']);
+    Route::get('/api/establecimientos/filters', [EstablecimientoController::class, 'getFilters']);
+    Route::get('/api/establecimientos/{id}', [EstablecimientoController::class, 'detail']);
 
     // Analytics
     Route::get('/api/analytics/advanced', [AnalyticsController::class, 'advanced']);
 
-    // Traslados y Auditoría
-    Route::get('/traslados', [TrasladosController::class, 'index'])->name('traslados');
+    // Traslados y Auditoría (Redirect + API)
+    Route::get('/traslados', function () {
+        return redirect()->route('auditoria', ['tab' => 'traslados']);
+    })->name('traslados');
     Route::get('/api/traslados/audit', [TrasladosController::class, 'audit']);
 
     // Auditoria view (renders the auditoria component)
@@ -73,7 +95,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::get('/importar', [ImportController::class, 'index'])->name('importar');
     Route::get('/api/imports/history', [ImportController::class, 'history']);
-    Route::post('/api/imports/upload', [ImportController::class, 'upload']);
+    Route::get('/api/imports/stats', [ImportController::class, 'stats']);
+    Route::get('/api/imports/csv-status', [ImportController::class, 'csvStatus']);
+    Route::get('/api/imports/api-status', [ImportController::class, 'apiStatus']);
 });
 
 require __DIR__.'/auth.php';

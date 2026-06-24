@@ -3,6 +3,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const GlobalContext = createContext(undefined);
 
 export const GlobalProvider = ({ children }) => {
+  const [activeYear, setActiveYear] = useState(() => {
+    return localStorage.getItem('activeYear') || '2026';
+  });
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [traslados, setTraslados] = useState(null);
@@ -19,7 +22,7 @@ export const GlobalProvider = ({ children }) => {
       setLoadingStats(true);
     }
     try {
-      const res = await fetch('/api/stats');
+      const res = await fetch(`/api/stats?year=${activeYear}`);
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
@@ -39,7 +42,7 @@ export const GlobalProvider = ({ children }) => {
       setLoadingAnalytics(true);
     }
     try {
-      const res = await fetch('/api/analytics/advanced');
+      const res = await fetch(`/api/analytics/advanced?year=${activeYear}`);
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
@@ -59,7 +62,7 @@ export const GlobalProvider = ({ children }) => {
       setLoadingTraslados(true);
     }
     try {
-      const res = await fetch('/api/traslados/audit');
+      const res = await fetch(`/api/traslados/audit?year=${activeYear}`);
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
@@ -90,12 +93,16 @@ export const GlobalProvider = ({ children }) => {
     ]);
   };
 
+  // Sync year selection to local storage and refresh data on change
   useEffect(() => {
-    fetchStats();
-  }, []);
+    localStorage.setItem('activeYear', activeYear);
+    refreshAll();
+  }, [activeYear]);
 
   return (
     <GlobalContext.Provider value={{
+      activeYear,
+      setActiveYear,
       stats,
       analytics,
       traslados,

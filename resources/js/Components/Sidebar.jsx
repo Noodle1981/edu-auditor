@@ -6,20 +6,16 @@ export const Sidebar = () => {
   const user = props.auth?.user;
   const isAdmin = user && user.role === 'admin';
 
-  const menuItems = [
-    { href: '/dashboard', label: 'Tablero General', icon: 'fa-solid fa-chart-pie' },
-    { href: '/agentes', label: 'Buscar Agentes', icon: 'fa-solid fa-users-rectangle' },
-    { href: '/licencias', label: 'Buscar Licencias', icon: 'fa-solid fa-file-medical' },
-    { href: '/designaciones', label: 'Buscar Designaciones', icon: 'fa-solid fa-briefcase' },
-    { href: '/traslados', label: 'Traslados y Distancias', icon: 'fa-solid fa-map-location-dot' },
-    { href: '/auditoria', label: 'Auditoría', icon: 'fa-solid fa-scale-balanced' },
-    { href: '/auditoria-unica', label: 'Auditoría Única', icon: 'fa-solid fa-file-shield' },
-    { href: '/auditoria-automatizada', label: 'Auditoría Automatizada', icon: 'fa-solid fa-wand-magic-sparkles' },
-  ];
-
-  if (isAdmin) {
-    menuItems.push({ href: '/importar', label: 'Cargar Datos', icon: 'fa-solid fa-cloud-arrow-up' });
-  }
+  const menuItems = isAdmin
+    ? [
+        { href: '/importar', label: 'Cargar Datos', icon: 'fa-solid fa-cloud-arrow-up' }
+      ]
+    : [
+        { href: '/dashboard', label: 'Tablero General', icon: 'fa-solid fa-chart-pie' },
+        { href: '/establecimientos', label: 'Establecimientos', icon: 'fa-solid fa-school' },
+        { href: '/auditoria', label: 'Centro de Auditoría', icon: 'fa-solid fa-scale-balanced' },
+        { href: '/auditoria-automatizada', label: 'Auditoría Automatizada', icon: 'fa-solid fa-wand-magic-sparkles' },
+      ];
 
   const isActive = (href) => {
     if (href === '/dashboard') {

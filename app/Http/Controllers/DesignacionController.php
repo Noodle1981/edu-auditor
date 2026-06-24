@@ -28,8 +28,14 @@ class DesignacionController extends Controller
             if ($limit < 1 || $limit > 100) $limit = 20;
             $offset = ($page - 1) * $limit;
 
-            $bindings = [];
-            $whereClause = "WHERE 1=1";
+            $year = (int)$request->input('year');
+            if (!$year) {
+                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM designaciones");
+                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
+            }
+
+            $bindings = [$year];
+            $whereClause = "WHERE anio = ?";
 
             if ($search !== '') {
                 $whereClause .= " AND (dni LIKE ? OR nombre_agente LIKE ? OR legajo LIKE ?)";

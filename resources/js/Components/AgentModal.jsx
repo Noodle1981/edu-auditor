@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGlobal } from '../Context/GlobalContext';
 
 export const AgentModal = () => {
-  const { selectedAgentDni, closeAgentModal } = useGlobal();
+  const { selectedAgentDni, closeAgentModal, activeYear } = useGlobal();
   const [activeTab, setActiveTab] = useState('general');
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -17,7 +17,7 @@ export const AgentModal = () => {
       setLoading(true);
       setActiveTab('general');
       try {
-        const res = await fetch(`/api/agentes/${selectedAgentDni}`);
+        const res = await fetch(`/api/agentes/${selectedAgentDni}?year=${activeYear}`);
         const data = await res.json();
         setProfile(data);
       } catch (e) {
@@ -28,7 +28,7 @@ export const AgentModal = () => {
     };
 
     fetchAgentDetails();
-  }, [selectedAgentDni]);
+  }, [selectedAgentDni, activeYear]);
 
   if (!selectedAgentDni) return null;
 
@@ -161,10 +161,10 @@ export const AgentModal = () => {
                       { label: 'Documento (DNI)', value: profile.dni, icon: 'fa-solid fa-id-card' },
                       { label: 'Número Legajo', value: profile.legajo || 'S/D', icon: 'fa-solid fa-user-tag' },
                       { label: 'Género', value: profile.genero === 'F' ? 'Femenino' : 'Masculino', icon: 'fa-solid fa-venus-mars' },
-                      { label: 'Cargos Activos', value: `${profile.cargos_count} cargos`, icon: 'fa-solid fa-briefcase' },
+                      { label: 'Carga Activa (Jerga)', value: profile.jerga_activa || `${profile.cargos_count} cargos`, icon: 'fa-solid fa-briefcase' },
                       {
-                        label: 'Carga Horaria',
-                        value: profile.total_horas_catedra > 0 ? `${profile.total_horas_catedra} Hs Cátedra` : '0 Hs (Planta)',
+                        label: 'Carga Total Registrada',
+                        value: profile.jerga_total || `${profile.total_horas_catedra} Hs Cátedra`,
                         icon: 'fa-solid fa-clock'
                       },
                     ].map((item) => (
@@ -224,18 +224,18 @@ export const AgentModal = () => {
                       <p className="text-xs leading-relaxed font-semibold">
                         {profile.auditoria?.status_auditoria === 'exceso_justificado' ? (
                           <>
-                            El agente acumula <strong>{profile.total_horas_catedra} horas registradas</strong>, superando el límite de 50 hs, pero cuenta con licencias vigentes hoy (<strong>{profile.auditoria.licencias_activas?.map((l) => l.tipo_licencia).join(', ') || ''}</strong>). Carga activa neta: <strong>{profile.auditoria.horas_activas_netas} hs</strong>.
+                            El agente registra una carga total de <strong>{profile.jerga_total}</strong>, superando los límites, pero cuenta con licencias vigentes hoy (<strong>{profile.auditoria.licencias_activas?.map((l) => l.tipo_licencia).join(', ') || ''}</strong>). Carga activa neta: <strong>{profile.jerga_activa}</strong>.
                           </>
                         ) : profile.auditoria?.status_auditoria === 'incompatibilidad_critica' ? (
                           <>
-                            El docente acumula un total de <strong>{profile.total_horas_catedra} Horas Cátedra</strong> activas, lo cual <span className="text-red-700 font-bold">supera el tope legal de 50 horas</span> sin licencias registradas hoy. Requiere citación de urgencia para regularización de cargos.
+                            El docente acumula una carga activa neta de <strong>{profile.jerga_activa}</strong>, lo cual <span className="text-red-700 font-bold">supera el tope legal</span> sin licencias registradas hoy. Requiere citación de urgencia para regularización de cargos.
                           </>
                         ) : profile.auditoria?.alerta_multi_cargo ? (
                           <>
-                            El agente se desempeña en <strong>{profile.cargos_count} cargos activos</strong> dentro de los límites horarios estatutarios. Carga horaria activa: <strong>{profile.total_horas_catedra} hs</strong>.
+                            El agente se desempeña en <strong>{profile.jerga_activa}</strong> dentro de los límites horarios estatutarios.
                           </>
                         ) : (
-                          <>Agente con cargo único y situación regularizada. Carga horaria activa: <strong>{profile.total_horas_catedra} hs</strong>.</>
+                          <>Agente con situación regularizada. Carga activa neta: <strong>{profile.jerga_activa}</strong>.</>
                         )}
                       </p>
                     </div>
@@ -260,8 +260,10 @@ export const AgentModal = () => {
                             <th className="px-6 py-4">CUE</th>
                             <th className="px-6 py-4">CUPOF</th>
                             <th className="px-6 py-4">Cargo / Asignatura</th>
+                            <th className="px-6 py-4 text-center">Horas (Equiv.)</th>
                             <th className="px-6 py-4">Turno</th>
                             <th className="px-6 py-4">Revista</th>
+                            <th className="px-6 py-4">Cobertura / Suplente</th>
                             <th className="px-6 py-4">Alta</th>
                           </tr>
                         </thead>
@@ -271,12 +273,22 @@ export const AgentModal = () => {
                               <td className="px-6 py-4 max-w-[200px] truncate" title={c.establecimiento}>{c.establecimiento}</td>
                               <td className="px-6 py-4 font-bold text-gray-900">{c.cue || '-'}</td>
                               <td className="px-6 py-4 font-mono text-[10px] text-gray-400">{c.cupof}</td>
-                              <td className="px-6 py-4">
-                                {c.cargo_horas}{' '}
-                                {c.horas_catedra > 0 && (
-                                  <span className="text-[9px] px-2 py-0.5 rounded bg-cyan-50 border border-cyan-100 text-cyan-600 font-bold ml-1">
-                                    {c.horas_catedra} Hs
+                              <td className="px-6 py-4">{c.cargo_horas}</td>
+                              <td className="px-6 py-4 text-center font-black text-gray-900">
+                                {c.dato_faltante ? (
+                                  <span className="flex flex-col items-center gap-0.5">
+                                    <span className="text-gray-400 text-[10px]">—</span>
+                                    <span className="block text-[8px] text-gray-400 font-bold leading-none">Dato incompleto</span>
                                   </span>
+                                ) : (
+                                  <>
+                                    {c.horas_equivalentes ?? c.horas_catedra ?? 0} Hs.
+                                    {c.etiqueta_equivalencia && c.etiqueta_equivalencia !== 'Horas Cátedra' && (
+                                      <span className="block text-[8px] text-[#FE8204] font-bold mt-1 leading-none">
+                                        {c.etiqueta_equivalencia}
+                                      </span>
+                                    )}
+                                  </>
                                 )}
                               </td>
                               <td className="px-6 py-4">{c.turno || 'S/D'}</td>
@@ -290,6 +302,29 @@ export const AgentModal = () => {
                                 >
                                   {c.situacion_revista}
                                 </span>
+                              </td>
+                              <td className="px-6 py-4 leading-normal">
+                                {c.estado_cobertura === 'cubierto_suplente' ? (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[9px] font-black uppercase tracking-wider max-w-max">
+                                      Cubierto por Suplente
+                                    </span>
+                                    <span className="text-[10px] text-gray-900 font-black">
+                                      {c.suplente_nombre}
+                                    </span>
+                                    <span className="text-[9px] text-gray-400 font-mono font-bold">
+                                      DNI: {c.suplente_dni}
+                                    </span>
+                                  </div>
+                                ) : c.estado_cobertura === 'licencia_sin_suplente_db' ? (
+                                  <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-[9px] font-black uppercase tracking-wider">
+                                    Licenciado sin Suplente DB
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded text-[9px] font-black uppercase tracking-wider">
+                                    Activo frente a alumnos
+                                  </span>
+                                )}
                               </td>
                               <td className="px-6 py-4">{c.fecha_alta || 'S/D'}</td>
                             </tr>

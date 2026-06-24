@@ -43,9 +43,10 @@ def safe_open_csv(csv_path):
             return f.readlines()
 
 def get_db_connection(db_path):
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=30.0)
     # Enable foreign keys
     conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA journal_mode = WAL;")
     return conn
 
 def safe_db_close(conn, success=True):

@@ -31,6 +31,7 @@ return new class extends Migration
             $table->string('norma_legal')->nullable();
             $table->text('observaciones')->nullable();
             $table->string('control_id')->nullable();
+            $table->integer('anio')->nullable()->index();
 
             // Foreign Key and Indexes
             $table->foreign('dni')->references('dni')->on('agentes')->onDelete('cascade');

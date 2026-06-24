@@ -10,7 +10,7 @@ class ImportLog extends Model
     protected $table = 'import_logs';
 
     protected $fillable = [
-        'filename', 'status', 'records_count', 'started_at', 'completed_at', 'error_message', 'user_id'
+        'filename', 'status', 'records_count', 'started_at', 'completed_at', 'error_message', 'user_id', 'anio'
     ];
 
     protected $casts = [

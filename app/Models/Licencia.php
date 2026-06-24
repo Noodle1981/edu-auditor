@@ -14,7 +14,7 @@ class Licencia extends Model
     protected $fillable = [
         'id_tramite', 'fecha_carga', 'nombre_agente', 'dni', 'genero',
         'tipo_licencia', 'documento_respaldo', 'fecha_inicio', 'fecha_fin',
-        'dias', 'referencia_interna'
+        'dias', 'referencia_interna', 'anio'
     ];
 
     public function agente(): BelongsTo
