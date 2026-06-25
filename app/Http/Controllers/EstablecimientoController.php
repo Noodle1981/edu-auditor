@@ -255,7 +255,9 @@ class EstablecimientoController extends Controller
             // Fetch establishment details
             $est = DB::selectOne("
                 SELECT e.*, ed.cui, ed.calle, ed.numero_puerta, ed.codigo_postal, ed.localidad, 
-                       ed.zona_departamento, ed.latitud, ed.longitud, ed.te_voip, ed.letra_zona
+                       ed.zona_departamento, ed.latitud, ed.longitud, ed.te_voip, ed.letra_zona,
+                       ed.punto_partida, ed.dist_circunf, ed.radio_circ, ed.distancia_camino, 
+                       ed.radio_camino, ed.tiempo_google_auto, ed.observacion
                 FROM establecimientos e
                 LEFT JOIN edificios ed ON e.edificio_id = ed.id
                 WHERE e.id = ? AND e.deleted_at IS NULL

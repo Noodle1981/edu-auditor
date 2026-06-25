@@ -13,6 +13,7 @@ export const Sidebar = () => {
     : [
         { href: '/dashboard', label: 'Tablero General', icon: 'fa-solid fa-chart-pie' },
         { href: '/establecimientos', label: 'Establecimientos', icon: 'fa-solid fa-school' },
+        { href: '/mapa', label: 'Mapa Escolar', icon: 'fa-solid fa-map-location-dot' },
         { href: '/auditoria', label: 'Centro de Auditoría', icon: 'fa-solid fa-scale-balanced' },
         { href: '/auditoria-automatizada', label: 'Auditoría Automatizada', icon: 'fa-solid fa-wand-magic-sparkles' },
       ];
@@ -26,36 +27,30 @@ export const Sidebar = () => {
 
   return (
     <div className="w-[72px] shrink-0 h-screen no-print relative">
-      <aside className="w-[72px] hover:w-64 bg-gradient-to-b from-[#FE8204] to-[#ff5e00] border-r border-[#ff5e00]/10 flex flex-col h-screen fixed top-0 left-0 z-30 transition-all duration-300 ease-in-out group overflow-x-hidden shadow-md">
+      <aside className="w-[72px] bg-gradient-to-b from-[#FE8204] to-[#ff5e00] border-r border-[#ff5e00]/10 flex flex-col h-screen fixed top-0 left-0 z-30 shadow-md">
         {/* Sidebar Logo */}
-        <div className="p-3 border-b border-white/10 flex items-center gap-3">
+        <div className="p-3 border-b border-white/10 flex items-center justify-center">
           <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#FE8204] shadow-md shrink-0">
             <i className="fa-solid fa-graduation-cap text-2xl"></i>
-          </div>
-          <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap select-none">
-            <span className="text-xl font-black text-white tracking-tight leading-none">SIAME</span>
-            <span className="text-[10px] text-white/70 font-bold uppercase tracking-widest mt-1.5 leading-snug">
-              Sistema de Agentes
-            </span>
           </div>
         </div>
 
         {/* Sidebar Navigation */}
-        <nav className="flex-1 px-3 py-6 flex flex-col gap-1.5 overflow-y-auto custom-scrollbar overflow-x-hidden">
+        <nav className="flex-1 px-3 py-6 flex flex-col gap-1.5 overflow-y-auto custom-scrollbar overflow-x-hidden items-center">
           {menuItems.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-4 px-[14px] py-4 rounded-2xl text-sm font-semibold transition-all duration-300 cursor-pointer border ${
+                title={item.label}
+                className={`flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-300 cursor-pointer border ${
                   active
                     ? 'bg-white/20 text-white border-white/10 shadow-sm font-bold'
                     : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent'
                 }`}
               >
-                <i className={`${item.icon} text-lg transition-transform shrink-0 w-5 text-center ${active ? 'scale-110 text-white' : 'text-white/60'}`}></i>
-                <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap select-none">{item.label}</span>
+                <i className={`${item.icon} text-lg transition-transform ${active ? 'scale-110 text-white' : 'text-white/60'}`}></i>
               </Link>
             );
           })}

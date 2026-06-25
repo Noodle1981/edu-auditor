@@ -5,7 +5,7 @@ import sys
 # Get project root folder
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
-src_db_path = os.path.join(base_dir, "_old_database", "establecimientos.sqlite")
+src_db_path = os.path.join(base_dir, "database", "establecimientos.sqlite")
 dest_db_path = os.path.join(base_dir, "database", "database.sqlite")
 
 print("Starting School Database Seeding Process...")

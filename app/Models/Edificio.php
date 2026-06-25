@@ -14,7 +14,8 @@ class Edificio extends Model
 
     protected $fillable = [
         'cui', 'calle', 'numero_puerta', 'orientacion', 'codigo_postal',
-        'localidad', 'latitud', 'longitud', 'letra_zona', 'zona_departamento', 'te_voip'
+        'localidad', 'latitud', 'longitud', 'letra_zona', 'zona_departamento', 'te_voip',
+        'punto_partida', 'dist_circunf', 'radio_circ', 'distancia_camino', 'radio_camino', 'tiempo_google_auto', 'observacion'
     ];
 
     public function establecimientos(): HasMany

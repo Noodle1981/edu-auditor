@@ -14,6 +14,7 @@ use App\Http\Controllers\EstablecimientoController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\TrasladosController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\MapaController;
 
 // Renders the welcome page or redirects if logged in
 Route::get('/', function () {
@@ -69,6 +70,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/establecimientos', [EstablecimientoController::class, 'search']);
     Route::get('/api/establecimientos/filters', [EstablecimientoController::class, 'getFilters']);
     Route::get('/api/establecimientos/{id}', [EstablecimientoController::class, 'detail']);
+
+    // Mapa Escolar
+    Route::get('/mapa', [MapaController::class, 'index'])->name('mapa');
 
     // Analytics
     Route::get('/api/analytics/advanced', [AnalyticsController::class, 'advanced']);

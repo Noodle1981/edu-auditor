@@ -328,7 +328,8 @@ const Establecimientos = () => {
                       <th className="px-6 py-4">Escuela / CUE</th>
                       <th className="px-6 py-4">Ubicación</th>
                       {!selectedEstId && <th className="px-6 py-4">Modalidades</th>}
-                      <th className="px-6 py-4 text-center">Plazas / Agentes</th>
+                      <th className="px-6 py-4 text-center">Plazas</th>
+                      <th className="px-6 py-4 text-center">Agentes</th>
                       <th className="px-6 py-4 text-center">Cobertura</th>
                       <th className="px-6 py-4 text-center">Agentes de Más</th>
                       <th className="px-6 py-4 text-right">Detalle</th>
@@ -337,14 +338,14 @@ const Establecimientos = () => {
                   <tbody className="divide-y divide-gray-50 text-xs font-semibold text-gray-650">
                     {loading ? (
                       <tr>
-                        <td colSpan={selectedEstId ? 6 : 7} className="px-6 py-20 text-center text-gray-400">
+                        <td colSpan={selectedEstId ? 7 : 8} className="px-6 py-20 text-center text-gray-400">
                           <i className="fa-solid fa-spinner fa-spin text-2xl text-[#FE8204] mb-2"></i>
                           <p className="font-bold text-[10px] uppercase tracking-widest">Cargando escuelas...</p>
                         </td>
                       </tr>
                     ) : establecimientos.length === 0 ? (
                       <tr>
-                        <td colSpan={selectedEstId ? 6 : 7} className="px-6 py-20 text-center text-gray-400">
+                        <td colSpan={selectedEstId ? 7 : 8} className="px-6 py-20 text-center text-gray-400">
                           <i className="fa-solid fa-folder-open text-3xl text-gray-300 mb-2"></i>
                           <p className="font-bold text-[10px] uppercase tracking-widest">No se encontraron establecimientos</p>
                         </td>
@@ -398,10 +399,10 @@ const Establecimientos = () => {
                               </td>
                             )}
                             <td className="px-6 py-4 text-center">
-                              <div className="flex flex-col items-center">
-                                <span className="font-black text-gray-900 text-sm">{est.cupof_count}</span>
-                                <span className="text-[10px] text-gray-400 font-bold tracking-wider mt-0.5">PON: {est.agent_count}</span>
-                              </div>
+                              <span className="font-black text-gray-900 text-sm">{est.cupof_count}</span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="font-black text-gray-900 text-sm">{est.agent_count}</span>
                             </td>
                             <td className="px-6 py-4 text-center">
                               <div className="flex flex-col items-center gap-1">
@@ -535,6 +536,53 @@ const Establecimientos = () => {
                       </div>
                     </div>
 
+                    {/* Radios y Georreferencia Oficial (Excel) */}
+                    {estDetail.establecimiento.punto_partida && (
+                      <div className="bg-gray-50/40 p-4 rounded-2xl border border-gray-100 flex flex-col gap-3">
+                        <h4 className="text-[10px] text-gray-450 font-black uppercase tracking-widest flex items-center gap-1.5">
+                          <i className="fa-solid fa-map-location-dot text-[#FE8204]"></i> Radios y Georreferencia Oficial
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs font-semibold">
+                          <div className="flex flex-col bg-white p-3 rounded-xl border border-gray-100/50 shadow-sm">
+                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Km 0 / Origen</span>
+                            <span className="text-gray-800 mt-1 uppercase text-[10px] truncate" title={estDetail.establecimiento.punto_partida}>
+                              {estDetail.establecimiento.punto_partida}
+                            </span>
+                          </div>
+                          
+                          <div className="flex flex-col bg-white p-3 rounded-xl border border-gray-100/50 shadow-sm">
+                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Distancia Camino</span>
+                            <span className="text-gray-900 mt-1 font-black text-[11px]">
+                              {estDetail.establecimiento.distancia_camino ? `${parseFloat(estDetail.establecimiento.distancia_camino).toFixed(1)} km` : 'S/D'}{' '}
+                              {estDetail.establecimiento.tiempo_google_auto && (
+                                <span className="text-gray-400 font-normal">({estDetail.establecimiento.tiempo_google_auto})</span>
+                              )}
+                            </span>
+                          </div>
+                          
+                          <div className="flex flex-col bg-white p-3 rounded-xl border border-gray-100/50 shadow-sm">
+                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Radio Camino</span>
+                            <span className="text-gray-900 mt-1 font-black text-[11px]">
+                              Radio {estDetail.establecimiento.radio_camino || 'S/D'}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-col bg-white p-3 rounded-xl border border-gray-100/50 shadow-sm">
+                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Línea Recta (Circ)</span>
+                            <span className="text-gray-900 mt-1 font-black text-[11px]">
+                              {estDetail.establecimiento.dist_circunf ? `${parseFloat(estDetail.establecimiento.dist_circunf).toFixed(1)} km` : 'S/D'}{' '}
+                              <span className="text-gray-450 font-semibold">(Rad {estDetail.establecimiento.radio_circ || 'S/D'})</span>
+                            </span>
+                          </div>
+                        </div>
+                        {estDetail.establecimiento.observacion && (
+                          <div className="text-[10px] text-gray-500 bg-amber-50/50 p-2.5 rounded-lg border border-amber-100/50 italic leading-snug">
+                            <strong>Observación:</strong> {estDetail.establecimiento.observacion}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Modalities List */}
                     {estDetail.establecimiento.modalidades && estDetail.establecimiento.modalidades.length > 0 && (
                       <div>
@@ -560,8 +608,21 @@ const Establecimientos = () => {
                                       <span className="text-[10px] text-gray-400">{mod.nivel_educativo} | Sector: {mod.sector || 'S/D'}</span>
                                     </div>
                                   </td>
-                                  <td className="px-4 py-3 text-center text-gray-800 font-black">
-                                    Radio {mod.radio ? parseFloat(mod.radio) : 'S/D'}
+                                  <td className="px-4 py-3">
+                                    <div className="flex flex-col items-center">
+                                      <span className="text-gray-950 font-bold">
+                                        Radio {mod.radio ? parseFloat(mod.radio) : 'S/D'}
+                                      </span>
+                                      {mod.radio_sige !== null && mod.radio_sige !== undefined && (
+                                        <span className={`text-[8.5px] font-black uppercase mt-1 px-1.5 py-0.5 rounded ${
+                                          parseFloat(mod.radio) !== parseFloat(mod.radio_sige)
+                                            ? 'text-red-700 bg-red-50 border border-red-100 animate-pulse'
+                                            : 'text-gray-400 bg-gray-50 border border-gray-100'
+                                        }`}>
+                                          SiGE: {mod.radio_sige}
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="px-4 py-3 text-gray-500 text-[10px] max-w-[150px] truncate" title={mod.inst_legal_creacion}>
                                     {mod.inst_legal_creacion || 'Sin Instrumento'}
