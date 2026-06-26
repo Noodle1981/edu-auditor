@@ -12,7 +12,6 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { memo, useCallback, useEffect, useState } from 'react';
 import {
-    CircleMarker,
     GeoJSON,
     MapContainer,
     useMap,
@@ -142,6 +141,22 @@ export const getEdificioStatus = (edificio) => {
     });
 
     return status;
+};
+
+export const getEdificioRadioString = (edificio) => {
+    const radios = new Set();
+    (edificio.establecimientos || []).forEach((est) => {
+        (est.modalidades || []).forEach((mod) => {
+            const r = mod.radio;
+            if (r !== null && r !== undefined && r !== 'N/A' && r !== '') {
+                radios.add(String(r).trim());
+            }
+        });
+    });
+    const sorted = Array.from(radios).sort((a, b) => 
+        String(a).localeCompare(String(b), undefined, { numeric: true })
+    );
+    return sorted.join('/');
 };
 
 // --- Internal sub-components ---
@@ -331,21 +346,41 @@ export default function MapView({
                 {(() => {
                     const activePlaza = getActivePlaza(selectedEdificio?.punto_partida);
                     if (!activePlaza) return null;
-                    return activePlaza.radios.map((r, i) => (
-                        <Circle
-                            key={`circle-${activePlaza.name}-${r.radio}-${i}`}
-                            center={[activePlaza.lat, activePlaza.lng]}
-                            radius={r.limit}
-                            pathOptions={{
-                                color: activePlaza.color,
-                                weight: 1.2,
-                                dashArray: '4, 8',
-                                fillColor: r.color,
-                                fillOpacity: 0.015,
-                                interactive: false
-                            }}
-                        />
-                    ));
+
+                    // Extract assigned radios for the selected school
+                    const selectedRadios = new Set();
+                    if (selectedEdificio && selectedEdificio.establecimientos) {
+                        selectedEdificio.establecimientos.forEach((est) => {
+                            (est.modalidades || []).forEach((mod) => {
+                                const r = mod.radio;
+                                if (r !== null && r !== undefined && r !== 'N/A' && r !== '') {
+                                    const parsed = parseInt(r);
+                                    if (!isNaN(parsed)) {
+                                        selectedRadios.add(parsed);
+                                    }
+                                }
+                            });
+                        });
+                    }
+
+                    return activePlaza.radios.map((r, i) => {
+                        const isSelectedRadio = selectedRadios.has(r.radio);
+                        return (
+                            <Circle
+                                key={`circle-${activePlaza.name}-${r.radio}-${i}`}
+                                center={[activePlaza.lat, activePlaza.lng]}
+                                radius={r.limit}
+                                pathOptions={{
+                                    color: isSelectedRadio ? '#FE8204' : activePlaza.color,
+                                    weight: isSelectedRadio ? 3.0 : 1.2,
+                                    dashArray: isSelectedRadio ? null : '4, 8',
+                                    fillColor: r.color,
+                                    fillOpacity: isSelectedRadio ? 0.08 : 0.015,
+                                    interactive: false
+                                }}
+                            />
+                        );
+                    });
                 })()}
 
                 {/* Line connecting school to its Plaza */}
@@ -411,31 +446,39 @@ export default function MapView({
                                 ? '#10B981' // Green for matching public
                                 : '#3B82F6'; // Blue for private
                     
+                    const isHoveredOrSelected = hoveredEdificioId === edificio.id || selectedEdificio?.id === edificio.id;
+                    const radioStr = getEdificioRadioString(edificio);
+                    const size = isHoveredOrSelected ? 30 : 20;
+                    const width = radioStr.length > 2 ? (isHoveredOrSelected ? 42 : 28) : size;
+                    const fontSize = isHoveredOrSelected 
+                        ? (radioStr.length > 2 ? '10px' : '13px')
+                        : (radioStr.length > 2 ? '8px' : '10px');
+
+                    const customIcon = L.divIcon({
+                        html: `
+                            <div class="flex items-center justify-center rounded-full font-black text-white border-2 border-white shadow-md transition-all duration-200 cursor-pointer"
+                                 style="
+                                    background-color: ${markerColor};
+                                    width: 100%;
+                                    height: 100%;
+                                    font-size: ${fontSize};
+                                    line-height: 1;
+                                    box-sizing: border-box;
+                                 "
+                            >
+                                ${radioStr}
+                            </div>
+                        `,
+                        className: 'custom-school-icon',
+                        iconSize: [width, size],
+                        iconAnchor: [width / 2, size / 2],
+                    });
+                    
                     return (
-                        <CircleMarker
-                            key={edificio.id}
-                            pane="markerPane"
-                            center={[edificio.latitud, edificio.longitud]}
-                            radius={
-                                hoveredEdificioId === edificio.id ||
-                                selectedEdificio?.id === edificio.id
-                                    ? 14
-                                    : 9
-                            }
-                            pathOptions={{
-                                fillColor: markerColor,
-                                color: 'white',
-                                weight:
-                                    hoveredEdificioId === edificio.id ||
-                                    selectedEdificio?.id === edificio.id
-                                        ? 4
-                                        : 2,
-                                fillOpacity:
-                                    hoveredEdificioId === edificio.id ||
-                                    selectedEdificio?.id === edificio.id
-                                        ? 1
-                                        : 0.8,
-                            }}
+                        <Marker
+                            key={`${edificio.id}-${isHoveredOrSelected ? 'active' : 'inactive'}`}
+                            position={[edificio.latitud, edificio.longitud]}
+                            icon={customIcon}
                             eventHandlers={{
                                 click: (e) => {
                                     L.DomEvent.stopPropagation(e);
