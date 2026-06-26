@@ -382,13 +382,14 @@ export default function MapView({
 
                     const offsetLatDegree = 111320;
                     const offsetLngDegree = 111320 * Math.cos(activePlaza.lat * Math.PI / 180);
-                    const elements = [];
+                    const circles = [];
+                    const labels = [];
 
-                    activePlaza.radios.forEach((r, idx) => {
+                    // Render circles in descending order (largest first) so smaller ones overlay larger ones
+                    const descRadios = [...activePlaza.radios].sort((a, b) => b.limit - a.limit);
+                    descRadios.forEach((r, idx) => {
                         const isSelectedRadio = selectedRadios.has(r.radio);
-                        
-                        // Add Circle
-                        elements.push(
+                        circles.push(
                             <Circle
                                 key={`circle-${activePlaza.name}-${r.radio}-${idx}`}
                                 center={[activePlaza.lat, activePlaza.lng]}
@@ -403,8 +404,11 @@ export default function MapView({
                                 }}
                             />
                         );
+                    });
 
-                        // Add 4 cardinal markers
+                    // Render labels last so they are always on top
+                    activePlaza.radios.forEach((r, idx) => {
+                        const isSelectedRadio = selectedRadios.has(r.radio);
                         const offsetLat = r.limit / offsetLatDegree;
                         const offsetLng = r.limit / offsetLngDegree;
                         const labelText = `R${r.radio}`;
@@ -446,7 +450,7 @@ export default function MapView({
                                 iconAnchor: [15, 9],
                             });
 
-                            elements.push(
+                            labels.push(
                                 <Marker
                                     key={`label-${activePlaza.name}-${r.radio}-${p.dir}-${pIdx}`}
                                     position={[p.lat, p.lng]}
@@ -457,7 +461,7 @@ export default function MapView({
                         });
                     });
 
-                    return elements;
+                    return [...circles, ...labels];
                 })()}
 
                 {/* Line connecting school to its Plaza */}
