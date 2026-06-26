@@ -672,30 +672,47 @@ export default function Mapa({ edificios = [] }) {
 
                                                                 {/* Spatial Audit */}
                                                                 {(() => {
-                                                                    const thRadio = getTheoreticalRadio(selectedEdificio.punto_partida, selectedEdificio.dist_circunf);
-                                                                    if (!thRadio) return null;
-                                                                    
-                                                                    const sysRadioRaw = mod.radio_sige || mod.radio;
-                                                                    const s = (sysRadioRaw && sysRadioRaw !== 'N/A') ? parseInt(sysRadioRaw) : null;
-                                                                    const circ = selectedEdificio.radio_circ ? parseInt(selectedEdificio.radio_circ) : null;
-                                                                    const camino = selectedEdificio.radio_camino ? parseInt(selectedEdificio.radio_camino) : null;
-                                                                    
-                                                                    let modStatus = 'DISTINTO';
-                                                                    if (s === null) {
-                                                                        modStatus = 'COINCIDE';
-                                                                    } else {
-                                                                        const matchesCirc = circ !== null && s === circ;
-                                                                        const matchesCamino = camino !== null && s === camino;
-                                                                        if (matchesCirc || matchesCamino) {
-                                                                            modStatus = 'COINCIDE';
-                                                                        } else {
-                                                                            const greaterThanCirc = circ === null || s > circ;
-                                                                            const greaterThanCamino = camino === null || s > camino;
-                                                                            if (greaterThanCirc && greaterThanCamino) {
-                                                                                modStatus = 'INCONGRUENTE';
-                                                                            }
-                                                                        }
-                                                                    }
+                                                                     const thRadio = getTheoreticalRadio(selectedEdificio.punto_partida, selectedEdificio.dist_circunf);
+                                                                     if (!thRadio) return null;
+                                                                     
+                                                                     const sysRadioRaw = mod.radio_sige || mod.radio;
+                                                                     const s = (sysRadioRaw && sysRadioRaw !== 'N/A' && sysRadioRaw !== '') ? parseInt(sysRadioRaw) : null;
+                                                                     const circ = selectedEdificio.radio_circ ? parseInt(selectedEdificio.radio_circ) : null;
+                                                                     const camino = selectedEdificio.radio_camino ? parseInt(selectedEdificio.radio_camino) : null;
+                                                                     
+                                                                     const hasCirc = circ !== null && !isNaN(circ);
+                                                                     const hasCamino = camino !== null && !isNaN(camino);
+
+                                                                     let modStatus = 'COINCIDE';
+
+                                                                     if (s === null || isNaN(s)) {
+                                                                         modStatus = 'COINCIDE';
+                                                                     } else {
+                                                                         if (hasCirc && hasCamino) {
+                                                                             const matchesCirc = s === circ;
+                                                                             const matchesCamino = s === camino;
+
+                                                                             if (matchesCirc && matchesCamino) {
+                                                                                 modStatus = 'COINCIDE';
+                                                                             } else if (matchesCirc || matchesCamino) {
+                                                                                 modStatus = 'INCONGRUENTE';
+                                                                             } else {
+                                                                                 modStatus = 'DISTINTO';
+                                                                             }
+                                                                         } else if (hasCirc) {
+                                                                             if (s === circ) {
+                                                                                 modStatus = 'COINCIDE';
+                                                                             } else {
+                                                                                 modStatus = 'DISTINTO';
+                                                                             }
+                                                                         } else if (hasCamino) {
+                                                                             if (s === camino) {
+                                                                                 modStatus = 'COINCIDE';
+                                                                             } else {
+                                                                                 modStatus = 'DISTINTO';
+                                                                             }
+                                                                         }
+                                                                     }
 
                                                                     if (modStatus === 'COINCIDE') {
                                                                         return (

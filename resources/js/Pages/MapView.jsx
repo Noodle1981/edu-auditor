@@ -109,33 +109,48 @@ export const getEdificioStatus = (edificio) => {
     (edificio.establecimientos || []).forEach((est) => {
         (est.modalidades || []).forEach((mod) => {
             const sysRadioRaw = mod.radio_sige || mod.radio;
-            if (sysRadioRaw === null || sysRadioRaw === undefined || sysRadioRaw === 'N/A') return;
+            if (sysRadioRaw === null || sysRadioRaw === undefined || sysRadioRaw === 'N/A' || sysRadioRaw === '') return;
             
             const s = parseInt(sysRadioRaw);
+            if (isNaN(s)) return;
+
             const circ = edificio.radio_circ ? parseInt(edificio.radio_circ) : null;
             const camino = edificio.radio_camino ? parseInt(edificio.radio_camino) : null;
             
-            if (circ === null && camino === null) return;
-            
-            const matchesCirc = circ !== null && s === circ;
-            const matchesCamino = camino !== null && s === camino;
-            
-            if (matchesCirc || matchesCamino) {
-                return;
+            const hasCirc = circ !== null && !isNaN(circ);
+            const hasCamino = camino !== null && !isNaN(camino);
+
+            let modStatus = 'COINCIDE';
+
+            if (hasCirc && hasCamino) {
+                const matchesCirc = s === circ;
+                const matchesCamino = s === camino;
+
+                if (matchesCirc && matchesCamino) {
+                    modStatus = 'COINCIDE';
+                } else if (matchesCirc || matchesCamino) {
+                    modStatus = 'INCONGRUENTE';
+                } else {
+                    modStatus = 'DISTINTO';
+                }
+            } else if (hasCirc) {
+                if (s === circ) {
+                    modStatus = 'COINCIDE';
+                } else {
+                    modStatus = 'DISTINTO';
+                }
+            } else if (hasCamino) {
+                if (s === camino) {
+                    modStatus = 'COINCIDE';
+                } else {
+                    modStatus = 'DISTINTO';
+                }
             }
-            
-            const greaterThanCirc = circ === null || s > circ;
-            const greaterThanCamino = camino === null || s > camino;
-            
-            let modStatus = 'DISTINTO';
-            if (greaterThanCirc && greaterThanCamino) {
-                modStatus = 'INCONGRUENTE';
-            }
-            
-            if (modStatus === 'INCONGRUENTE') {
-                status = 'INCONGRUENTE';
-            } else if (modStatus === 'DISTINTO' && status !== 'INCONGRUENTE') {
+
+            if (modStatus === 'DISTINTO') {
                 status = 'DISTINTO';
+            } else if (modStatus === 'INCONGRUENTE' && status !== 'DISTINTO') {
+                status = 'INCONGRUENTE';
             }
         });
     });
