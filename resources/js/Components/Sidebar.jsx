@@ -11,16 +11,14 @@ export const Sidebar = () => {
         { href: '/importar', label: 'Cargar Datos', icon: 'fa-solid fa-cloud-arrow-up' }
       ]
     : [
-        { href: '/dashboard', label: 'Tablero General', icon: 'fa-solid fa-chart-pie' },
         { href: '/establecimientos', label: 'Establecimientos', icon: 'fa-solid fa-school' },
         { href: '/mapa', label: 'Mapa Escolar', icon: 'fa-solid fa-map-location-dot' },
-        { href: '/auditoria', label: 'Centro de Auditoría', icon: 'fa-solid fa-scale-balanced' },
         { href: '/auditoria-automatizada', label: 'Auditoría Automatizada', icon: 'fa-solid fa-wand-magic-sparkles' },
       ];
 
   const isActive = (href) => {
-    if (href === '/dashboard') {
-      return url === '/dashboard' || url === '/';
+    if (href === '/mapa') {
+      return url === '/mapa' || url === '/';
     }
     return url === href || url.startsWith(`${href}/`) || url.startsWith(`${href}?`) || url.startsWith(`${href}#`);
   };

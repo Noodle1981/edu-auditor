@@ -21,7 +21,7 @@ export default function Welcome({ auth }) {
                     <nav className="flex items-center gap-4">
                         {auth.user ? (
                             <Link
-                                href={route('dashboard')}
+                                href={route('mapa')}
                                 className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FE8204] to-[#ff5e00] hover:from-[#ff5e00] hover:to-[#e04f00] text-white text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-md shadow-[#FE8204]/25 hover:shadow-lg active:scale-95 cursor-pointer"
                             >
                                 Ir al Tablero General <i className="fa-solid fa-arrow-right ml-1.5"></i>
@@ -60,7 +60,7 @@ export default function Welcome({ auth }) {
                     <div className="mt-8 flex gap-4">
                         {auth.user ? (
                             <Link
-                                href={route('dashboard')}
+                                href={route('mapa')}
                                 className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#FE8204] to-[#ff5e00] text-white font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-[#FE8204]/20 active:scale-95 cursor-pointer"
                             >
                                 Acceder al Panel

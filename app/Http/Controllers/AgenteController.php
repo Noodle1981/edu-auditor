@@ -11,15 +11,7 @@ class AgenteController extends Controller
 {
     public const MAX_HOURS_THRESHOLD = 50;
 
-    public function index()
-    {
-        return Inertia::render('Agentes');
-    }
 
-    public function auditoriaUnicaPage()
-    {
-        return Inertia::render('AuditoriaUnica');
-    }
 
     public function search(Request $request)
     {
@@ -489,237 +481,7 @@ class AgenteController extends Controller
         }
     }
 
-    public function auditorias()
-    {
-        try {
-            ini_set('memory_limit', '512M');
-            $year = (int)request()->query('year');
-            if (!$year) {
-                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
-                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
-            }
 
-            $maxHoras = self::MAX_HOURS_THRESHOLD;
-            $today = Carbon::today()->setYear($year);
-            $todayStr = $today->format('Y-m-d');
-
-            // 1. Fetch active suplentes map
-            $suplentesByCupof = [];
-            $suplentesRows = DB::select("
-                SELECT ac.cupof, ac.dni, ac.situacion_revista, a.nombre_agente
-                FROM agente_cargos ac
-                LEFT JOIN agentes a ON a.dni = ac.dni
-                WHERE ac.anio = ? AND ac.situacion_revista IN ('SUPLENTE', 'REEMPLAZANTE') AND ac.cupof IS NOT NULL AND ac.cupof != ''
-            ", [$year]);
-            foreach ($suplentesRows as $r) {
-                $suplentesByCupof[$r->cupof] = $r;
-            }
-
-            // 2. Fetch candidates (agents with >1 cargo or hours > threshold)
-            $candidates = DB::select("
-                SELECT a.dni, a.nombre_agente, a.legajo, COUNT(c.id) as cargos_activos, SUM(c.horas_catedra) as total_horas
-                FROM agentes a
-                JOIN agente_cargos c ON a.dni = c.dni
-                WHERE c.anio = ?
-                GROUP BY a.dni, a.nombre_agente, a.legajo
-                HAVING total_horas > ? OR cargos_activos >= 2
-            ", [$year, $maxHoras]);
-
-            // 3. Fetch active licenses (filter by date range)
-            $licenciasRows = DB::select("
-                SELECT id, dni, tipo_licencia, fecha_inicio, fecha_fin
-                FROM licencias
-                WHERE fecha_inicio <= ? AND fecha_fin >= ?
-            ", [$todayStr, $todayStr]);
-            $licenciasByDni = [];
-            foreach ($licenciasRows as $lic) {
-                $licenciasByDni[$lic->dni][] = $lic;
-            }
-
-            // 4. Fetch cargos for candidates
-            $cargosRows = DB::select("
-                SELECT id, dni, centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra, turno, plan_estudio, situacion_revista, norma_legal
-                FROM agente_cargos
-                WHERE anio = ?
-            ", [$year]);
-            $cargosByDni = [];
-            foreach ($cargosRows as $c) {
-                $cargosByDni[$c->dni][] = $c;
-            }
-
-            $excludedLics = array_map([self::class, 'normalizeLicenseName'], self::getExcludedLicenseTypes());
-
-            $excesoHoras = [];
-            $plazasSinCoberturaCount = 0;
-
-            foreach ($candidates as $cand) {
-                $dni = $cand->dni;
-                $cargos = $cargosByDni[$dni] ?? [];
-                
-                // Determine active licenses
-                $agentLics = $licenciasByDni[$dni] ?? [];
-                $activeLics = [];
-                foreach ($agentLics as $lic) {
-                    $start = self::parseAuditDate($lic->fecha_inicio);
-                    $end = self::parseAuditDate($lic->fecha_fin);
-                    if ($start && $end && $start->lte($today) && $today->lte($end)) {
-                        $normDb = self::normalizeLicenseName($lic->tipo_licencia);
-                        if (in_array($normDb, $excludedLics)) {
-                            $activeLics[] = $lic;
-                        }
-                    }
-                }
-                $activeLicCount = count($activeLics);
-
-                // Build cargo audit (using memory map lookup)
-                $cargoAudit = $this->buildCargoAudit($cargos, $year, $suplentesByCupof);
-
-                // Match licenses and suplentes to cargos
-                $cargosWithSuplente = 0;
-                foreach ($cargoAudit as &$ca) {
-                    if ($ca['tiene_suplente']) {
-                        $ca['estado_cobertura'] = 'cubierto_suplente';
-                        $cargosWithSuplente++;
-                    } else {
-                        $ca['estado_cobertura'] = 'pendiente';
-                    }
-                }
-                unset($ca);
-
-                $unmatchedLicsCount = max(0, $activeLicCount - $cargosWithSuplente);
-
-                usort($cargoAudit, function($a, $b) {
-                    if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') return 1;
-                    if ($a['estado_cobertura'] !== 'cubierto_suplente' && $b['estado_cobertura'] === 'cubierto_suplente') return -1;
-                    return $b['horas_equivalentes'] <=> $a['horas_equivalentes'];
-                });
-
-                $matchedFromLicCount = 0;
-                $tieneLicenciaSinSuplente = false;
-                foreach ($cargoAudit as &$ca) {
-                    if ($ca['estado_cobertura'] === 'pendiente') {
-                        if ($matchedFromLicCount < $unmatchedLicsCount) {
-                            $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
-                            $matchedFromLicCount++;
-                            $tieneLicenciaSinSuplente = true;
-                        } else {
-                            $ca['estado_cobertura'] = 'activo';
-                        }
-                    }
-                }
-                unset($ca);
-
-                if ($tieneLicenciaSinSuplente) {
-                    $plazasSinCoberturaCount++;
-                }
-
-                // Sum hours
-                $totalHorasEquiv = 0;
-                $horasCubiertas = 0;
-                $horasActivas = 0;
-
-                foreach ($cargoAudit as $ca) {
-                    $hs = $ca['horas_equivalentes'];
-                    $totalHorasEquiv += $hs;
-                    if ($ca['estado_cobertura'] === 'cubierto_suplente' || $ca['estado_cobertura'] === 'licencia_sin_suplente_db') {
-                        $horasCubiertas += $hs;
-                    } else {
-                        $horasActivas += $hs;
-                    }
-                }
-
-                $jergaInfo = $this->getCargoHorasJergaInfo($cargoAudit);
-
-                // If they have excess hours, add them to excess list
-                if ($horasActivas > $maxHoras) {
-                    $excesoHoras[] = (object)[
-                        'dni' => $dni,
-                        'nombre_agente' => $cand->nombre_agente,
-                        'legajo' => $cand->legajo,
-                        'cargos_activos' => $cand->cargos_activos,
-                        'total_horas' => $totalHorasEquiv, // total with equiv
-                        'horas_activas_netas' => $horasActivas,
-                        'cargos_funcionales_total' => $jergaInfo['cargos_funcionales_total'],
-                        'horas_catedra_total' => $jergaInfo['horas_catedra_total'],
-                        'cargos_funcionales_activo' => $jergaInfo['cargos_funcionales_activo'],
-                        'horas_catedra_activo' => $jergaInfo['horas_catedra_activo'],
-                        'jerga_total' => $jergaInfo['jerga_total'],
-                        'jerga_activa' => $jergaInfo['jerga_activa'],
-                        'tiene_licencia_activa' => !empty($activeLics),
-                        'status_auditoria' => 'incompatibilidad_critica'
-                    ];
-                } elseif ($totalHorasEquiv > $maxHoras && $horasCubiertas > 0) {
-                    $excesoHoras[] = (object)[
-                        'dni' => $dni,
-                        'nombre_agente' => $cand->nombre_agente,
-                        'legajo' => $cand->legajo,
-                        'cargos_activos' => $cand->cargos_activos,
-                        'total_horas' => $totalHorasEquiv, // total with equiv
-                        'horas_activas_netas' => $horasActivas,
-                        'cargos_funcionales_total' => $jergaInfo['cargos_funcionales_total'],
-                        'horas_catedra_total' => $jergaInfo['horas_catedra_total'],
-                        'cargos_funcionales_activo' => $jergaInfo['cargos_funcionales_activo'],
-                        'horas_catedra_activo' => $jergaInfo['horas_catedra_activo'],
-                        'jerga_total' => $jergaInfo['jerga_total'],
-                        'jerga_activa' => $jergaInfo['jerga_activa'],
-                        'tiene_licencia_activa' => !empty($activeLics),
-                        'status_auditoria' => 'exceso_justificado'
-                    ];
-                }
-            }
-
-            // Sort excesoHoras by total_horas DESC
-            usort($excesoHoras, function($a, $b) {
-                return $b->total_horas <=> $a->total_horas;
-            });
-
-            // 2. Multi-cargos (cargos >= 3 and hours = 0)
-            $multiCargos = DB::select("
-                SELECT a.dni, a.nombre_agente, a.legajo, COUNT(c.id) as cargos_activos, SUM(c.horas_catedra) as total_horas
-                FROM agentes a
-                JOIN agente_cargos c ON a.dni = c.dni
-                WHERE c.anio = ?
-                GROUP BY a.dni, a.nombre_agente, a.legajo
-                HAVING cargos_activos >= 3 AND total_horas = 0
-                ORDER BY cargos_activos DESC
-            ", [$year]);
-
-            // 3. Recent licenses
-            $licenciasRecientes = DB::select("
-                SELECT id, dni, nombre_agente, tipo_licencia, fecha_inicio, fecha_fin, dias
-                FROM licencias
-                WHERE anio = ?
-                ORDER BY id DESC
-                LIMIT 15
-            ", [$year]);
-
-            // 4. Metrics calculation for dynamic audit panel
-            $totalAgentes = DB::table('agente_cargos')->where('anio', $year)->distinct()->count('dni');
-            $huerfanosCount = DB::selectOne("
-                SELECT COUNT(DISTINCT a.dni) as count 
-                FROM agentes a 
-                JOIN agente_cargos c ON a.dni = c.dni
-                WHERE c.anio = ? AND (a.legajo IS NULL OR a.legajo = '')
-            ", [$year])->count;
-            $calidadIntegracion = $totalAgentes > 0 ? (1 - ($huerfanosCount / $totalAgentes)) * 100 : 100;
-
-            $totalMultiCargosCount = count($multiCargos);
-
-            return response()->json([
-                'exceso_horas' => $excesoHoras,
-                'multi_cargos_fijos' => $multiCargos,
-                'licencias_recientes' => $licenciasRecientes,
-                'calidad_integracion' => round($calidadIntegracion, 2),
-                'huerfanos_count' => $huerfanosCount,
-                'total_exceso' => count($excesoHoras),
-                'total_multi' => $totalMultiCargosCount,
-                'plazas_sin_cobertura_count' => $plazasSinCoberturaCount
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
 
     public function auditoriaAutomatizadaPage()
     {
@@ -957,132 +719,51 @@ class AgenteController extends Controller
             $nombre = e($agentInfo->nombre_agente);
             $dniDoc = number_format((int)$dni, 0, ',', '.');
             
-            $markdown = "*MINISTERIO DE EDUCACIÓN\n";
-            $markdown .= "*AUDITORÍA INTERNA DE RECURSOS HUMANOS DOCENTES\n";
-            $markdown .= "*INFORME DE AUDITORÍA LOCAL (REGLADO - LOCAL)\n";
-            $markdown .= "*Número de Informe: AUDIRH-LOCAL-" . date('Y') . "-{$dni}\n";
+            $markdown = "*SISTEMA INTEGRAL DE AGENTES - MINISTERIO DE EDUCACIÓN\n";
+            $markdown .= "*REPORTE DE ESTADO POF/PON\n";
             $markdown .= "*Fecha: {$hoy}\n";
-            $markdown .= "*Dirigido a: Dirección de Recursos Humanos Docentes\n";
-            $markdown .= "*De: Departamento de Auditoría y Control de Gestión\n";
-            $markdown .= "*Asunto: Auditoría de Perfil Docente – Agente {$nombre} (DNI: {$dniDoc})\n";
+            $markdown .= "*Agente: {$nombre} (DNI: {$dniDoc})\n";
             $markdown .= "--\n\n";
 
             $markdown .= "*1. INTRODUCCIÓN\n";
-            $markdown .= "El presente informe detalla los hallazgos de la auditoría local reglada realizada sobre el perfil laboral del agente **{$nombre}**, con DNI **{$dniDoc}** y Legajo **{$agentInfo->legajo}**, a partir de los datos registrados en la base de datos del Ministerio de Educación. El objetivo es identificar de manera inmediata incompatibilidades horarias, riesgos geográficos por dispersión y discrepancias en los registros administrativos.\n\n";
+            $markdown .= "El presente reporte detalla el estado actual de los cargos asignados al agente **{$nombre}**, con DNI **{$dniDoc}** y Legajo **{$agentInfo->legajo}**. La información refleja el contexto de la Planta Orgánica Nominal (PON) y Funcional (POF), brindando claridad sobre las licencias activas y los reemplazos correspondientes.\n\n";
 
-            $markdown .= "*2. DATOS DEL AGENTE AUDITADO\n";
+            $markdown .= "*2. DATOS DEL AGENTE\n";
             $markdown .= "DNI: **{$agentInfo->dni}**\n";
             $markdown .= "Nombre Completo: **{$nombre}**\n";
             $markdown .= "Género: **" . ($agentInfo->genero === 'F' ? 'Femenino' : 'Masculino') . "**\n";
             $markdown .= "Legajo: **" . ($agentInfo->legajo ?: 'Sin legajo') . "**\n";
-            $markdown .= "Fecha de Alta Registrada: **" . ($agentInfo->fecha_alta ? date('d/m/Y', strtotime($agentInfo->fecha_alta)) : 'No registrada') . "**\n";
-            $markdown .= "Total de Cargos Activos Registrados: **" . count($cargos) . "**\n";
-            $markdown .= "Total de Horas Cátedra Registradas: **{$totalRealHours} hs** (Equivalentes estimadas: **{$totalEstimatedHours} hs**)\n";
-            $markdown .= "Horas Licenciadas (Activas Hoy): **{$horasLicenciadas} hs**\n";
-            $markdown .= "Horas Activas Netas (Trabajo Efectivo): **{$horasActivasNetas} hs**\n";
+            $markdown .= "Fecha de Alta: **" . ($agentInfo->fecha_alta ? date('d/m/Y', strtotime($agentInfo->fecha_alta)) : 'No registrada') . "**\n";
+            $markdown .= "Total de Cargos Asignados: **" . count($cargos) . "**\n";
+            $markdown .= "Horas Cátedra Totales: **{$totalRealHours} hs** (Equivalentes: **{$totalEstimatedHours} hs**)\n";
+            $markdown .= "Horas Licenciadas (Hoy): **{$horasLicenciadas} hs**\n";
+            $markdown .= "Horas Activas Netas (Frente a Aula): **{$horasActivasNetas} hs**\n\n";
+
+            $markdown .= "*3. DETALLE DE CARGOS Y COBERTURA (PON/POF)\n";
             
-            if ($statusAuditoria === 'regular') {
-                $markdown .= "Estado de Compatibilidad: ✅ **REGULAR** (Cumple la normativa de límite de 50 hs)\n\n";
-            } elseif ($statusAuditoria === 'exceso_justificado') {
-                $markdown .= "Estado de Compatibilidad: 🟨 **EXCESO JUSTIFICADO** (Supera 50 hs registradas, pero cuenta con licencias vigentes hoy que reducen su carga activa)\n\n";
+            if (count($cargosDetalles) === 0) {
+                $markdown .= "No se registran cargos activos en el presente año lectivo.\n\n";
             } else {
-                $markdown .= "Estado de Compatibilidad: ❌ **INCOMPATIBILIDAD CRÍTICA** (Supera 50 hs semanales de forma activa sin licencias vigentes hoy)\n\n";
-            }
+                foreach ($cargosDetalles as $idx => $cd) {
+                    $num = $idx + 1;
+                    $markdown .= "**Cargo {$num}**: {$cd['cargo']} en *{$cd['escuela']}* (CUE: {$cd['cue']}).\n";
+                    $markdown .= "- Turno: *{$cd['turno']}*\n";
+                    $markdown .= "- Carga horaria: **{$cd['horas_estimadas']} hs**{$cd['motivo_estimacion']}\n";
+                    
+                    $sitRev = strtoupper($cd['situacion_revista']);
+                    if (in_array($sitRev, ['SUPLENTE', 'REEMPLAZANTE'])) {
+                        $markdown .= "- Situación de Revista: *{$cd['situacion_revista']}* (TOMÓ CARGO POR Licencia Activa de docente asignado)\n";
+                    } else {
+                        $markdown .= "- Situación de Revista: *{$cd['situacion_revista']}*\n";
+                    }
 
-            $markdown .= "*3. HALLAZGOS DETALLADOS\n";
-            
-            // 3.1 Incompatibilidades Horarias
-            $markdown .= "*3.1. Incompatibilidades Horarias Críticas (Límite de 50 horas semanales)\n";
-            if ($statusAuditoria === 'incompatibilidad_critica') {
-                $markdown .= "⚠️ **ALERTA CRÍTICA**: La carga horaria activa neta del agente (**{$horasActivasNetas} horas semanales**) supera el límite legal de 50 horas sin justificación de licencia activa hoy.\n\n";
-            } elseif ($statusAuditoria === 'exceso_justificado') {
-                $markdown .= "ℹ️ **EXCESO REGULARIZADO**: El agente registra un total de **{$totalEstimatedHours} horas**, pero al poseer licencias vigentes hoy, sus horas activas netas son **{$horasActivasNetas} horas**, regularizando su carga de trabajo efectivo frente a alumnos.\n\n";
-            } else {
-                $markdown .= "✅ **SITUACIÓN REGULAR**: La carga horaria activa (**{$horasActivasNetas} horas semanales**) se encuentra dentro del límite legal permitido de 50 horas.\n\n";
-            }
-            
-            foreach ($cargosDetalles as $idx => $cd) {
-                $num = $idx + 1;
-                $markdown .= "**Cargo {$num}**: {$cd['cargo']} en *{$cd['escuela']}* (CUE: {$cd['cue']}).\n";
-                $markdown .= "- Turno: *{$cd['turno']}*\n";
-                $markdown .= "- Carga horaria: **{$cd['horas_estimadas']} hs**{$cd['motivo_estimacion']}\n";
-                $markdown .= "- Situación de Revista: *{$cd['situacion_revista']}*\n";
-                $markdown .= "- Cobertura: *{$cd['cobertura_label']}*\n\n";
-            }
-
-            // 3.2 Geo Dispersion
-            $markdown .= "*3.2. Riesgo de Superposición por Dispersión Geográfica\n";
-            if ($numEscuelas > 1) {
-                $markdown .= "El agente desempeña funciones en **{$numEscuelas}** establecimientos educativos diferentes.\n";
-                foreach ($distanciaComentarios as $dc) {
-                    $markdown .= "{$dc}\n";
+                    $markdown .= "- Estado POF: *{$cd['cobertura_label']}*\n\n";
                 }
-                if ($highRiskGeo) {
-                    $markdown .= "⚠️ **ALERTA DE RIESGO GEOGRÁFICO**: Se detectan distancias mayores a 10 km entre escuelas, lo que sumado a los turnos de desempeño genera un riesgo crítico de ausentismo o tardanzas debido a tiempos de traslado suficientes.\n\n";
-                } else {
-                    $markdown .= "✅ **SITUACIÓN GEOGRÁFICA**: Las distancias entre las escuelas de desempeño son bajas o moderadas, permitiendo traslados seguros entre jornadas.\n\n";
-                }
-            } else {
-                $markdown .= "✅ No hay dispersión geográfica ya que el agente trabaja en un único establecimiento educativo.\n\n";
             }
-
-            // 3.3 Discrepancias
-            $markdown .= "*3.3. Discrepancias Administrativas\n";
-            if (count($discrepancias) > 0) {
-                foreach ($discrepancias as $d) {
-                    $markdown .= "- {$d}\n";
-                }
-            } else {
-                $markdown .= "✅ No se han detectado discrepancias administrativas en los registros analizados.\n";
-            }
-            $markdown .= "\n";
-
-            // 4. Conclusiones
-            $markdown .= "*4. CONCLUSIONES GENERALES\n";
-            if ($incompHoraria || $highRiskGeo || count($discrepancias) > 0) {
-                $markdown .= "El perfil del agente presenta irregularidades que requieren intervención de Recursos Humanos. ";
-                if ($incompHoraria) {
-                    $markdown .= "Existe incompatibilidad horaria severa por superación del límite de 50 horas. ";
-                }
-                if ($highRiskGeo) {
-                    $markdown .= "Existe riesgo geográfico por dispersión escolar relevante. ";
-                }
-                if (count($discrepancias) > 0) {
-                    $markdown .= "Se observan discrepancias en los turnos y/o fechas administrativas registradas.";
-                }
-            } else {
-                $markdown .= "El perfil auditado se encuentra en estado regular y cumple con las normativas horarias y geográficas del Ministerio de Educación.";
-            }
-            $markdown .= "\n\n";
-
-            // 5. Recomendaciones
-            $markdown .= "*5. SUGERENCIAS Y ACCIONES RECOMENDADAS PARA EL ÁREA DE RECURSOS HUMANOS\n";
-            $markdown .= "*5.1. Acciones Inmediatas y Específicas del Caso:\n";
-            if ($statusAuditoria === 'incompatibilidad_critica') {
-                $markdown .= "- **Citar de urgencia al docente** para que efectúe la opción por cargo y regularice su situación horaria excedida de forma activa (opción por cargos hasta un máximo de 50 hs).\n";
-            } elseif ($statusAuditoria === 'exceso_justificado') {
-                $markdown .= "- **Monitorear la vigencia y renovación de las licencias activas** (ej. plazos, justificaciones de licencias de largo tratamiento o cargo de mayor jerarquía).\n";
-                $markdown .= "- **Auditar la carga efectiva y suplencias** en los establecimientos donde el docente tiene licencia para asegurar la cobertura regular de clases.\n";
-            }
-            if ($highRiskGeo) {
-                $markdown .= "- **Revisar hojas de asistencia firmadas** de los establecimientos involucrados para verificar el cumplimiento efectivo de horarios de entrada y salida.\n";
-            }
-            if (count($discrepancias) > 0) {
-                $markdown .= "- **Corregir y validar las discrepancias de registro** (fechas de alta futuras, designaciones históricas redundantes o turnos cruzados) en el sistema SIAME.\n";
-            }
-            if ($statusAuditoria === 'regular' && !$highRiskGeo && count($discrepancias) === 0) {
-                $markdown .= "- Mantener el perfil en estado activo y archivar el reporte de auditoría preventiva.\n";
-            }
-            $markdown .= "\n";
-            $markdown .= "*5.2. Acciones de Política y Procedimiento:\n";
-            $markdown .= "- Reforzar los controles automáticos de carga horaria en el sistema SIAME al momento de registrar una nueva designación para alertar antes de la confirmación.\n";
-            $markdown .= "- Estandarizar la carga de equivalencias horarias para cargos de jornada completa y extendida.\n\n";
 
             $markdown .= "--\n";
-            $markdown .= "Sin otro particular, se remite este reporte local automatizado para el inicio de las acciones administrativas de control correspondientes.\n\n";
-            $markdown .= "Atentamente,\n\n";
-            $markdown .= "[Firma Digital del Sistema Local SIAME]\n";
-            $markdown .= "*Departamento de Auditoría y Control de Gestión\n";
+            $markdown .= "Este reporte proporciona una vista consolidada para el análisis de recursos humanos e instrumentación docente.\n\n";
+            $markdown .= "*Sistema SIAME\n";
             $markdown .= "*Ministerio de Educación\n";
 
             return response()->json([

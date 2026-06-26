@@ -6,7 +6,7 @@ export const Header = () => {
   const { url, props } = usePage();
   const user = props.auth?.user;
   
-  const { activeYear, setActiveYear, stats, refreshAll, loadingStats, loadingAnalytics, loadingTraslados } = useGlobal();
+  const { activeYear, setActiveYear } = useGlobal();
 
   const getPageMeta = () => {
     if (url === '/dashboard' || url === '/') {
@@ -14,30 +14,10 @@ export const Header = () => {
         title: 'Tablero de Control e Instrumentación de Agentes',
         subtitle: 'Ministerio de Educación - Planificación e Instrumentación Docente'
       };
-    } else if (url.startsWith('/agentes')) {
+    } else if (url.startsWith('/auditoria-automatizada')) {
       return {
-        title: 'Buscador y Padrón Unificado de Agentes',
-        subtitle: 'Resultados de búsqueda con DNI consolidados y cargos activos'
-      };
-    } else if (url.startsWith('/licencias')) {
-      return {
-        title: 'Padrón Unificado de Licencias Médicas',
-        subtitle: 'Movimientos y justificaciones de inasistencia por DNI'
-      };
-    } else if (url.startsWith('/designaciones')) {
-      return {
-        title: 'Cargos en Designaciones Oficiales',
-        subtitle: 'Cruce de planta oficial autorizada en designaciones'
-      };
-    } else if (url.startsWith('/traslados')) {
-      return {
-        title: 'Auditoría de Traslados y Dispersión Geográfica',
-        subtitle: 'Cálculo ortodrómico real mediante geolocalización satelital de establecimientos'
-      };
-    } else if (url.startsWith('/auditoria') || url.startsWith('/agentes') || url.startsWith('/licencias') || url.startsWith('/designaciones') || url.startsWith('/traslados') || url.startsWith('/auditoria-unica')) {
-      return {
-        title: 'Centro de Auditoría y Control',
-        subtitle: 'Consolidación centralizada de cargos, licencias, designaciones, traslados e incompatibilidades'
+        title: 'Auditoría Automatizada',
+        subtitle: 'Diagnóstico de Perfil Docente y Contexto POF/PON'
       };
     } else if (url.startsWith('/importar')) {
       return {
@@ -53,7 +33,6 @@ export const Header = () => {
   };
 
   const meta = getPageMeta();
-  const isRefreshing = loadingStats || loadingAnalytics || loadingTraslados;
 
   const displayRole = user?.role === 'admin' ? 'Administrador' : 'Administrativo';
 
@@ -68,14 +47,7 @@ export const Header = () => {
           <p className="text-xs font-semibold text-gray-400">
             {meta.subtitle}
           </p>
-          {stats?.registro_mas_reciente && (
-            <div className="text-[10px] px-3 py-1 bg-cyan-50/50 text-cyan-600 border border-cyan-100 rounded-full font-bold flex items-center gap-1.5 shadow-sm">
-              <i className="fa-solid fa-server text-[9px]"></i>
-              ODS Sincronizado ({activeYear})
-              <span className="text-cyan-400">|</span>
-              Alta Reciente: <strong className="text-cyan-700">{stats.registro_mas_reciente}</strong>
-            </div>
-          )}
+
         </div>
       </div>
 
@@ -100,14 +72,7 @@ export const Header = () => {
           </select>
         </div>
 
-        <button
-          onClick={refreshAll}
-          disabled={isRefreshing}
-          className="w-10 h-10 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-900 active:scale-95 disabled:opacity-50 transition-all cursor-pointer shadow-sm"
-          title="Sincronizar base de datos"
-        >
-          <i className={`fa-solid fa-arrows-rotate text-sm ${isRefreshing ? 'fa-spin text-[#FE8204]' : ''}`}></i>
-        </button>
+
 
         <div className="h-8 w-px bg-gray-100"></div>
 
