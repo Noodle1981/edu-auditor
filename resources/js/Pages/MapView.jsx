@@ -380,11 +380,17 @@ export default function MapView({
                         });
                     }
 
-                    return activePlaza.radios.map((r, i) => {
+                    const offsetLatDegree = 111320;
+                    const offsetLngDegree = 111320 * Math.cos(activePlaza.lat * Math.PI / 180);
+                    const elements = [];
+
+                    activePlaza.radios.forEach((r, idx) => {
                         const isSelectedRadio = selectedRadios.has(r.radio);
-                        return (
+                        
+                        // Add Circle
+                        elements.push(
                             <Circle
-                                key={`circle-${activePlaza.name}-${r.radio}-${i}`}
+                                key={`circle-${activePlaza.name}-${r.radio}-${idx}`}
                                 center={[activePlaza.lat, activePlaza.lng]}
                                 radius={r.limit}
                                 pathOptions={{
@@ -397,7 +403,61 @@ export default function MapView({
                                 }}
                             />
                         );
+
+                        // Add 4 cardinal markers
+                        const offsetLat = r.limit / offsetLatDegree;
+                        const offsetLng = r.limit / offsetLngDegree;
+                        const labelText = `R${r.radio}`;
+
+                        const points = [
+                            { lat: activePlaza.lat + offsetLat, lng: activePlaza.lng, dir: 'N' },
+                            { lat: activePlaza.lat - offsetLat, lng: activePlaza.lng, dir: 'S' },
+                            { lat: activePlaza.lat, lng: activePlaza.lng + offsetLng, dir: 'E' },
+                            { lat: activePlaza.lat, lng: activePlaza.lng - offsetLng, dir: 'W' }
+                        ];
+
+                        points.forEach((p, pIdx) => {
+                            const bg = isSelectedRadio ? '#FE8204' : 'rgba(255, 255, 255, 0.9)';
+                            const textColor = isSelectedRadio ? '#ffffff' : activePlaza.color;
+                            const border = isSelectedRadio ? '1px solid #FE8204' : `1px solid ${activePlaza.color}66`;
+                            const shadow = isSelectedRadio ? '0 2px 4px rgba(0,0,0,0.2)' : '0 1px 2px rgba(0,0,0,0.1)';
+                            const fontWeight = isSelectedRadio ? '900' : '800';
+
+                            const customLabelIcon = L.divIcon({
+                                html: `<div style="
+                                    font-size: 8px;
+                                    font-weight: ${fontWeight};
+                                    color: ${textColor};
+                                    background-color: ${bg};
+                                    border: ${border};
+                                    box-shadow: ${shadow};
+                                    width: 24px;
+                                    height: 14px;
+                                    border-radius: 4px;
+                                    white-space: nowrap;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    line-height: 1;
+                                    box-sizing: border-box;
+                                ">${labelText}</div>`,
+                                className: 'custom-radius-label',
+                                iconSize: [24, 14],
+                                iconAnchor: [12, 7],
+                            });
+
+                            elements.push(
+                                <Marker
+                                    key={`label-${activePlaza.name}-${r.radio}-${p.dir}-${pIdx}`}
+                                    position={[p.lat, p.lng]}
+                                    icon={customLabelIcon}
+                                    interactive={false}
+                                />
+                            );
+                        });
                     });
+
+                    return elements;
                 })()}
 
                 {/* Line connecting school to its Plaza */}
