@@ -14,6 +14,7 @@ const Establecimientos = () => {
   const [direccionArea, setDireccionArea] = useState('');
   const [nivelEducativo, setNivelEducativo] = useState('');
   const [departamento, setDepartamento] = useState('');
+  const [hideEmpty, setHideEmpty] = useState(false);
   const [page, setPage] = useState(1);
 
   // Dynamic Filters Options
@@ -44,19 +45,22 @@ const Establecimientos = () => {
     direccionArea: '',
     nivelEducativo: '',
     departamento: '',
+    hideEmpty: false,
   });
 
   if (
     prevFilters.debouncedSearch !== debouncedSearch ||
     prevFilters.direccionArea !== direccionArea ||
     prevFilters.nivelEducativo !== nivelEducativo ||
-    prevFilters.departamento !== departamento
+    prevFilters.departamento !== departamento ||
+    prevFilters.hideEmpty !== hideEmpty
   ) {
     setPrevFilters({
       debouncedSearch,
       direccionArea,
       nivelEducativo,
       departamento,
+      hideEmpty,
     });
     setPage(1);
   }
@@ -90,6 +94,7 @@ const Establecimientos = () => {
         if (direccionArea) queryParams.append('direccion_area', direccionArea);
         if (nivelEducativo) queryParams.append('nivel_educativo', nivelEducativo);
         if (departamento) queryParams.append('departamento', departamento);
+        if (hideEmpty) queryParams.append('hide_empty', '1');
         queryParams.append('page', page.toString());
         queryParams.append('limit', '15');
         queryParams.append('year', activeYear);
@@ -115,7 +120,7 @@ const Establecimientos = () => {
     return () => {
       isMounted = false;
     };
-  }, [debouncedSearch, direccionArea, nivelEducativo, departamento, page, activeYear]);
+  }, [debouncedSearch, direccionArea, nivelEducativo, departamento, hideEmpty, page, activeYear]);
 
   // Fetch specific establishment detail when selected
   useEffect(() => {
@@ -175,8 +180,60 @@ const Establecimientos = () => {
     let uncoveredChainLicense = 0;
     let extraAgents = 0;
 
+    let uniqueDnis = new Set();
+    let uniqueActiveDnis = new Set();
+    let uniqueLicensedDnis = new Set();
+    let reforzadosCount = 0;
+
     estDetail.cupofs.forEach(c => {
       const agents = c.agents || [];
+      
+      // Sort agents hierarchically to identify the replacement license status
+      const titulares = [];
+      const suplentes = [];
+      const reemplazantes = [];
+      const otros = [];
+      agents.forEach(a => {
+        const rev = (a.situacion_revista || "").toUpperCase();
+        if (rev === 'TITULAR' || rev === 'INTERINO') {
+          titulares.push(a);
+        } else if (rev === 'SUPLENTE') {
+          suplentes.push(a);
+        } else if (rev === 'REEMPLAZANTE') {
+          reemplazantes.push(a);
+        } else {
+          otros.push(a);
+        }
+      });
+      const sorted = [...titulares, ...suplentes, ...reemplazantes, ...otros];
+
+      let lastAgentReplacementLicenseDni = null;
+      if (sorted.length > 1) {
+        const lastAgent = sorted[sorted.length - 1];
+        const revLast = (lastAgent.situacion_revista || "").toUpperCase();
+        if (lastAgent.tiene_licencia_activa && 
+            (revLast === 'SUPLENTE' || revLast === 'REEMPLAZANTE') && 
+            (lastAgent.licencia_activa_detalle?.tipo_licencia || '').includes('MAYOR JERARQUÍA')) {
+          lastAgentReplacementLicenseDni = lastAgent.dni;
+        }
+      }
+
+      if (agents.length > 1) {
+        reforzadosCount++;
+      }
+
+      agents.forEach(a => {
+        if (a.dni) {
+          uniqueDnis.add(a.dni);
+          const isRealLicense = a.tiene_licencia_activa && a.dni !== lastAgentReplacementLicenseDni;
+          if (isRealLicense) {
+            uniqueLicensedDnis.add(a.dni);
+          } else {
+            uniqueActiveDnis.add(a.dni);
+          }
+        }
+      });
+
       if (agents.length === 1) {
         const agent = agents[0];
         if (agent.tiene_licencia_activa) {
@@ -193,7 +250,8 @@ const Establecimientos = () => {
           if (rev === 'SUPLENTE' || rev === 'REEMPLAZANTE') {
             replacementsCount++;
           }
-          if (!a.tiene_licencia_activa) {
+          const isRealLicense = a.tiene_licencia_activa && a.dni !== lastAgentReplacementLicenseDni;
+          if (!isRealLicense) {
             activeCount++;
           }
         });
@@ -211,6 +269,11 @@ const Establecimientos = () => {
     const uncovered = uncoveredLicenseNoReplacement + uncoveredChainLicense;
     const coveragePercent = totalCupofs > 0 ? Math.round((covered / totalCupofs) * 100) : 0;
 
+    let totalAgents = uniqueDnis.size;
+    let activeAgents = uniqueActiveDnis.size;
+    let licensedAgents = totalAgents - activeAgents;
+    let relacionPlantaPercent = totalCupofs > 0 ? Math.round((totalAgents / totalCupofs) * 100) : 0;
+
     return {
       totalCupofs,
       covered,
@@ -218,14 +281,31 @@ const Establecimientos = () => {
       uncoveredLicenseNoReplacement,
       uncoveredChainLicense,
       extraAgents,
-      coveragePercent
+      coveragePercent,
+      totalAgents,
+      activeAgents,
+      licensedAgents,
+      relacionPlantaPercent,
+      reforzadosCount
     };
   }, [estDetail]);
 
+  const handleExportPdf = () => {
+    let queryParams = new URLSearchParams();
+    if (debouncedSearch) queryParams.append('search', debouncedSearch);
+    if (direccionArea) queryParams.append('direccion_area', direccionArea);
+    if (nivelEducativo) queryParams.append('nivel_educativo', nivelEducativo);
+    if (departamento) queryParams.append('departamento', departamento);
+    if (hideEmpty) queryParams.append('hide_empty', '1');
+    queryParams.append('year', activeYear);
+
+    window.open(`/api/establecimientos/reporte-pdf?${queryParams.toString()}`, '_blank');
+  };
+
   return (
-    <SIAMELayout>
+    <SIAMELayout fullWidth={true}>
       <Head title="Buscar Establecimientos" />
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 p-8 lg:p-10 w-full max-w-[1800px] mx-auto">
         
         {/* Title */}
         <div>
@@ -239,7 +319,7 @@ const Establecimientos = () => {
 
         {/* Filters Card */}
         <GlassCard className="p-6 bg-white">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6">
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
                 <i className="fa-solid fa-magnifying-glass"></i> Buscar Escuela
@@ -300,6 +380,19 @@ const Establecimientos = () => {
                 ))}
               </select>
             </div>
+
+            <div className="flex items-center gap-2 h-full pt-4">
+              <label className="relative inline-flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hideEmpty}
+                  onChange={(e) => setHideEmpty(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-gray-250 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FE8204]"></div>
+                <span className="ms-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ocultar sin cargos</span>
+              </label>
+            </div>
           </div>
         </GlassCard>
 
@@ -309,16 +402,26 @@ const Establecimientos = () => {
           {/* Left Side: Establishments List */}
           <div className={`${selectedEstId ? 'lg:col-span-6 xl:col-span-5' : 'lg:col-span-12'} transition-all duration-300`}>
             <GlassCard className="p-6 bg-white flex flex-col min-h-[400px] w-full">
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
                 <div className="flex flex-col gap-1">
                   <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">Escuelas Registradas</h3>
                   <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
                     Establecimientos educativos y sus plantas funcionales
                   </p>
                 </div>
-                <span className="text-xs px-3.5 py-1.5 bg-[#FE8204]/8 text-[#FE8204] border border-[#FE8204]/10 rounded-full font-black uppercase tracking-wider shadow-sm">
-                  {loading ? 'Buscando...' : `${total.toLocaleString('es-AR')} escuelas`}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleExportPdf}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+                    title="Exportar listado completo filtrado a PDF"
+                  >
+                    <i className="fa-solid fa-file-pdf text-xs"></i>
+                    Exportar PDF
+                  </button>
+                  <span className="text-xs px-3.5 py-1.5 bg-[#FE8204]/8 text-[#FE8204] border border-[#FE8204]/10 rounded-full font-black uppercase tracking-wider shadow-sm">
+                    {loading ? 'Buscando...' : `${total.toLocaleString('es-AR')} escuelas`}
+                  </span>
+                </div>
               </div>
 
               <div className="flex-1 w-full overflow-x-auto rounded-[24px] border border-gray-100 overflow-hidden shadow-sm">
@@ -402,7 +505,16 @@ const Establecimientos = () => {
                               <span className="font-black text-gray-900 text-sm">{est.cupof_count}</span>
                             </td>
                             <td className="px-6 py-4 text-center">
-                              <span className="font-black text-gray-900 text-sm">{est.agent_count}</span>
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className="font-black text-gray-900 text-sm">{est.agent_count}</span>
+                                <span className={`text-[8.5px] font-black px-1.5 py-0.2 rounded border ${
+                                  est.relacion_planta_percent > 100 
+                                    ? 'bg-blue-50 text-blue-700 border-blue-100' 
+                                    : 'bg-gray-50 text-gray-400 border-gray-100'
+                                }`}>
+                                  {est.relacion_planta_percent || 100}%
+                                </span>
+                              </div>
                             </td>
                             <td className="px-6 py-4 text-center">
                               <div className="flex flex-col items-center gap-1">
@@ -483,16 +595,29 @@ const Establecimientos = () => {
                   <div className="flex flex-col gap-6">
                     
                     {/* Header */}
-                    <div>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-[#FE8204] bg-[#FE8204]/8 px-2.5 py-1 rounded-full border border-[#FE8204]/10 shadow-sm inline-block mb-2">
-                        Año de Consulta: {activeYear}
-                      </span>
-                      <h2 className="text-xl font-black text-gray-900 tracking-tight leading-snug">
-                        {estDetail.establecimiento.nombre}
-                      </h2>
-                      <p className="text-[11px] text-gray-400 font-bold uppercase mt-1">
-                        CUE: {estDetail.establecimiento.cue} | CUE Edificio Principal: {estDetail.establecimiento.cue_edificio_principal || 'S/D'}
-                      </p>
+                    <div className="flex justify-between items-start gap-4 pr-10 flex-wrap sm:flex-nowrap">
+                      <div>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-[#FE8204] bg-[#FE8204]/8 px-2.5 py-1 rounded-full border border-[#FE8204]/10 shadow-sm inline-block mb-2">
+                          Año de Consulta: {activeYear}
+                        </span>
+                        <h2 className="text-xl font-black text-gray-900 tracking-tight leading-snug">
+                          {estDetail.establecimiento.nombre}
+                        </h2>
+                        <p className="text-[11px] text-gray-400 font-bold uppercase mt-1">
+                          CUE: {estDetail.establecimiento.cue} | CUE Edificio Principal: {estDetail.establecimiento.cue_edificio_principal || 'S/D'}
+                        </p>
+                      </div>
+                      
+                      <button
+                        onClick={() => {
+                          window.open(`/api/establecimientos/${estDetail.establecimiento.id}/reporte-pdf?year=${activeYear}`, '_blank');
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm transition-all cursor-pointer shrink-0"
+                        title="Descargar detalle completo de la escuela a PDF"
+                      >
+                        <i className="fa-solid fa-file-pdf text-xs"></i>
+                        Descargar PDF
+                      </button>
                     </div>
 
                     <hr className="border-gray-100" />
@@ -666,7 +791,21 @@ const Establecimientos = () => {
                           </span>
                         </div>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-semibold">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-semibold">
+                          {/* Planta Nominal & Presupuesto Card */}
+                          <div className="flex flex-col bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm justify-between gap-1">
+                            <div className="flex justify-between items-start">
+                              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Presupuesto y Planta Nominal</span>
+                              <i className="fa-solid fa-file-invoice-dollar text-blue-500 text-sm"></i>
+                            </div>
+                            <span className="text-xl font-black text-gray-900 mt-1 leading-none">
+                              {auditSummary.relacionPlantaPercent}% <span className="text-[9px] font-bold text-gray-400">de dotación</span>
+                            </span>
+                            <span className="text-[9.5px] text-blue-600 font-black mt-2 uppercase tracking-wide truncate">
+                              {auditSummary.totalAgents} agentes vs {auditSummary.totalCupofs} plazas
+                            </span>
+                          </div>
+
                           {/* Cobertura Card */}
                           <div className="flex flex-col bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm justify-between gap-1">
                             <div className="flex justify-between items-start">
@@ -676,9 +815,9 @@ const Establecimientos = () => {
                             <span className="text-xl font-black text-gray-900 mt-1 leading-none">
                               {auditSummary.covered} <span className="text-[9px] font-bold text-gray-400">/ {auditSummary.totalCupofs} plazas</span>
                             </span>
-                            <div className="w-full bg-gray-100 h-1.5 rounded-full mt-2 overflow-hidden">
-                              <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${auditSummary.coveragePercent}%` }}></div>
-                            </div>
+                            <span className="text-[9.5px] text-emerald-650 font-black mt-2 uppercase tracking-wide truncate">
+                              {auditSummary.activeAgents} activos frente a aula
+                            </span>
                           </div>
 
                           {/* Vacantes Card */}
@@ -688,10 +827,10 @@ const Establecimientos = () => {
                               <i className="fa-solid fa-triangle-exclamation text-red-500 text-sm animate-pulse"></i>
                             </div>
                             <span className="text-xl font-black text-gray-900 mt-1 leading-none">
-                              {auditSummary.uncovered} <span className="text-[9px] font-bold text-gray-400">sin reemplazo</span>
+                              {auditSummary.uncovered} <span className="text-[9px] font-bold text-gray-400">sin personal activo</span>
                             </span>
-                            <span className="text-[9px] text-red-650 font-black mt-2 uppercase tracking-wide truncate" title={`${auditSummary.uncoveredLicenseNoReplacement} s/suplente | ${auditSummary.uncoveredChainLicense} cadena lic.`}>
-                              {auditSummary.uncoveredLicenseNoReplacement} s/suplente | {auditSummary.uncoveredChainLicense} cadena
+                            <span className="text-[9.5px] text-red-650 font-black mt-2 uppercase tracking-wide truncate" title={`${auditSummary.licensedAgents} agentes con licencia`}>
+                              {auditSummary.licensedAgents} agentes con licencia
                             </span>
                           </div>
 
@@ -699,13 +838,13 @@ const Establecimientos = () => {
                           <div className="flex flex-col bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm justify-between gap-1">
                             <div className="flex justify-between items-start">
                               <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Agentes de Más (Sobrecarga)</span>
-                              <i className="fa-solid fa-people-arrows text-blue-500 text-sm"></i>
+                              <i className="fa-solid fa-people-arrows text-amber-500 text-sm"></i>
                             </div>
                             <span className="text-xl font-black text-gray-900 mt-1 leading-none">
                               +{auditSummary.extraAgents} <span className="text-[9px] font-bold text-gray-400">suplentes/reempl.</span>
                             </span>
-                            <span className="text-[9px] text-blue-600 font-black mt-2 uppercase tracking-wide">
-                              En planta por licencias activas
+                            <span className="text-[9.5px] text-amber-600 font-black mt-2 uppercase tracking-wide truncate">
+                              {auditSummary.reforzadosCount} plazas reforzadas
                             </span>
                           </div>
                         </div>
@@ -821,8 +960,16 @@ const Establecimientos = () => {
                                       CUPOF vacío. Plaza sin cobertura registrada.
                                     </p>
                                   ) : (
-                                    sortedAgents.map((agent) => {
-                                      const isLicense = agent.tiene_licencia_activa;
+                                    sortedAgents.map((agent, agentIdx) => {
+                                      const replacedAgent = agentIdx > 0 ? sortedAgents[agentIdx - 1] : null;
+                                      const revUpper = (agent.situacion_revista || "").toUpperCase();
+                                      const isReplacementLicense = (revUpper === 'SUPLENTE' || revUpper === 'REEMPLAZANTE') && 
+                                                                   agent.tiene_licencia_activa && 
+                                                                   replacedAgent && 
+                                                                   agentIdx === sortedAgents.length - 1 &&
+                                                                   (agent.licencia_activa_detalle?.tipo_licencia || '').includes('MAYOR JERARQUÍA');
+
+                                      const isLicense = agent.tiene_licencia_activa && !isReplacementLicense;
                                       
                                       let indentClass = "";
                                       let hasConnector = false;
@@ -833,7 +980,6 @@ const Establecimientos = () => {
                                       }
 
                                       let badgeColor = "bg-gray-100 text-gray-700 border-gray-200";
-                                      const revUpper = (agent.situacion_revista || "").toUpperCase();
                                       if (revUpper === 'TITULAR') {
                                         badgeColor = 'bg-purple-100 text-purple-700 border-purple-200';
                                       } else if (revUpper === 'INTERINO') {
@@ -890,6 +1036,15 @@ const Establecimientos = () => {
                                               <i className="fa-solid fa-triangle-exclamation text-red-450"></i>
                                               <span>
                                                 Licencia de {agent.licencia_activa_detalle?.dias} días por: {agent.licencia_activa_detalle?.tipo_licencia}
+                                              </span>
+                                            </div>
+                                          )}
+
+                                          {isReplacementLicense && (
+                                            <div className="px-3 py-2 bg-[#FE8204]/5 border border-[#FE8204]/20 rounded-xl text-[10px] text-[#FE8204] font-semibold flex items-center gap-2 shadow-sm">
+                                              <i className="fa-solid fa-circle-info text-[#FE8204]"></i>
+                                              <span>
+                                                TOMO CARGO POR Licencia Activa: Licencia de {agent.licencia_activa_detalle?.dias} días por: {agent.licencia_activa_detalle?.tipo_licencia} de docente {replacedAgent.nombre_agente}
                                               </span>
                                             </div>
                                           )}

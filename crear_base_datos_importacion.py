@@ -87,8 +87,16 @@ def parse_csv_lines(file_path, import_type):
         print(f"Parsed {len(parsed_rows)} logical records from CSV using standard csv reader.")
         return parsed_rows
         
-    header_line = raw_lines[0].strip()
-    data_lines = raw_lines[1:]
+    # Find real header index for agents/designations
+    header_idx = 0
+    for idx, line in enumerate(raw_lines):
+        line_lower = line.strip().lower()
+        if "numerodesector" in line_lower:
+            header_idx = idx
+            break
+
+    header_line = raw_lines[header_idx].strip()
+    data_lines = raw_lines[header_idx + 1:]
         
     logical_rows_str = []
     current_row_str = ""
@@ -101,7 +109,7 @@ def parse_csv_lines(file_path, import_type):
         # Determine logical row start based on import type
         is_start = False
         if import_type in ('agentes', 'agentes_designaciones'):
-            is_start = bool(re.match(r'^"\d+', line))
+            is_start = bool(re.match(r'^"?\d+', line))
         elif import_type == 'designaciones':
             is_start = bool(re.match(r'^"?\d+,', line))
             

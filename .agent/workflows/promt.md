@@ -2,30 +2,122 @@
 description: Vamos a hacer modificaciones
 ---
 
-http://radios_cupof.test/mapa
+en http://radios_cupof.test/establecimientos
+
+revisemos este cargo, seguramente resolveremos varias dudas
+
+en 700002600, 
+
+tengo al director que licencio y se fue como supervisor de area 
+
+700002600-DPR-09051509072218
+1 Persona
+Director 1° Categoría - Nivel Inicial o Jardines de Infantes Nuclearizados Zonales (J.I.N.Z.)
+INTERTURNO
+0 hs
+INTERINO
+MARTINEZ, ESTELA ALEJANDRA
+DNI: 20802178 | Norma: S/D
+Licencia Activa
+Licencia de 10824 días por: LIC. POR EJERCICIO DE CARGO DE MAYOR JERARQUÍA (LP-533-H ART. 7º II-D)
+
+entonces la vicedirectora licencia su cargo para pasar a ser directora
 
 
-Aquí tienes la explicación de cada regla:
-1. COINCIDE
-Se asigna este estado cuando el RADIO SIGE (km) coincide con los radios calculados por la auditoría (ya sea el basado en la distancia en línea recta/circunferencia o el basado en el camino real).
-Significado: La asignación en el sistema es correcta y consistente con la ubicación geográfica del establecimiento.
-Ejemplo: Si el radio calculado por camino es 3 y el sistema (SIGE) tiene registrado 3, el estado es COINCIDE.
-2. DISTINTO
-Se asigna cuando el RADIO SIGE (km) es diferente a los radios calculados por la auditoría.
-Significado: Indica una posible asignación incorrecta en el sistema que debería ser revisada, aunque la diferencia no se considera crítica o "incongruente" bajo criterios técnicos más severos.
-Ejemplo: Si el radio calculado es 3 pero el sistema tiene registrado 4, y la distancia del camino justifica un radio menor, se marca como DISTINTO.
-3. INCONGRUENTE
-Este estado representa una asignación errónea más severa. Según las notas de tu tabla, ocurre generalmente cuando el RADIO SIGE (km) es mayor al que debería corresponder según los cálculos.
-Significado: Existe una contradicción lógica importante. Por ejemplo, cuando el radio asignado en el sistema es mucho más alto de lo que permite la distancia real medida, o cuando los propios datos de la auditoría (distancia vs. radio calculado) no guardan relación lógica entre sí.
-Observación: El radio 4 km es el que presenta la mayor cantidad de estas inconsistencias en tus datos.
-Referencia de Radios por Distancia
-Basado en el análisis de tus datos, los radios parecen seguir estas reglas generales de distancia (aunque hay excepciones por casos particulares):
-Radio 1: de 0 a 5 km.
-Radio 2: de 5 a 10 km.
-Radio 3: de 10 a 20 km.
-Radio 4: de 20 a 30 km.
-Radio 5: de 30 a 50 km.
-Radio 6: más de 50 km.
+700002600-VDP-09120712341244
+3 Personas
+Vicedirector E.N.I. / J.I.N.Z.
+INTERTURNO
+0 hs
+TITULAR
+GARCIA, ROSANA VERONICA
+DNI: 21994021 | Norma: RESOLUCION 5152-ME-2008
+Licencia Activa
+Licencia de 1380 días por: LIC. POR EJERCICIO DE CARGO DE MAYOR JERARQUÍA (LP-533-H ART. 7º II-D)
+SUPLENTE
+MARTINEZ, ESTELA ALEJANDRA
+DNI: 20802178 | Norma: RESOLUCION 4427-ME-2021
+Licencia Activa
+Licencia de 10824 días por: LIC. POR EJERCICIO DE CARGO DE MAYOR JERARQUÍA (LP-533-H ART. 7º II-D)
+REEMPLAZANTE
+LEZCANO, SONIA BEATRIZ
+DNI: 21358096 | Norma: RESOLUCION 0886-ME-2024
+Licencia Activa
+Licencia de 9894 días por: LIC. POR EJERCICIO DE CARGO DE MAYOR JERARQUÍA (LP-533-H ART. 7º II-D)
 
-la idea es presentar cada punto con sus numeros de radios en el formato actual naranja, y si filtro , estado, deberia aparecer los iconos de colores que coinciden (verde) incongruente (amarillo) y distinto (rojo),  as su vez ir desmarcando, por si quiero ver solo un tipo de estado. , tambien marcar los kilometros 0, ver como podriamos dibujar los "radios" para ver como "caen" un radio que no va en otro. La idea es auditar y demostrar la investigaciíon
+segun http://radios_cupof.test/auditoria-automatizada 
+
+
+
+*Cargo 1: Maestro de Educación Inicial - Jornada Simple en *ESCUELA DE NIVEL INICIAL N° 1 FEDERICO FROEBEL INICIAL COMUN* (CUE: 700002600).
+Turno: *MAÑANA*
+Carga horaria: 25 hs (Jornada Simple)
+Situación de Revista: *TITULAR*
+Cobertura: *Cubierto por suplente (DNI: 32761941 - CONTRERAS ROSALES, Mariana Cecilia)*
+*Cargo 2: Vicedirector E.N.I. / J.I.N.Z. en *ESCUELA DE NIVEL INICIAL N° 1 FEDERICO FROEBEL* (CUE: 700002600).
+Turno: *INTERTURNO*
+Carga horaria: 40 hs (Cargo Directivo)
+Situación de Revista: *REEMPLAZANTE*
+Cobertura: *Cubierto por suplente (DNI: 20802178 - MARTINEZ, ESTELA ALEJANDRA)*
+
+
+en esta cupoff 700002600-VDP-09120712341244
+
+TITULAR
+GARCIA, ROSANA VERONICA
+DNI: 21994021 | Norma: RESOLUCION 5152-ME-2008
+Licencia Activa
+Licencia de 1380 días por: LIC. POR EJERCICIO DE CARGO DE MAYOR JERARQUÍA (LP-533-H ART. 7º II-D)
+SUPLENTE
+MARTINEZ, ESTELA ALEJANDRA
+DNI: 20802178 | Norma: RESOLUCION 4427-ME-2021
+Licencia Activa
+Licencia de 10824 días por: LIC. POR EJERCICIO DE CARGO DE MAYOR JERARQUÍA (LP-533-H ART. 7º II-D)
+REEMPLAZANTE
+LEZCANO, SONIA BEATRIZ
+DNI: 21358096 | Norma: RESOLUCION 0886-ME-2024
+Licencia Activa
+Licencia de 9894 días por: LIC. POR EJERCICIO DE CARGO DE MAYOR JERARQUÍA (LP-533-H ART. 7º II-D)
+
+
+
+LEZCANO SONIA BEATRIZ, toma ese cargo porque hay una licencia Licencia de 9894 días por: LIC. POR EJERCICIO DE CARGO DE MAYOR JERARQUÍA (LP-533-H ART. 7º II-D), esa licencia es de MARTINEZ, ESTELA ALEJANDRA
+DNI: 20802178 | Norma: RESOLUCION 4427-ME-2021?
+
+
+
+si es asi, no deberia decir
+
+
+MARTINEZ, ESTELA ALEJANDRA
+DNI: 20802178 | Norma: RESOLUCION 4427-ME-2021
+
+
+
+700002600-VDP-09120712341244
+3 Personas
+Vicedirector E.N.I. / J.I.N.Z.
+INTERTURNO
+0 hs
+TITULAR
+GARCIA, ROSANA VERONICA
+DNI: 21994021 | Norma: RESOLUCION 5152-ME-2008
+Licencia Activa
+Licencia de 1380 días por: LIC. POR EJERCICIO DE CARGO DE MAYOR JERARQUÍA (LP-533-H ART. 7º II-D)
+SUPLENTE
+MARTINEZ, ESTELA ALEJANDRA
+DNI: 20802178 | Norma: RESOLUCION 4427-ME-2021
+Licencia Activa
+Licencia de 10824 días por: LIC. POR EJERCICIO DE CARGO DE MAYOR JERARQUÍA (LP-533-H ART. 7º II-D)
+REEMPLAZANTE
+LEZCANO, SONIA BEATRIZ
+DNI: 21358096 | Norma: RESOLUCION 0886-ME-2024
+TOMO CARGO POR Licencia Activa
+Licencia de 9894 días por: LIC. POR EJERCICIO DE CARGO DE MAYOR JERARQUÍA (LP-533-H ART. 7º II-D) de docente MARTINEZ ALEJANDRA
+
+intento que se vea confuso. porque pareciera que la reemplazante lezcno esta de licencia
+
+me entiendes?
+
+
 

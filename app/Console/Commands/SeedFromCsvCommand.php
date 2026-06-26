@@ -17,7 +17,9 @@ class SeedFromCsvCommand extends Command
      * @var string
      */
     protected $signature = 'app:seed-from-csv 
-                            {--type= : Type of import (status, agentes, licencias, all)}';
+                            {--type= : Type of import (status, agentes, licencias, all)}
+                            {--file= : Custom file path for the import}
+                            {--incremental : Perform incremental import without deleting existing records}';
 
     /**
      * The console command description.
@@ -32,10 +34,11 @@ class SeedFromCsvCommand extends Command
     public function handle()
     {
         $type = $this->option('type') ?: 'status';
+        $customFile = $this->option('file');
 
         $baseDir = base_path('datos_csv');
-        $agenteFile = $baseDir . '/agentes.csv';
-        $licenciaFile = $baseDir . '/licencias.csv';
+        $agenteFile = $customFile ?: ($baseDir . '/agentes.csv');
+        $licenciaFile = $customFile ?: ($baseDir . '/licencias.csv');
 
         if ($type === 'status') {
             $this->showStatus($agenteFile, $licenciaFile);
@@ -211,14 +214,30 @@ class SeedFromCsvCommand extends Command
         
         $this->info("Procesando archivo CSV en memoria...");
         
+        $isIncremental = $this->option('incremental');
+
         // Open file
         if (($handle = fopen($file, "r")) !== FALSE) {
             // Read header
             $header = fgetcsv($handle, 10000, ",");
             
-            // Clean table for the years we will import
-            $this->info("Limpiando registros de licencias anteriores (2020-2026)...");
-            DB::table('licencias')->whereBetween('anio', [2020, 2026])->delete();
+            // Check if this is a report with metadata at the beginning (e.g. licencias_ultimo.csv)
+            if ($header && strpos(strtolower($header[0]), 'txtagente') === false) {
+                // Keep reading lines until we find the real header
+                while (($line = fgetcsv($handle, 10000, ",")) !== FALSE) {
+                    if ($line && strpos(strtolower($line[0]), 'txtagente') !== false) {
+                        $header = $line;
+                        break;
+                    }
+                }
+            }
+
+            if ($isIncremental) {
+                $this->info("Modo INCREMENTAL activo: se conservarán los registros históricos.");
+            } else {
+                $this->info("Limpiando registros de licencias anteriores (2020-2026)...");
+                DB::table('licencias')->whereBetween('anio', [2020, 2026])->delete();
+            }
 
             $batchSize = 2000;
             $batchData = [];
@@ -252,6 +271,24 @@ class SeedFromCsvCommand extends Command
                     if ($year < 2020 || $year > 2026) {
                         // Default to the year of the start date if valid, else skip or default
                         if ($year < 2000 || $year > 2100) $year = 2026;
+                    }
+
+                    // If incremental, check if license already exists
+                    if ($isIncremental) {
+                        $licExists = false;
+                        if ($referenciaInterna > 0) {
+                            $licExists = DB::table('licencias')->where('referencia_interna', $referenciaInterna)->exists();
+                        } else {
+                            $licExists = DB::table('licencias')
+                                ->where('dni', $dni)
+                                ->where('fecha_inicio', $fechaInicio)
+                                ->where('fecha_fin', $fechaFin)
+                                ->where('tipo_licencia', $tipoLicencia)
+                                ->exists();
+                        }
+                        if ($licExists) {
+                            continue; // Skip existing license
+                        }
                     }
 
                     // Add agent to insert or ignore list if not seen yet
@@ -315,10 +352,12 @@ class SeedFromCsvCommand extends Command
                     'status' => 'success',
                     'completed_at' => Carbon::now(),
                     'records_count' => $totalCount,
-                    'error_message' => 'Importación de licencias completada desde licencias.csv',
+                    'error_message' => $isIncremental 
+                        ? 'Importación incremental de licencias completada desde ' . basename($file)
+                        : 'Importación de licencias completada desde ' . basename($file),
                 ]);
 
-                $this->info("\n✅ Licencias importadas correctamente. Total registros: {$totalCount}");
+                $this->info("\n✅ Licencias importadas correctamente. Total registros insertados: {$totalCount}");
                 Cache::flush();
                 return 0;
 
