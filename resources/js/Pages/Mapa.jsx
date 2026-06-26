@@ -675,7 +675,9 @@ export default function Mapa({ edificios = [] }) {
                                                                      const thRadio = getTheoreticalRadio(selectedEdificio.punto_partida, selectedEdificio.dist_circunf);
                                                                      if (!thRadio) return null;
                                                                      
-                                                                     const sysRadioRaw = mod.radio_sige || mod.radio;
+                                                                     const sysRadioRaw = (mod.radio !== null && mod.radio !== undefined && mod.radio !== 'N/A' && mod.radio !== '') 
+                                                                         ? mod.radio 
+                                                                         : mod.radio_sige;
                                                                      const s = (sysRadioRaw && sysRadioRaw !== 'N/A' && sysRadioRaw !== '') ? parseInt(sysRadioRaw) : null;
                                                                      const circ = selectedEdificio.radio_circ ? parseInt(selectedEdificio.radio_circ) : null;
                                                                      const camino = selectedEdificio.radio_camino ? parseInt(selectedEdificio.radio_camino) : null;

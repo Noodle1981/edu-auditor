@@ -108,7 +108,9 @@ export const getEdificioStatus = (edificio) => {
 
     (edificio.establecimientos || []).forEach((est) => {
         (est.modalidades || []).forEach((mod) => {
-            const sysRadioRaw = mod.radio_sige || mod.radio;
+            const sysRadioRaw = (mod.radio !== null && mod.radio !== undefined && mod.radio !== 'N/A' && mod.radio !== '') 
+                ? mod.radio 
+                : mod.radio_sige;
             if (sysRadioRaw === null || sysRadioRaw === undefined || sysRadioRaw === 'N/A' || sysRadioRaw === '') return;
             
             const s = parseInt(sysRadioRaw);
