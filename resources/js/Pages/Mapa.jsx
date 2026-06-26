@@ -603,8 +603,10 @@ export default function Mapa({ edificios = [] }) {
                                                 <i className="fa-solid fa-school text-lg"></i>
                                             </div>
                                             <div>
-                                                <h2 className="text-[10px] font-black uppercase tracking-wider text-[#FE8204]">
-                                                    {selectedEdificio.zona_departamento || 'Sin Departamento'}
+                                                <h2 className="text-[10px] font-black uppercase tracking-wider text-[#FE8204] flex items-center gap-1.5 flex-wrap">
+                                                    <span>{selectedEdificio.zona_departamento || 'Sin Departamento'}</span>
+                                                    <span className="text-[#FE8204]/40">•</span>
+                                                    <span>CUI: {selectedEdificio.cui}</span>
                                                 </h2>
                                                 <p className="text-sm font-black text-gray-900 leading-tight mt-0.5">
                                                     {selectedEdificio.localidad}
@@ -628,9 +630,14 @@ export default function Mapa({ edificios = [] }) {
                                     <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
                                         {/* Establishments */}
                                         <div className="space-y-4">
-                                            <h3 className="text-[9px] font-black uppercase tracking-widest text-gray-400">
-                                                Establecimientos en este Edificio
-                                            </h3>
+                                            <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
+                                                <h3 className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                                                    Establecimientos en este Edificio
+                                                </h3>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">
+                                                    CUI: {selectedEdificio.cui}
+                                                </span>
+                                            </div>
                                             {selectedEdificio.establecimientos.map((est, i) => (
                                                 <div key={i} className="rounded-xl border border-gray-150 bg-gray-50/50 p-4 space-y-3">
                                                     <div>
