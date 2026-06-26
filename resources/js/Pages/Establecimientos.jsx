@@ -38,6 +38,11 @@ const Establecimientos = () => {
   const [estDetail, setEstDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [cupofSearch, setCupofSearch] = useState('');
+  
+  // Validation Legal State
+  const [instLegal, setInstLegal] = useState('');
+  const [radioJustificado, setRadioJustificado] = useState(false);
+  const [savingRadio, setSavingRadio] = useState(false);
 
   // Track filter changes to reset page
   const [prevFilters, setPrevFilters] = useState({
@@ -64,6 +69,62 @@ const Establecimientos = () => {
     });
     setPage(1);
   }
+
+  const handleUpdateRadio = async () => {
+    if (!selectedEstId) return;
+    setSavingRadio(true);
+    try {
+      const response = await fetch(`/api/establecimientos/${selectedEstId}/radio`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          inst_legal_radio: instLegal,
+          radio_justificado: radioJustificado
+        })
+      });
+      if (!response.ok) throw new Error('Error al actualizar');
+      
+      // Update local state smoothly
+      setEstDetail(prev => {
+        if (!prev || !prev.establecimiento || !prev.establecimiento.modalidades) return prev;
+        const newMods = prev.establecimiento.modalidades.map(m => ({
+          ...m,
+          inst_legal_radio: instLegal,
+          radio_justificado: radioJustificado
+        }));
+        return {
+          ...prev,
+          establecimiento: {
+            ...prev.establecimiento,
+            modalidades: newMods
+          }
+        };
+      });
+      
+      // Also update in the list to reflect without refetching if necessary
+      setEstablecimientos(prev => prev.map(e => {
+        if (e.id === selectedEstId && e.modalidades) {
+          const newMods = e.modalidades.map(m => ({
+            ...m,
+            inst_legal_radio: instLegal,
+            radio_justificado: radioJustificado
+          }));
+          return { ...e, modalidades: newMods };
+        }
+        return e;
+      }));
+      
+      alert('Validación legal actualizada correctamente.');
+    } catch (err) {
+      console.error(err);
+      alert('Ocurrió un error al guardar la validación.');
+    } finally {
+      setSavingRadio(false);
+    }
+  };
 
   // Fetch unique filter options on mount
   useEffect(() => {
@@ -138,6 +199,10 @@ const Establecimientos = () => {
           const data = await res.json();
           if (isMounted && data && data.establecimiento) {
             setEstDetail(data);
+            if (data.establecimiento?.modalidades?.length > 0) {
+              setInstLegal(data.establecimiento.modalidades[0].inst_legal_radio || '');
+              setRadioJustificado(!!data.establecimiento.modalidades[0].radio_justificado);
+            }
           } else {
             if (isMounted) setEstDetail(null);
           }
@@ -768,6 +833,59 @@ const Establecimientos = () => {
                             </tbody>
                           </table>
                         </div>
+
+                        {/* Validation Legal Form */}
+                        <div className="mt-4 p-4 rounded-xl bg-gray-50 border border-gray-200">
+                          <h4 className="text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-3">
+                            <i className="fa-solid fa-gavel mr-1.5 text-cyan-600"></i>
+                            Justificación Legal de Radio
+                          </h4>
+                          <div className="flex flex-col gap-3">
+                            <div>
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                Instrumento Legal (Decreto / Resolución)
+                              </label>
+                              <input
+                                type="text"
+                                className="w-full text-xs rounded-lg border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+                                placeholder="Ej: Decreto 1234/26"
+                                value={instLegal}
+                                onChange={(e) => setInstLegal(e.target.value)}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between mt-1">
+                              <label className="flex items-center cursor-pointer">
+                                <div className="relative">
+                                  <input 
+                                    type="checkbox" 
+                                    className="sr-only" 
+                                    checked={radioJustificado}
+                                    onChange={(e) => setRadioJustificado(e.target.checked)}
+                                  />
+                                  <div className={`block w-10 h-6 rounded-full transition-colors ${radioJustificado ? 'bg-cyan-500' : 'bg-gray-300'}`}></div>
+                                  <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${radioJustificado ? 'transform translate-x-4' : ''}`}></div>
+                                </div>
+                                <div className="ml-3 text-xs font-semibold text-gray-700">
+                                  Validar Radio por Decreto
+                                </div>
+                              </label>
+                              
+                              <button
+                                onClick={handleUpdateRadio}
+                                disabled={savingRadio}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all ${
+                                  savingRadio 
+                                    ? 'bg-gray-400 cursor-not-allowed' 
+                                    : 'bg-cyan-600 hover:bg-cyan-700 hover:shadow-lg active:scale-95'
+                                }`}
+                              >
+                                {savingRadio ? 'Guardando...' : 'Guardar'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
                       </div>
                     )}
 

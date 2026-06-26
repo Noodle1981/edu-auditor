@@ -128,7 +128,7 @@ class EstablecimientoController extends Controller
             foreach ($rows as &$row) {
                 // Fetch modalities
                 $row->modalidades = DB::select("
-                    SELECT direccion_area, nivel_educativo, sector 
+                    SELECT direccion_area, nivel_educativo, sector, radio_justificado, inst_legal_radio 
                     FROM modalidades 
                     WHERE establecimiento_id = ? AND ambito = 'PUBLICO' AND deleted_at IS NULL
                 ", [$row->id]);
@@ -399,7 +399,7 @@ class EstablecimientoController extends Controller
             foreach ($rows as &$row) {
                 // Fetch modalities
                 $row->modalidades = DB::select("
-                    SELECT direccion_area, nivel_educativo, sector 
+                    SELECT direccion_area, nivel_educativo, sector, radio_justificado, inst_legal_radio 
                     FROM modalidades 
                     WHERE establecimiento_id = ? AND ambito = 'PUBLICO' AND deleted_at IS NULL
                 ", [$row->id]);
@@ -547,6 +547,31 @@ class EstablecimientoController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Update the legal justification for the radio of an establishment's modalities.
+     */
+    public function updateRadio(Request $request, $id)
+    {
+        $request->validate([
+            'radio_justificado' => 'required|boolean',
+            'inst_legal_radio' => 'nullable|string|max:255'
+        ]);
+
+        $establecimiento = \App\Models\Establecimiento::find($id);
+        if (!$establecimiento) {
+            return response()->json(['error' => 'Establecimiento no encontrado'], 404);
+        }
+
+        // Update all modalities for this establishment
+        \App\Models\Modalidad::where('establecimiento_id', $id)
+            ->update([
+                'radio_justificado' => $request->boolean('radio_justificado'),
+                'inst_legal_radio' => $request->input('inst_legal_radio')
+            ]);
+
+        return response()->json(['message' => 'Radio validado/actualizado correctamente']);
     }
 
     /**

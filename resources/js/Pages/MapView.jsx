@@ -573,13 +573,20 @@ export default function MapView({
                 {/* School markers */}
                 {filteredEdificios.map((edificio) => {
                     const status = getEdificioStatus(edificio);
-                    const markerColor = status === 'INCONGRUENTE'
-                        ? '#F59E0B' // Yellow for incongruent
-                        : status === 'DISTINTO'
-                            ? '#EF4444' // Red for different
-                            : edificio.ambito === 'PUBLICO'
-                                ? '#10B981' // Green for matching public
-                                : '#3B82F6'; // Blue for private
+                    // Check if radio is justified
+                    const radioJustificado = edificio.establecimientos?.some(
+                        est => est.modalidades?.some(m => m.radio_justificado)
+                    );
+
+                    const markerColor = radioJustificado
+                        ? '#06B6D4' // Cyan for Validated by Decree
+                        : status === 'INCONGRUENTE'
+                            ? '#F59E0B' // Yellow for incongruent
+                            : status === 'DISTINTO'
+                                ? '#EF4444' // Red for different
+                                : edificio.ambito === 'PUBLICO'
+                                    ? '#10B981' // Green for matching public
+                                    : '#3B82F6'; // Blue for private
                     
                     const isHoveredOrSelected = hoveredEdificioId === edificio.id || selectedEdificio?.id === edificio.id;
                     const radioStr = getEdificioRadioString(edificio);

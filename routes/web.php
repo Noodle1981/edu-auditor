@@ -41,6 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/establecimientos/filters', [EstablecimientoController::class, 'getFilters']);
     Route::get('/api/establecimientos/reporte-pdf', [EstablecimientoController::class, 'exportPdf']);
     Route::get('/api/establecimientos/{id}/reporte-pdf', [EstablecimientoController::class, 'exportSinglePdf']);
+    Route::put('/api/establecimientos/{id}/radio', [EstablecimientoController::class, 'updateRadio']);
     Route::get('/api/establecimientos/{id}', [EstablecimientoController::class, 'detail']);
 
     // Mapa Escolar

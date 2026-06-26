@@ -686,37 +686,45 @@ export default function Mapa({ edificios = [] }) {
                                                                      const hasCamino = camino !== null && !isNaN(camino);
 
                                                                      let modStatus = 'COINCIDE';
+                                                                     if (mod.radio_justificado) {
+                                                                          modStatus = 'JUSTIFICADO';
+                                                                      } else if (s === null || isNaN(s)) {
+                                                                          modStatus = 'COINCIDE';
+                                                                      } else {
+                                                                          if (hasCirc && hasCamino) {
+                                                                              const matchesCirc = s === circ;
+                                                                              const matchesCamino = s === camino;
 
-                                                                     if (s === null || isNaN(s)) {
-                                                                         modStatus = 'COINCIDE';
-                                                                     } else {
-                                                                         if (hasCirc && hasCamino) {
-                                                                             const matchesCirc = s === circ;
-                                                                             const matchesCamino = s === camino;
+                                                                              if (matchesCirc && matchesCamino) {
+                                                                                  modStatus = 'COINCIDE';
+                                                                              } else if (matchesCirc || matchesCamino) {
+                                                                                  modStatus = 'INCONGRUENTE';
+                                                                              } else {
+                                                                                  modStatus = 'DISTINTO';
+                                                                              }
+                                                                          } else if (hasCirc) {
+                                                                              if (s === circ) {
+                                                                                  modStatus = 'COINCIDE';
+                                                                              } else {
+                                                                                  modStatus = 'DISTINTO';
+                                                                              }
+                                                                          } else if (hasCamino) {
+                                                                              if (s === camino) {
+                                                                                  modStatus = 'COINCIDE';
+                                                                              } else {
+                                                                                  modStatus = 'DISTINTO';
+                                                                              }
+                                                                          }
+                                                                      }
 
-                                                                             if (matchesCirc && matchesCamino) {
-                                                                                 modStatus = 'COINCIDE';
-                                                                             } else if (matchesCirc || matchesCamino) {
-                                                                                 modStatus = 'INCONGRUENTE';
-                                                                             } else {
-                                                                                 modStatus = 'DISTINTO';
-                                                                             }
-                                                                         } else if (hasCirc) {
-                                                                             if (s === circ) {
-                                                                                 modStatus = 'COINCIDE';
-                                                                             } else {
-                                                                                 modStatus = 'DISTINTO';
-                                                                             }
-                                                                         } else if (hasCamino) {
-                                                                             if (s === camino) {
-                                                                                 modStatus = 'COINCIDE';
-                                                                             } else {
-                                                                                 modStatus = 'DISTINTO';
-                                                                             }
-                                                                         }
-                                                                     }
-
-                                                                    if (modStatus === 'COINCIDE') {
+                                                                    if (modStatus === 'JUSTIFICADO') {
+                                                                        return (
+                                                                            <div className="mt-1 flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 text-[9px] text-cyan-800 font-bold">
+                                                                                <i className="fa-solid fa-gavel text-cyan-600"></i>
+                                                                                <span>Justificado Legalmente: {mod.inst_legal_radio || 'Decreto/Res'}</span>
+                                                                            </div>
+                                                                        );
+                                                                    } else if (modStatus === 'COINCIDE') {
                                                                         return (
                                                                             <div className="mt-1 flex items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-1.5 text-[9px] text-emerald-800 font-bold">
                                                                                 <i className="fa-solid fa-circle-check text-emerald-600"></i>
