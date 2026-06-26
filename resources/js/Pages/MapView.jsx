@@ -425,15 +425,15 @@ export default function MapView({
 
                             const customLabelIcon = L.divIcon({
                                 html: `<div style="
-                                    font-size: 8px;
+                                    font-size: 11px;
                                     font-weight: ${fontWeight};
                                     color: ${textColor};
                                     background-color: ${bg};
                                     border: ${border};
                                     box-shadow: ${shadow};
-                                    width: 24px;
-                                    height: 14px;
-                                    border-radius: 4px;
+                                    width: 30px;
+                                    height: 18px;
+                                    border-radius: 5px;
                                     white-space: nowrap;
                                     display: flex;
                                     align-items: center;
@@ -442,8 +442,8 @@ export default function MapView({
                                     box-sizing: border-box;
                                 ">${labelText}</div>`,
                                 className: 'custom-radius-label',
-                                iconSize: [24, 14],
-                                iconAnchor: [12, 7],
+                                iconSize: [30, 18],
+                                iconAnchor: [15, 9],
                             });
 
                             elements.push(
