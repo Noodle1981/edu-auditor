@@ -35,9 +35,11 @@ return new class extends Migration
             $table->softDeletes();
         });
 
-        // Run python script to seed schools database
-        $process = new \Symfony\Component\Process\Process(['python', base_path('crear_base_datos_escuela.py')]);
-        $process->run();
+        // Run python script to seed schools database (only if not running unit tests)
+        if (!app()->runningUnitTests()) {
+            $process = new \Symfony\Component\Process\Process(['python', base_path('crear_base_datos_escuela.py')]);
+            $process->run();
+        }
     }
 
     /**
