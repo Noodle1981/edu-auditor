@@ -19,6 +19,7 @@ import {
     Marker,
     Polyline,
     Circle,
+    Polygon,
     Popup,
 } from 'react-leaflet';
 
@@ -88,6 +89,19 @@ export const getTheoreticalRadio = (plazaName, distCirc) => {
         return 6;
     }
     return null;
+};
+
+const getCirclePoints = (center, radiusMeters, numPoints = 64) => {
+    const points = [];
+    const offsetLatDegree = 111320;
+    const offsetLngDegree = 111320 * Math.cos(center[0] * Math.PI / 180);
+    for (let i = 0; i <= numPoints; i++) {
+        const angle = (i * 2 * Math.PI) / numPoints;
+        const latOffset = (radiusMeters * Math.sin(angle)) / offsetLatDegree;
+        const lngOffset = (radiusMeters * Math.cos(angle)) / offsetLngDegree;
+        points.push([center[0] + latOffset, center[1] + lngOffset]);
+    }
+    return points;
 };
 
 export const getActivePlaza = (puntoPartida) => {
@@ -383,11 +397,11 @@ export default function MapView({
                     const offsetLatDegree = 111320;
                     const offsetLngDegree = 111320 * Math.cos(activePlaza.lat * Math.PI / 180);
                     const circles = [];
+                    const rings = [];
                     const labels = [];
 
-                    // Render circles in descending order (largest first) so smaller ones overlay larger ones
-                    const descRadios = [...activePlaza.radios].sort((a, b) => b.limit - a.limit);
-                    descRadios.forEach((r, idx) => {
+                    // 1. Draw outline borders for all concentric circles (no fill)
+                    activePlaza.radios.forEach((r, idx) => {
                         const isSelectedRadio = selectedRadios.has(r.radio);
                         circles.push(
                             <Circle
@@ -398,15 +412,55 @@ export default function MapView({
                                     color: isSelectedRadio ? '#FE8204' : activePlaza.color,
                                     weight: isSelectedRadio ? 3.0 : 1.2,
                                     dashArray: isSelectedRadio ? null : '4, 8',
-                                    fillColor: r.color,
-                                    fillOpacity: isSelectedRadio ? 0.08 : 0.015,
+                                    fill: false,
                                     interactive: false
                                 }}
                             />
                         );
                     });
 
-                    // Render labels last so they are always on top
+                    // 2. Draw shaded donut rings only for the assigned/selected radios
+                    selectedRadios.forEach((selectedRadioNum) => {
+                        const radioIndex = activePlaza.radios.findIndex(pr => pr.radio === selectedRadioNum);
+                        if (radioIndex !== -1) {
+                            const r = activePlaza.radios[radioIndex];
+                            const outerLimit = r.limit;
+                            const innerLimit = radioIndex > 0 ? activePlaza.radios[radioIndex - 1].limit : 0;
+
+                            if (innerLimit > 0) {
+                                const outerPoints = getCirclePoints([activePlaza.lat, activePlaza.lng], outerLimit);
+                                const innerPoints = getCirclePoints([activePlaza.lat, activePlaza.lng], innerLimit);
+                                rings.push(
+                                    <Polygon
+                                        key={`ring-${activePlaza.name}-${r.radio}`}
+                                        positions={[outerPoints, innerPoints]}
+                                        pathOptions={{
+                                            fillColor: '#FE8204',
+                                            fillOpacity: 0.13,
+                                            stroke: false,
+                                            interactive: false
+                                        }}
+                                    />
+                                );
+                            } else {
+                                rings.push(
+                                    <Circle
+                                        key={`ring-${activePlaza.name}-${r.radio}`}
+                                        center={[activePlaza.lat, activePlaza.lng]}
+                                        radius={outerLimit}
+                                        pathOptions={{
+                                            fillColor: '#FE8204',
+                                            fillOpacity: 0.13,
+                                            stroke: false,
+                                            interactive: false
+                                        }}
+                                    />
+                                );
+                            }
+                        }
+                    });
+
+                    // 3. Render reference labels
                     activePlaza.radios.forEach((r, idx) => {
                         const isSelectedRadio = selectedRadios.has(r.radio);
                         const offsetLat = r.limit / offsetLatDegree;
@@ -461,7 +515,7 @@ export default function MapView({
                         });
                     });
 
-                    return [...circles, ...labels];
+                    return [...circles, ...rings, ...labels];
                 })()}
 
                 {/* Line connecting school to its Plaza */}
