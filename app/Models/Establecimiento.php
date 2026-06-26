@@ -31,4 +31,9 @@ class Establecimiento extends Model
     {
         return $this->hasMany(Agente::class, 'cue', 'cue');
     }
+
+    public function cabecera(): BelongsTo
+    {
+        return $this->belongsTo(Establecimiento::class, 'establecimiento_cabecera', 'cue');
+    }
 }

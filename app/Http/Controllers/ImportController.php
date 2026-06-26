@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\ImportLog;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 
 class ImportController extends Controller
 {
@@ -123,5 +125,32 @@ class ImportController extends Controller
                 'method' => 'GET',
             ],
         ]);
+    }
+
+    public function trigger(Request $request)
+    {
+        $request->validate([
+            'type' => 'required|in:agentes,licencias,all'
+        ]);
+
+        $type = $request->input('type');
+        
+        try {
+            // Queue the artisan command to run in the background
+            Artisan::queue('app:seed-from-csv', [
+                '--type' => $type
+            ]);
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Proceso de importación encolado correctamente. Verificando en segundo plano.'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al desencadenar importación: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Hubo un problema al iniciar la importación.'
+            ], 500);
+        }
     }
 }

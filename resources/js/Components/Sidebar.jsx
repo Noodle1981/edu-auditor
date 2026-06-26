@@ -8,7 +8,9 @@ export const Sidebar = () => {
 
   const menuItems = isAdmin
     ? [
-        { href: '/importar', label: 'Cargar Datos', icon: 'fa-solid fa-cloud-arrow-up' }
+        { href: '/importar', label: 'Cargar Datos', icon: 'fa-solid fa-cloud-arrow-up' },
+        { href: '/admin/edificios', label: 'Gestión Edificios', icon: 'fa-solid fa-building' },
+        { href: '/admin/establecimientos', label: 'Gestión Establecimientos', icon: 'fa-solid fa-school-flag' }
       ]
     : [
         { href: '/establecimientos', label: 'Establecimientos', icon: 'fa-solid fa-school' },

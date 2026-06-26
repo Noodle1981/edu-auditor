@@ -59,6 +59,22 @@ const Importar = () => {
     }
   };
 
+  const [triggering, setTriggering] = useState(false);
+
+  const triggerImport = async (type) => {
+    setTriggering(true);
+    try {
+      const res = await window.axios.post('/api/imports/trigger', { type });
+      alert(res.data.message);
+      refreshAllData();
+    } catch (e) {
+      console.error('Error triggering import:', e);
+      alert('Error al iniciar la importación. Revisa la consola o logs.');
+    } finally {
+      setTriggering(false);
+    }
+  };
+
   const refreshAllData = () => {
     setLoadingCsv(true);
     setLoadingApi(true);
@@ -296,53 +312,96 @@ const Importar = () => {
               </div>
             </GlassCard>
 
-            {/* Instruction Panel */}
+            {/* Actions Panel */}
             <GlassCard className="p-6 bg-white">
               <div className="flex flex-col mb-4 pb-3 border-b border-gray-50">
                 <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <i className="fa-solid fa-terminal text-emerald-600"></i> Alimentación y Sincronización
+                  <i className="fa-solid fa-bolt text-emerald-600"></i> Acciones de Actualización (POF/PON)
                 </h4>
                 <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">
-                  Comandos para poblar la Base de Datos desde los archivos CSV locales
+                  Lanza procesos en segundo plano para poblar la base de datos con los últimos CSV
                 </p>
               </div>
 
-              <div className="flex flex-col gap-4 text-xs font-semibold text-gray-600">
-                <p className="text-[11px] leading-relaxed">
-                  Para evitar inconsistencias y sincronizar de forma robusta, ejecuta el comando Artisan personalizado directamente en la terminal de tu servidor local:
+              <div className="flex flex-col gap-4">
+                <p className="text-[11px] leading-relaxed font-semibold text-gray-500 mb-2">
+                  Estos procesos pueden tomar varios minutos dependiendo del volumen de los archivos. Asegúrate de haber subido los CSV más recientes en el servidor antes de ejecutar.
                 </p>
 
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">1. Ver Estado y Registros</span>
-                  <div className="p-3 bg-gray-900 text-gray-100 rounded-xl font-mono text-[10px] flex items-center justify-between">
-                    <span>php artisan app:seed-from-csv</span>
-                    <i className="fa-regular fa-copy text-gray-500 cursor-pointer hover:text-white transition-colors" onClick={() => navigator.clipboard.writeText("php artisan app:seed-from-csv")}></i>
+                <button
+                  onClick={() => triggerImport('agentes')}
+                  disabled={triggering}
+                  className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${
+                    triggering
+                      ? 'bg-gray-100 border-gray-200 cursor-not-allowed opacity-70'
+                      : 'bg-white border-emerald-200 hover:border-emerald-500 hover:shadow-md cursor-pointer group'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${triggering ? 'bg-gray-200 text-gray-400' : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors'}`}>
+                      <i className={`fa-solid ${triggering ? 'fa-spinner fa-spin' : 'fa-users'}`}></i>
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-xs font-black text-gray-800 uppercase tracking-wider">
+                        Actualizar POF
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-semibold">
+                        Padrón de Agentes (Cargos y Designaciones)
+                      </span>
+                    </div>
                   </div>
-                </div>
+                  <i className="fa-solid fa-chevron-right text-gray-300"></i>
+                </button>
 
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">2. Importar Padrón de Agentes (Cargos/Designaciones)</span>
-                  <div className="p-3 bg-gray-900 text-gray-100 rounded-xl font-mono text-[10px] flex items-center justify-between">
-                    <span>php artisan app:seed-from-csv --type=agentes</span>
-                    <i className="fa-regular fa-copy text-gray-500 cursor-pointer hover:text-white transition-colors" onClick={() => navigator.clipboard.writeText("php artisan app:seed-from-csv --type=agentes")}></i>
+                <button
+                  onClick={() => triggerImport('licencias')}
+                  disabled={triggering}
+                  className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${
+                    triggering
+                      ? 'bg-gray-100 border-gray-200 cursor-not-allowed opacity-70'
+                      : 'bg-white border-sky-200 hover:border-sky-500 hover:shadow-md cursor-pointer group'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${triggering ? 'bg-gray-200 text-gray-400' : 'bg-sky-50 text-sky-600 group-hover:bg-sky-500 group-hover:text-white transition-colors'}`}>
+                      <i className={`fa-solid ${triggering ? 'fa-spinner fa-spin' : 'fa-file-medical'}`}></i>
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-xs font-black text-gray-800 uppercase tracking-wider">
+                        Actualizar PON
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-semibold">
+                        Novedades y Licencias Consolidadas
+                      </span>
+                    </div>
                   </div>
-                </div>
+                  <i className="fa-solid fa-chevron-right text-gray-300"></i>
+                </button>
 
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">3. Importar Todas las Licencias Consolidadas</span>
-                  <div className="p-3 bg-gray-900 text-gray-100 rounded-xl font-mono text-[10px] flex items-center justify-between">
-                    <span>php artisan app:seed-from-csv --type=licencias</span>
-                    <i className="fa-regular fa-copy text-gray-500 cursor-pointer hover:text-white transition-colors" onClick={() => navigator.clipboard.writeText("php artisan app:seed-from-csv --type=licencias")}></i>
+                <button
+                  onClick={() => triggerImport('all')}
+                  disabled={triggering}
+                  className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all mt-2 ${
+                    triggering
+                      ? 'bg-gray-100 border-gray-200 cursor-not-allowed opacity-70'
+                      : 'bg-gray-900 border-gray-900 hover:bg-gray-800 hover:shadow-md cursor-pointer group'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${triggering ? 'bg-gray-700 text-gray-500' : 'bg-gray-800 text-white group-hover:bg-gray-700 transition-colors'}`}>
+                      <i className={`fa-solid ${triggering ? 'fa-spinner fa-spin' : 'fa-server'}`}></i>
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className={`text-xs font-black uppercase tracking-wider ${triggering ? 'text-gray-500' : 'text-white'}`}>
+                        Sincronización Completa
+                      </span>
+                      <span className={`text-[10px] font-semibold ${triggering ? 'text-gray-500' : 'text-gray-400'}`}>
+                        Actualizar TODO (POF y PON) en orden
+                      </span>
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">4. Sincronización Completa (Agentes + Licencias)</span>
-                  <div className="p-3 bg-gray-900 text-gray-100 rounded-xl font-mono text-[10px] flex items-center justify-between">
-                    <span>php artisan app:seed-from-csv --type=all</span>
-                    <i className="fa-regular fa-copy text-gray-500 cursor-pointer hover:text-white transition-colors" onClick={() => navigator.clipboard.writeText("php artisan app:seed-from-csv --type=all")}></i>
-                  </div>
-                </div>
+                  <i className="fa-solid fa-chevron-right text-gray-600"></i>
+                </button>
               </div>
             </GlassCard>
 
@@ -399,54 +458,6 @@ const Importar = () => {
                 )}
               </div>
             </GlassCard>
-
-            {/* Volume Stats Table */}
-            {!loadingStats && stats && (
-              <GlassCard className="p-6 bg-white">
-                <div className="flex flex-col mb-4 pb-3 border-b border-gray-50">
-                  <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <i className="fa-solid fa-chart-simple text-violet-600"></i> Volúmenes de Registros por Año
-                  </h4>
-                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">
-                    Conteo de datos procesados actualmente en el sistema
-                  </p>
-                </div>
-
-                <div className="w-full overflow-x-auto rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                  <table className="w-full text-left border-collapse text-[11px] font-semibold text-gray-600">
-                    <thead>
-                      <tr className="bg-gray-50 text-gray-400 text-[9px] font-black uppercase tracking-widest border-b border-gray-100">
-                        <th className="px-3 py-2 text-center">Año</th>
-                        <th className="px-3 py-2 text-right">Cargos</th>
-                        <th className="px-3 py-2 text-right">Designac.</th>
-                        <th className="px-3 py-2 text-right">Licencias</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {getYearsList().length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="px-3 py-4 text-center text-gray-400 italic">
-                            No hay registros cargados.
-                          </td>
-                        </tr>
-                      ) : (
-                        getYearsList().map(y => {
-                          const { cargo, desig, lic } = getCountsForYear(y);
-                          return (
-                            <tr key={y} className="hover:bg-gray-50/50 transition-colors">
-                              <td className="px-3 py-2.5 font-black text-gray-900 text-center bg-gray-50/20">{y}</td>
-                              <td className="px-3 py-2.5 font-mono text-right text-gray-800">{cargo.toLocaleString('es-AR')}</td>
-                              <td className="px-3 py-2.5 font-mono text-right text-gray-800">{desig.toLocaleString('es-AR')}</td>
-                              <td className="px-3 py-2.5 font-mono text-right text-gray-800">{lic.toLocaleString('es-AR')}</td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </GlassCard>
-            )}
 
             {/* History Table */}
             <GlassCard className="p-6 bg-white flex flex-col justify-between">

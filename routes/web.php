@@ -62,6 +62,25 @@ Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::get('/api/imports/stats', [ImportController::class, 'stats']);
     Route::get('/api/imports/csv-status', [ImportController::class, 'csvStatus']);
     Route::get('/api/imports/api-status', [ImportController::class, 'apiStatus']);
+    Route::post('/api/imports/trigger', [ImportController::class, 'trigger']);
+
+    // Gestión de Edificios (Admin)
+    Route::get('/admin/edificios', [\App\Http\Controllers\Admin\EdificioController::class, 'index'])->name('admin.edificios.index');
+    Route::post('/admin/edificios', [\App\Http\Controllers\Admin\EdificioController::class, 'store'])->name('admin.edificios.store');
+    Route::patch('/admin/edificios/{id}', [\App\Http\Controllers\Admin\EdificioController::class, 'update'])->name('admin.edificios.update');
+    Route::delete('/admin/edificios/{id}', [\App\Http\Controllers\Admin\EdificioController::class, 'destroy'])->name('admin.edificios.destroy');
+    Route::get('/admin/edificios/export', [\App\Http\Controllers\Admin\EdificioController::class, 'export'])->name('admin.edificios.export');
+
+    // Gestión de Establecimientos (Modalidades - Admin)
+    Route::get('/admin/establecimientos', [\App\Http\Controllers\Admin\ModalidadController::class, 'index'])->name('admin.establecimientos.index');
+    Route::post('/admin/establecimientos', [\App\Http\Controllers\Admin\ModalidadController::class, 'store'])->name('admin.establecimientos.store');
+    Route::patch('/admin/establecimientos/{id}', [\App\Http\Controllers\Admin\ModalidadController::class, 'update'])->name('admin.establecimientos.update');
+    Route::delete('/admin/establecimientos/{id}', [\App\Http\Controllers\Admin\ModalidadController::class, 'destroy'])->name('admin.establecimientos.destroy');
+    Route::get('/admin/establecimientos/export', [\App\Http\Controllers\Admin\ModalidadController::class, 'export'])->name('admin.establecimientos.export');
+    
+    // API Lookups
+    Route::get('/api/lookup-edificio/{cui}', [\App\Http\Controllers\Admin\ModalidadController::class, 'lookupEdificio'])->name('api.lookup-edificio');
+    Route::get('/api/lookup-cue/{cue}', [\App\Http\Controllers\Admin\ModalidadController::class, 'lookupCue'])->name('api.lookup-cue');
 });
 
 require __DIR__.'/auth.php';
