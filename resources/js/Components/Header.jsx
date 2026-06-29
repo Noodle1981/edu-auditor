@@ -19,7 +19,7 @@ export const Header = () => {
         title: 'Auditoría Automatizada',
         subtitle: 'Diagnóstico de Perfil Docente y Contexto POF/PON'
       };
-    } else if (url.startsWith('/importar')) {
+    } else if (url.startsWith('/admin/importar')) {
       return {
         title: 'Carga y Actualización del Repositorio de Datos',
         subtitle: 'Panel administrativo para la subida de planillas CSV/Excel e importación'

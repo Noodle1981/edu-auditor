@@ -64,12 +64,12 @@ class EdificioQueryService
     public function getFilterOptions(): array
     {
         return [
-            'zonas' => Edificio::select('zona_departamento')->distinct()->whereNotNull('zona_departamento')->orderBy('zona_departamento')->pluck('zona_departamento'),
-            'localidades' => Edificio::select('localidad')->distinct()->whereNotNull('localidad')->orderBy('localidad')->pluck('localidad'),
+            'zonas' => Edificio::select('zona_departamento')->distinct()->whereNotNull('zona_departamento')->orderBy('zona_departamento')->pluck('zona_departamento')->toArray(),
+            'localidades' => Edificio::select('localidad')->distinct()->whereNotNull('localidad')->orderBy('localidad')->pluck('localidad')->toArray(),
             'ambitos' => ['PUBLICO', 'PRIVADO'],
-            'orientaciones' => Edificio::select('orientacion')->distinct()->whereNotNull('orientacion')->where('orientacion', '!=', '')->orderBy('orientacion')->pluck('orientacion'),
-            'codigos_postales' => Edificio::select('codigo_postal')->distinct()->whereNotNull('codigo_postal')->where('codigo_postal', '!=', '')->orderBy('codigo_postal')->pluck('codigo_postal'),
-            'letras_zona' => Edificio::select('letra_zona')->distinct()->whereNotNull('letra_zona')->where('letra_zona', '!=', '')->orderBy('letra_zona')->pluck('letra_zona'),
+            'orientaciones' => Edificio::select('orientacion')->distinct()->whereNotNull('orientacion')->where('orientacion', '!=', '')->orderBy('orientacion')->pluck('orientacion')->toArray(),
+            'codigos_postales' => Edificio::select('codigo_postal')->distinct()->whereNotNull('codigo_postal')->where('codigo_postal', '!=', '')->orderBy('codigo_postal')->pluck('codigo_postal')->toArray(),
+            'letras_zona' => Edificio::select('letra_zona')->distinct()->whereNotNull('letra_zona')->where('letra_zona', '!=', '')->orderBy('letra_zona')->pluck('letra_zona')->toArray(),
         ];
     }
 }

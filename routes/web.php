@@ -52,7 +52,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // Admin-only SIAME routes (Role Middleware)
 Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
-    Route::get('/importar', [ImportController::class, 'index'])->name('importar');
+    Route::get('/admin/importar', [ImportController::class, 'index'])->name('importar');
     Route::get('/api/imports/history', [ImportController::class, 'history']);
     Route::get('/api/imports/stats', [ImportController::class, 'stats']);
     Route::get('/api/imports/csv-status', [ImportController::class, 'csvStatus']);

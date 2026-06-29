@@ -68,13 +68,13 @@ class ModalidadQueryService
      */
     public function getFilterOptions(): array
     {
-        $niveles = Modalidad::select('nivel_educativo')->distinct()->whereNotNull('nivel_educativo')->orderBy('nivel_educativo')->pluck('nivel_educativo');
-        $ambitos = Modalidad::select('ambito')->distinct()->whereNotNull('ambito')->pluck('ambito');
-        $areas = Modalidad::select('direccion_area')->distinct()->whereNotNull('direccion_area')->orderBy('direccion_area')->pluck('direccion_area');
-        $zonas = \App\Models\Edificio::select('zona_departamento')->distinct()->whereNotNull('zona_departamento')->orderBy('zona_departamento')->pluck('zona_departamento');
-        $radios = Modalidad::select('radio')->distinct()->whereNotNull('radio')->orderBy('radio')->pluck('radio');
-        $sectores = Modalidad::select('sector')->distinct()->whereNotNull('sector')->orderBy('sector')->pluck('sector');
-        $categorias = Modalidad::select('categoria')->distinct()->whereNotNull('categoria')->where('categoria', '<>', '')->orderBy('categoria')->pluck('categoria');
+        $niveles = Modalidad::select('nivel_educativo')->distinct()->whereNotNull('nivel_educativo')->orderBy('nivel_educativo')->pluck('nivel_educativo')->toArray();
+        $ambitos = Modalidad::select('ambito')->distinct()->whereNotNull('ambito')->pluck('ambito')->toArray();
+        $areas = Modalidad::select('direccion_area')->distinct()->whereNotNull('direccion_area')->orderBy('direccion_area')->pluck('direccion_area')->toArray();
+        $zonas = \App\Models\Edificio::select('zona_departamento')->distinct()->whereNotNull('zona_departamento')->orderBy('zona_departamento')->pluck('zona_departamento')->toArray();
+        $radios = Modalidad::select('radio')->distinct()->whereNotNull('radio')->orderBy('radio')->pluck('radio')->toArray();
+        $sectores = Modalidad::select('sector')->distinct()->whereNotNull('sector')->orderBy('sector')->pluck('sector')->toArray();
+        $categorias = Modalidad::select('categoria')->distinct()->whereNotNull('categoria')->where('categoria', '<>', '')->orderBy('categoria')->pluck('categoria')->toArray();
 
         // Mappings for dependent filters
         $deptRadios = \DB::table('modalidades')

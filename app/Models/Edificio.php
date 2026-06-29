@@ -34,12 +34,15 @@ class Edificio extends Model
      */
     public static function getNamesMap(): \Illuminate\Support\Collection
     {
-        return \Illuminate\Support\Facades\Cache::remember('edificios_names_map', 3600, function () {
+        $mapArray = \Illuminate\Support\Facades\Cache::remember('edificios_names_map_v2', 3600, function () {
             return self::with('cabecera')
                 ->get()
                 ->mapWithKeys(fn($e) => [
                     $e->id => $e->cabecera?->nombre ?? 'Sin Nombre',
-                ]);
+                ])
+                ->toArray();
         });
+        
+        return collect($mapArray);
     }
 }
