@@ -36,11 +36,7 @@ class EstablecimientoController extends Controller
             if ($limit < 1 || $limit > 100) $limit = 15;
             $offset = ($page - 1) * $limit;
 
-            $year = (int)$request->input('year');
-            if (!$year) {
-                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
-                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
-            }
+            $year = $this->getDefaultYear((int)$request->input('year'));
 
             $hideEmpty = $request->boolean('hide_empty', false);
 
@@ -319,11 +315,7 @@ class EstablecimientoController extends Controller
             $nivelEducativo = trim($request->input('nivel_educativo', ''));
             $departamento = trim($request->input('departamento', ''));
 
-            $year = (int)$request->input('year');
-            if (!$year) {
-                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
-                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
-            }
+            $year = $this->getDefaultYear((int)$request->input('year'));
 
             $hideEmpty = $request->boolean('hide_empty', false);
 
@@ -580,11 +572,7 @@ class EstablecimientoController extends Controller
     public function detail($id, Request $request)
     {
         try {
-            $year = (int)$request->input('year');
-            if (!$year) {
-                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
-                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
-            }
+            $year = $this->getDefaultYear((int)$request->input('year'));
 
             // Fetch establishment details
             $est = DB::selectOne("
@@ -741,11 +729,7 @@ class EstablecimientoController extends Controller
     public function exportSinglePdf($id, Request $request)
     {
         try {
-            $year = (int)$request->input('year');
-            if (!$year) {
-                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
-                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
-            }
+            $year = $this->getDefaultYear((int)$request->input('year'));
 
             // Fetch establishment details
             $est = DB::selectOne("

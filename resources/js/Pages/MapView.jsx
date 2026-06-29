@@ -127,8 +127,9 @@ export const getEdificioStatus = (edificio) => {
                 : mod.radio_sige;
             if (sysRadioRaw === null || sysRadioRaw === undefined || sysRadioRaw === 'N/A' || sysRadioRaw === '') return;
             
-            const s = parseInt(sysRadioRaw);
+            let s = parseInt(sysRadioRaw);
             if (isNaN(s)) return;
+            if (s === 7) s = 6;
 
             const circ = edificio.radio_circ ? parseInt(edificio.radio_circ) : null;
             const camino = edificio.radio_camino ? parseInt(edificio.radio_camino) : null;

@@ -678,7 +678,8 @@ export default function Mapa({ edificios = [] }) {
                                                                      const sysRadioRaw = (mod.radio !== null && mod.radio !== undefined && mod.radio !== 'N/A' && mod.radio !== '') 
                                                                          ? mod.radio 
                                                                          : mod.radio_sige;
-                                                                     const s = (sysRadioRaw && sysRadioRaw !== 'N/A' && sysRadioRaw !== '') ? parseInt(sysRadioRaw) : null;
+                                                                     let s = (sysRadioRaw && sysRadioRaw !== 'N/A' && sysRadioRaw !== '') ? parseInt(sysRadioRaw) : null;
+                                                                     if (s === 7) s = 6;
                                                                      const circ = selectedEdificio.radio_circ ? parseInt(selectedEdificio.radio_circ) : null;
                                                                      const camino = selectedEdificio.radio_camino ? parseInt(selectedEdificio.radio_camino) : null;
                                                                      

@@ -53,26 +53,6 @@ export const Header = () => {
 
       {/* Profile & Refresh Action */}
       <div className="flex items-center gap-6 self-end md:self-auto">
-        {/* Year Select Dropdown */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-gray-400 font-black uppercase tracking-wider">Año Lectivo</span>
-          <select
-            value={activeYear}
-            onChange={(e) => setActiveYear(e.target.value)}
-            className="px-3 py-2 bg-gray-50 border border-gray-100 hover:border-gray-200 rounded-xl text-xs font-black text-gray-700 focus:outline-none cursor-pointer transition-all shadow-sm"
-          >
-            <option value="2027">2027</option>
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
-            <option value="2024">2024</option>
-            <option value="2023">2023</option>
-            <option value="2022">2022</option>
-            <option value="2021">2021</option>
-            <option value="2020">2020</option>
-          </select>
-        </div>
-
-
 
         <div className="h-8 w-px bg-gray-100"></div>
 

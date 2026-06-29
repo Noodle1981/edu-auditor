@@ -29,11 +29,14 @@ export default function Login({ status, canResetPassword }) {
             </Head>
 
             <div className="text-center mb-6">
-                <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-                    Iniciar Sesión
+                <h1 className="text-3xl font-black text-[#FE8204] tracking-tight mb-2">
+                    SIAME
                 </h1>
+                <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+                    Iniciar Sesión
+                </h2>
                 <p className="text-xs text-gray-400 font-semibold mt-1">
-                    Ingresa tus credenciales para acceder al tablero
+                    Ingresa tus credenciales para acceder
                 </p>
             </div>
 

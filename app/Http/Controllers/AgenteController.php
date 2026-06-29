@@ -29,11 +29,7 @@ class AgenteController extends Controller
             if ($page < 1) $page = 1;
             if ($limit < 1 || $limit > 100) $limit = 20;
             $offset = ($page - 1) * $limit;
-            $year = (int)$request->input('year');
-            if (!$year) {
-                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
-                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
-            }
+            $year = $this->getDefaultYear((int)$request->input('year'));
 
             // Build queries dynamically
             $bindings = [$year];
@@ -278,11 +274,7 @@ class AgenteController extends Controller
                 return response()->json(['error' => 'Agent not found in unified database'], 404);
             }
 
-            $year = (int)request()->query('year');
-            if (!$year) {
-                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
-                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
-            }
+            $year = $this->getDefaultYear((int)request()->query('year'));
 
             // 2. Fetch active cargos
             $rowsAgentes = DB::select("
@@ -496,11 +488,7 @@ class AgenteController extends Controller
                 return response()->json(['error' => 'No se encontró ningún agente con el DNI ingresado.'], 404);
             }
 
-            $year = (int)request()->query('year');
-            if (!$year) {
-                $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
-                $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
-            }
+            $year = $this->getDefaultYear((int)request()->query('year'));
 
             $cargos = DB::select("
                 SELECT id, centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
@@ -789,49 +777,7 @@ class AgenteController extends Controller
         return $earthRadius * $c;
     }
 
-    private function getAgentConsolidatedData($dni, $year = null)
-    {
-        $agentInfo = DB::selectOne("SELECT dni, nombre_agente, genero, legajo, fecha_alta FROM agentes WHERE dni = ?", [$dni]);
-        if (!$agentInfo) return null;
 
-        if (!$year) {
-            $latestYearRow = DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
-            $year = $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
-        }
-
-        $cargos = DB::select("
-            SELECT centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
-                   turno, plan_estudio, situacion_revista, norma_legal, observaciones
-            FROM agente_cargos 
-            WHERE dni = ? AND anio = ?
-        ", [$dni, $year]);
-
-        $designaciones = DB::select("
-            SELECT centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
-                   turno, plan_estudio, situacion_revista, norma_legal, observaciones
-            FROM designaciones 
-            WHERE dni = ? AND anio = ?
-        ", [$dni, $year]);
-
-        $licencias = DB::select("
-            SELECT id_tramite, fecha_carga, tipo_licencia, fecha_inicio, fecha_fin, dias, documento_respaldo
-            FROM licencias 
-            WHERE dni = ?
-        ", [$dni]);
-
-        return [
-            'dni' => $agentInfo->dni,
-            'nombre_agente' => $agentInfo->nombre_agente,
-            'genero' => $agentInfo->genero,
-            'legajo' => $agentInfo->legajo,
-            'fecha_alta' => $agentInfo->fecha_alta,
-            'total_cargos_activos' => count($cargos),
-            'total_horas_catedra' => array_sum(array_map(fn($c) => (int)$c->horas_catedra, $cargos)),
-            'cargos_activos' => $cargos,
-            'designaciones' => $designaciones,
-            'licencias' => $licencias
-        ];
-    }
 
     public static function getCargoCostEquivalencia($cargoHoras, $planEstudio): array
     {
