@@ -121,136 +121,7 @@ class EstablecimientoController extends Controller
             $rows = DB::select($dataQuery, $dataBindings);
 
             // Eager-like fetching of modalities and stats for the paginated rows
-            foreach ($rows as &$row) {
-                // Fetch modalities
-                $row->modalidades = DB::select("
-                    SELECT direccion_area, nivel_educativo, sector, radio_justificado, inst_legal_radio 
-                    FROM modalidades 
-                    WHERE establecimiento_id = ? AND ambito = 'PUBLICO' AND deleted_at IS NULL
-                ", [$row->id]);
-
-                // Fetch all cargos for this CUE to calculate audit stats
-                $cargos = DB::select("
-                    SELECT dni, cupof, situacion_revista
-                    FROM agente_cargos
-                    WHERE cue = ? AND anio = ? AND cupof IS NOT NULL AND cupof != ''
-                ", [$row->cue, $year]);
-
-                $dnis = array_values(array_unique(array_filter(array_column($cargos, 'dni'))));
-                $licenciasByDni = [];
-                if (!empty($dnis)) {
-                    $placeholders = implode(',', array_fill(0, count($dnis), '?'));
-                    $today = Carbon::today()->setYear($year)->format('Y-m-d');
-                    $lics = DB::select("
-                        SELECT dni, tipo_licencia
-                        FROM licencias
-                        WHERE fecha_inicio <= ? AND fecha_fin >= ? AND dni IN ({$placeholders})
-                    ", array_merge([$today, $today], $dnis));
-                    
-                    foreach ($lics as $lic) {
-                        $licenciasByDni[$lic->dni][] = $lic->tipo_licencia;
-                    }
-                }
-
-                $cupofs = [];
-                foreach ($cargos as $c) {
-                    $c->licencias_tipos = $licenciasByDni[$c->dni] ?? [];
-                    $c->tiene_licencia = !empty($c->licencias_tipos);
-                    $cupofs[$c->cupof][] = $c;
-                }
-
-                foreach ($cupofs as $code => &$agents) {
-                    // Sort agents hierarchically: TITULAR/INTERINO first, then SUPLENTE, then REEMPLAZANTE, then others.
-                    usort($agents, function($a, $b) {
-                        $order = ['TITULAR' => 1, 'INTERINO' => 1, 'SUPLENTE' => 2, 'REEMPLAZANTE' => 3];
-                        $revA = strtoupper($a->situacion_revista ?? '');
-                        $revB = strtoupper($b->situacion_revista ?? '');
-                        $valA = $order[$revA] ?? 4;
-                        $valB = $order[$revB] ?? 4;
-                        return $valA <=> $valB;
-                    });
-
-                    $count = count($agents);
-                    if ($count > 1) {
-                        $lastAgent = $agents[$count - 1];
-                        $revLast = strtoupper($lastAgent->situacion_revista ?? '');
-                        if ($lastAgent->tiene_licencia && ($revLast === 'SUPLENTE' || $revLast === 'REEMPLAZANTE')) {
-                            $hasMayorJerarquia = false;
-                            foreach ($lastAgent->licencias_tipos as $tipo) {
-                                if (stripos($tipo, 'MAYOR JERARQUÍA') !== false) {
-                                    $hasMayorJerarquia = true;
-                                    break;
-                                }
-                            }
-                            if ($hasMayorJerarquia) {
-                                $lastAgent->tiene_licencia = false;
-                            }
-                        }
-                    }
-                }
-                unset($agents);
-
-                $row->cupof_count = count($cupofs);
-                
-                $uniqueDnis = [];
-                $activeDnis = [];
-                foreach ($cupofs as $code => $agents) {
-                    foreach ($agents as $agent) {
-                        if ($agent->dni) {
-                            $uniqueDnis[$agent->dni] = true;
-                            if (!$agent->tiene_licencia) {
-                                $activeDnis[$agent->dni] = true;
-                            }
-                        }
-                    }
-                }
-                $row->agent_count = count($uniqueDnis);
-                $row->active_agents_count = count($activeDnis);
-                $row->licensed_agents_count = $row->agent_count - $row->active_agents_count;
-                $row->relacion_planta_percent = $row->cupof_count > 0 ? (int)round(($row->agent_count / $row->cupof_count) * 100) : 0;
-
-                $covered = 0;
-                $extraAgents = 0;
-                $reforzadosCount = 0;
-
-                foreach ($cupofs as $code => $agents) {
-                    $count = count($agents);
-                    if ($count > 1) {
-                        $reforzadosCount++;
-                    }
-                    if ($count === 1) {
-                        $agent = $agents[0];
-                        if (!$agent->tiene_licencia) {
-                            $covered++;
-                        }
-                    } else {
-                        $activeCount = 0;
-                        $replacementsCount = 0;
-                        foreach ($agents as $agent) {
-                            $rev = strtoupper($agent->situacion_revista ?? '');
-                            if ($rev === 'SUPLENTE' || $rev === 'REEMPLAZANTE') {
-                                $replacementsCount++;
-                            }
-                            if (!$agent->tiene_licencia) {
-                                $activeCount++;
-                            }
-                        }
-                        
-                        $extraAgents += $replacementsCount;
-                        
-                        if ($activeCount > 0) {
-                            $covered++;
-                        }
-                    }
-                }
-
-                $row->covered_count = $covered;
-                $row->uncovered_count = $row->cupof_count - $covered;
-                $row->extra_agents_count = $extraAgents;
-                $row->reforzados_count = $reforzadosCount;
-                $row->coverage_percent = $row->cupof_count > 0 ? (int)round(($covered / $row->cupof_count) * 100) : 0;
-            }
-            unset($row);
+            $this->enrichEstablecimientoRows($rows, $year);
 
             return response()->json([
                 'data' => $rows,
@@ -388,136 +259,7 @@ class EstablecimientoController extends Controller
             $rows = DB::select($dataQuery, $bindings);
 
             // Fetch modalities and stats for all rows
-            foreach ($rows as &$row) {
-                // Fetch modalities
-                $row->modalidades = DB::select("
-                    SELECT direccion_area, nivel_educativo, sector, radio_justificado, inst_legal_radio 
-                    FROM modalidades 
-                    WHERE establecimiento_id = ? AND ambito = 'PUBLICO' AND deleted_at IS NULL
-                ", [$row->id]);
-
-                // Fetch all cargos for this CUE to calculate audit stats
-                $cargos = DB::select("
-                    SELECT dni, cupof, situacion_revista
-                    FROM agente_cargos
-                    WHERE cue = ? AND anio = ? AND cupof IS NOT NULL AND cupof != ''
-                ", [$row->cue, $year]);
-
-                $dnis = array_values(array_unique(array_filter(array_column($cargos, 'dni'))));
-                $licenciasByDni = [];
-                if (!empty($dnis)) {
-                    $placeholders = implode(',', array_fill(0, count($dnis), '?'));
-                    $today = Carbon::today()->setYear($year)->format('Y-m-d');
-                    $lics = DB::select("
-                        SELECT dni, tipo_licencia
-                        FROM licencias
-                        WHERE fecha_inicio <= ? AND fecha_fin >= ? AND dni IN ({$placeholders})
-                    ", array_merge([$today, $today], $dnis));
-                    
-                    foreach ($lics as $lic) {
-                        $licenciasByDni[$lic->dni][] = $lic->tipo_licencia;
-                    }
-                }
-
-                $cupofs = [];
-                foreach ($cargos as $c) {
-                    $c->licencias_tipos = $licenciasByDni[$c->dni] ?? [];
-                    $c->tiene_licencia = !empty($c->licencias_tipos);
-                    $cupofs[$c->cupof][] = $c;
-                }
-
-                foreach ($cupofs as $code => &$agents) {
-                    // Sort agents hierarchically: TITULAR/INTERINO first, then SUPLENTE, then REEMPLAZANTE, then others.
-                    usort($agents, function($a, $b) {
-                        $order = ['TITULAR' => 1, 'INTERINO' => 1, 'SUPLENTE' => 2, 'REEMPLAZANTE' => 3];
-                        $revA = strtoupper($a->situacion_revista ?? '');
-                        $revB = strtoupper($b->situacion_revista ?? '');
-                        $valA = $order[$revA] ?? 4;
-                        $valB = $order[$revB] ?? 4;
-                        return $valA <=> $valB;
-                    });
-
-                    $count = count($agents);
-                    if ($count > 1) {
-                        $lastAgent = $agents[$count - 1];
-                        $revLast = strtoupper($lastAgent->situacion_revista ?? '');
-                        if ($lastAgent->tiene_licencia && ($revLast === 'SUPLENTE' || $revLast === 'REEMPLAZANTE')) {
-                            $hasMayorJerarquia = false;
-                            foreach ($lastAgent->licencias_tipos as $tipo) {
-                                if (stripos($tipo, 'MAYOR JERARQUÍA') !== false) {
-                                    $hasMayorJerarquia = true;
-                                    break;
-                                }
-                            }
-                            if ($hasMayorJerarquia) {
-                                $lastAgent->tiene_licencia = false;
-                            }
-                        }
-                    }
-                }
-                unset($agents);
-
-                $row->cupof_count = count($cupofs);
-                
-                $uniqueDnis = [];
-                $activeDnis = [];
-                foreach ($cupofs as $code => $agents) {
-                    foreach ($agents as $agent) {
-                        if ($agent->dni) {
-                            $uniqueDnis[$agent->dni] = true;
-                            if (!$agent->tiene_licencia) {
-                                $activeDnis[$agent->dni] = true;
-                            }
-                        }
-                    }
-                }
-                $row->agent_count = count($uniqueDnis);
-                $row->active_agents_count = count($activeDnis);
-                $row->licensed_agents_count = $row->agent_count - $row->active_agents_count;
-
-                $covered = 0;
-                $extraAgents = 0;
-                $reforzadosCount = 0;
-
-                foreach ($cupofs as $code => $agents) {
-                    $count = count($agents);
-                    if ($count > 1) {
-                        $reforzadosCount++;
-                    }
-                    if ($count === 1) {
-                        $agent = $agents[0];
-                        if (!$agent->tiene_licencia) {
-                            $covered++;
-                        }
-                    } else {
-                        $activeCount = 0;
-                        $replacementsCount = 0;
-                        foreach ($agents as $agent) {
-                            $rev = strtoupper($agent->situacion_revista ?? '');
-                            if ($rev === 'SUPLENTE' || $rev === 'REEMPLAZANTE') {
-                                $replacementsCount++;
-                            }
-                            if (!$agent->tiene_licencia) {
-                                $activeCount++;
-                            }
-                        }
-                        
-                        $extraAgents += $replacementsCount;
-                        
-                        if ($activeCount > 0) {
-                            $covered++;
-                        }
-                    }
-                }
-
-                $row->covered_count = $covered;
-                $row->uncovered_count = $row->cupof_count - $covered;
-                $row->extra_agents_count = $extraAgents;
-                $row->reforzados_count = $reforzadosCount;
-                $row->coverage_percent = $row->cupof_count > 0 ? (int)round(($covered / $row->cupof_count) * 100) : 0;
-                $row->relacion_planta_percent = $row->cupof_count > 0 ? (int)round(($row->agent_count / $row->cupof_count) * 100) : 0;
-            }
-            unset($row);
+            $this->enrichEstablecimientoRows($rows, $year);
 
             $html = view('pdf.establecimientos', [
                 'rows' => $rows,
@@ -979,6 +721,195 @@ class EstablecimientoController extends Controller
 
         } catch (\Exception $e) {
             abort(500, $e->getMessage());
+        }
+    }
+
+    /**
+     * Eagerly fetch and attach modalities, cargos, and calculate stats for an array of rows.
+     * Replaces the N+1 queries that previously fetched data row by row.
+     */
+    private function enrichEstablecimientoRows(array &$rows, int $year): void
+    {
+        if (empty($rows)) return;
+
+        $ids = array_values(array_unique(array_filter(array_column($rows, 'id'))));
+        $cues = array_values(array_unique(array_filter(array_column($rows, 'cue'))));
+
+        $modsById = [];
+        if (!empty($ids)) {
+            $idPlaceholders = implode(',', array_fill(0, count($ids), '?'));
+            $modalidades = DB::select("
+                SELECT establecimiento_id, direccion_area, nivel_educativo, sector, radio_justificado, inst_legal_radio 
+                FROM modalidades 
+                WHERE establecimiento_id IN ({$idPlaceholders}) AND ambito = 'PUBLICO' AND deleted_at IS NULL
+            ", $ids);
+            
+            foreach ($modalidades as $mod) {
+                $modsById[$mod->establecimiento_id][] = $mod;
+            }
+        }
+
+        $cargosByCue = [];
+        $licenciasByDni = [];
+        if (!empty($cues)) {
+            $cuePlaceholders = implode(',', array_fill(0, count($cues), '?'));
+            $cargos = DB::select("
+                SELECT cue, dni, cupof, situacion_revista
+                FROM agente_cargos
+                WHERE cue IN ({$cuePlaceholders}) AND anio = ? AND cupof IS NOT NULL AND cupof != ''
+            ", array_merge($cues, [$year]));
+
+            $dnis = array_values(array_unique(array_filter(array_column($cargos, 'dni'))));
+            if (!empty($dnis)) {
+                $dniPlaceholders = implode(',', array_fill(0, count($dnis), '?'));
+                $today = Carbon::today()->setYear($year)->format('Y-m-d');
+                $lics = DB::select("
+                    SELECT dni, tipo_licencia, cupof_licencia
+                    FROM licencias
+                    WHERE fecha_inicio <= ? AND fecha_fin >= ? AND dni IN ({$dniPlaceholders})
+                ", array_merge([$today, $today], $dnis));
+
+                foreach ($lics as $lic) {
+                    if (!empty($lic->cupof_licencia)) {
+                        // Licencia vinculada a un cargo específico
+                        $licenciasByDni[$lic->dni]['by_cupof'][$lic->cupof_licencia] = $lic->tipo_licencia;
+                    } else {
+                        // Licencia histórica sin CUPOF: aplica globalmente al agente (fallback)
+                        $licenciasByDni[$lic->dni]['global'][] = $lic->tipo_licencia;
+                    }
+                }
+            }
+
+            foreach ($cargos as $c) {
+                $cargosByCue[$c->cue][] = $c;
+            }
+        }
+
+        foreach ($rows as &$row) {
+            $row->modalidades = $modsById[$row->id] ?? [];
+            
+            $rowCargos = $cargosByCue[$row->cue] ?? [];
+            
+            $cupofs = [];
+            foreach ($rowCargos as $c) {
+                $licData = $licenciasByDni[$c->dni] ?? [];
+                // Tiene licencia si: hay una licencia exacta para este CUPOF, O hay licencias globales (sin CUPOF)
+                $c->tiene_licencia = isset($licData['by_cupof'][$c->cupof])
+                    || !empty($licData['global']);
+                $c->licencias_tipos = array_merge(
+                    isset($licData['by_cupof'][$c->cupof]) ? [$licData['by_cupof'][$c->cupof]] : [],
+                    $licData['global'] ?? []
+                );
+                $cupofs[$c->cupof][] = $c;
+            }
+
+            foreach ($cupofs as $code => &$agents) {
+                // Sort agents hierarchically: TITULAR/INTERINO first, then SUPLENTE, then REEMPLAZANTE, then others.
+                usort($agents, function($a, $b) {
+                    $order = ['TITULAR' => 1, 'INTERINO' => 1, 'SUPLENTE' => 2, 'REEMPLAZANTE' => 3];
+                    $revA = strtoupper($a->situacion_revista ?? '');
+                    $revB = strtoupper($b->situacion_revista ?? '');
+                    $valA = $order[$revA] ?? 4;
+                    $valB = $order[$revB] ?? 4;
+                    return $valA <=> $valB;
+                });
+
+                $count = count($agents);
+                if ($count > 1) {
+                    $lastAgent = $agents[$count - 1];
+                    $revLast = strtoupper($lastAgent->situacion_revista ?? '');
+                    if ($lastAgent->tiene_licencia && ($revLast === 'SUPLENTE' || $revLast === 'REEMPLAZANTE')) {
+                        $hasMayorJerarquia = false;
+                        $agentLicData = $licenciasByDni[$lastAgent->dni] ?? [];
+                        $allTipos = array_merge(
+                            array_values($agentLicData['by_cupof'] ?? []),
+                            $agentLicData['global'] ?? []
+                        );
+                        foreach ($allTipos as $tipo) {
+                            if (stripos($tipo, 'MAYOR JERARQUÍA') !== false) {
+                                $hasMayorJerarquia = true;
+                                break;
+                            }
+                        }
+                        if ($hasMayorJerarquia) {
+                            $lastAgent->tiene_licencia = false;
+                        }
+                    }
+                }
+            }
+            unset($agents);
+
+            $row->cupof_count = count($cupofs);
+            
+            $uniqueDnis = [];
+            $activeDnis = [];
+            foreach ($cupofs as $code => $agents) {
+                foreach ($agents as $agent) {
+                    if ($agent->dni) {
+                        $uniqueDnis[$agent->dni] = true;
+                        if (!$agent->tiene_licencia) {
+                            $activeDnis[$agent->dni] = true;
+                        }
+                    }
+                }
+            }
+            $row->agent_count = count($uniqueDnis);
+            $row->active_agents_count = count($activeDnis);
+            $row->licensed_agents_count = $row->agent_count - $row->active_agents_count;
+            $row->relacion_planta_percent = $row->cupof_count > 0 ? (int)round(($row->agent_count / $row->cupof_count) * 100) : 0;
+            
+            $covered = 0;
+            $uncovered = 0;
+            $extraAgents = 0;
+            $reforzadosCount = 0;
+            $suplenteSinLicencia = 0; // CUPOF con titular activo + suplente activo sin licencia que lo justifique
+
+            foreach ($cupofs as $code => $agents) {
+                $hasActive = false;
+                $hasTitularActivo = false;
+                $hasSuplementeActivo = false;
+
+                foreach ($agents as $agent) {
+                    $rev = strtoupper($agent->situacion_revista ?? '');
+                    if (!$agent->tiene_licencia) {
+                        $hasActive = true;
+                        if (in_array($rev, ['TITULAR', 'INTERINO'])) {
+                            $hasTitularActivo = true;
+                        }
+                        if (in_array($rev, ['SUPLENTE', 'REEMPLAZANTE'])) {
+                            $hasSuplementeActivo = true;
+                        }
+                    }
+                }
+
+                if ($hasActive) {
+                    $covered++;
+                    $activeInCargo = 0;
+                    foreach ($agents as $agent) {
+                        if (!$agent->tiene_licencia) {
+                            $activeInCargo++;
+                        }
+                    }
+                    if ($activeInCargo > 1) {
+                        $extraAgents += ($activeInCargo - 1);
+                        $reforzadosCount++;
+                    }
+                } else {
+                    $uncovered++;
+                }
+
+                // Alerta de auditoría: suplente activo sin licencia del titular que lo justifique
+                if ($hasTitularActivo && $hasSuplementeActivo) {
+                    $suplenteSinLicencia++;
+                }
+            }
+
+            $row->covered = $covered;
+            $row->uncovered = $uncovered;
+            $row->extra_agents = $extraAgents;
+            $row->reforzados_count = $reforzadosCount;
+            $row->suplentes_sin_licencia = $suplenteSinLicencia;
+            $row->coverage_percent = $row->cupof_count > 0 ? (int)round(($covered / $row->cupof_count) * 100) : 0;
         }
     }
 }

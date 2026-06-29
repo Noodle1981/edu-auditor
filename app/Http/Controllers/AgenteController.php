@@ -118,7 +118,7 @@ class AgenteController extends Controller
                 $today = Carbon::today()->setYear($year);
                 $todayStr = $today->format('Y-m-d');
                 $licenciasRows = DB::select("
-                    SELECT id, dni, tipo_licencia, fecha_inicio, fecha_fin
+                    SELECT id, dni, tipo_licencia, cupof_licencia, fecha_inicio, fecha_fin
                     FROM licencias
                     WHERE fecha_inicio <= ? AND fecha_fin >= ? AND dni IN ({$placeholders})
                 ", array_merge([$todayStr, $todayStr], $dnis));
@@ -187,7 +187,39 @@ class AgenteController extends Controller
                 }
                 unset($ca);
 
-                $unmatchedLicsCount = max(0, $activeLicCount - $cargosWithSuplente);
+                // --- Matching por CUPOF exacto (nuevo) ---
+                $agentActiveLics = array_filter($licenciasByDni[$dni] ?? [], function($lic) use ($today) {
+                    $start = self::parseAuditDate($lic->fecha_inicio);
+                    $end   = self::parseAuditDate($lic->fecha_fin);
+                    if (!$start || !$end) return false;
+                    $normDb = self::normalizeLicenseName($lic->tipo_licencia);
+                    return $start->lte($today) && $today->lte($end)
+                        && in_array($normDb, $excludedLics);
+                });
+
+                $licsByCupof   = [];
+                $licsSinCupof  = [];
+                foreach ($agentActiveLics as $lic) {
+                    if (!empty($lic->cupof_licencia)) {
+                        $licsByCupof[$lic->cupof_licencia] = $lic;
+                    } else {
+                        $licsSinCupof[] = $lic;
+                    }
+                }
+
+                // Paso 1: CUPOF exacto
+                foreach ($cargoAudit as &$ca) {
+                    if ($ca['estado_cobertura'] === 'pendiente'
+                        && !empty($ca['cupof'])
+                        && isset($licsByCupof[$ca['cupof']])) {
+                        $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
+                        unset($licsByCupof[$ca['cupof']]);
+                    }
+                }
+                unset($ca);
+
+                // Paso 2: fallback por horas para licencias sin CUPOF (datos históricos)
+                $unmatchedLicsCount = count($licsSinCupof);
 
                 usort($cargoAudit, function($a, $b) {
                     if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') return 1;
@@ -328,7 +360,7 @@ class AgenteController extends Controller
             // 3. Fetch licencias
             $rowsLic = DB::select("
                 SELECT id, id_tramite, fecha_carga, nombre_agente, dni, genero,
-                       tipo_licencia, documento_respaldo, fecha_inicio, fecha_fin, dias, referencia_interna
+                       tipo_licencia, cupof_licencia, documento_respaldo, fecha_inicio, fecha_fin, dias, referencia_interna
                 FROM licencias 
                 WHERE dni = ?
                 ORDER BY fecha_inicio DESC
@@ -389,8 +421,30 @@ class AgenteController extends Controller
             }
             unset($ca);
 
-            // Distribute remaining active licenses to remaining cargos (highest hours first)
-            $unmatchedLicsCount = max(0, $activeLicCount - $cargosWithSuplente);
+            // --- Matching por CUPOF exacto ---
+            $licsByCupof  = [];
+            $licsSinCupof = [];
+            foreach ($activeLics as $lic) {
+                if (!empty($lic->cupof_licencia)) {
+                    $licsByCupof[$lic->cupof_licencia] = $lic;
+                } else {
+                    $licsSinCupof[] = $lic;
+                }
+            }
+
+            // Paso 1: CUPOF exacto
+            foreach ($cargoAudit as &$ca) {
+                if ($ca['estado_cobertura'] === 'pendiente'
+                    && !empty($ca['cupof'])
+                    && isset($licsByCupof[$ca['cupof']])) {
+                    $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
+                    unset($licsByCupof[$ca['cupof']]);
+                }
+            }
+            unset($ca);
+
+            // Paso 2: fallback por horas para licencias sin CUPOF (datos históricos)
+            $unmatchedLicsCount = count($licsSinCupof);
 
             usort($cargoAudit, function($a, $b) {
                 if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') return 1;
@@ -505,7 +559,7 @@ class AgenteController extends Controller
             ", [$dni, $year]);
 
             $licencias = DB::select("
-                SELECT id_tramite, fecha_carga, tipo_licencia, fecha_inicio, fecha_fin, dias, documento_respaldo
+                SELECT id_tramite, fecha_carga, tipo_licencia, cupof_licencia, fecha_inicio, fecha_fin, dias, documento_respaldo
                 FROM licencias 
                 WHERE dni = ?
             ", [$dni]);
@@ -564,32 +618,41 @@ class AgenteController extends Controller
             }
             unset($ca);
 
-            // Distribute remaining active licenses to remaining cargos (highest hours first)
-            $unmatchedLicsCount = max(0, $activeLicCount - $cargosWithSuplente);
+            // --- Matching por CUPOF exacto ---
+            $licsByCupof  = [];
+            $licsSinCupof = [];
+            foreach ($activeLics as $lic) {
+                if (!empty($lic->cupof_licencia)) {
+                    $licsByCupof[$lic->cupof_licencia] = $lic;
+                } else {
+                    $licsSinCupof[] = $lic;
+                }
+            }
 
-            usort($cargoAudit, function($a, $b) {
-                if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') return 1;
-                if ($a['estado_cobertura'] !== 'cubierto_suplente' && $b['estado_cobertura'] === 'cubierto_suplente') return -1;
-                return $b['horas_equivalentes'] <=> $a['horas_equivalentes'];
-            });
+            // Paso 1: CUPOF exacto
+            foreach ($cargoAudit as &$ca) {
+                if ($ca['estado_cobertura'] === 'pendiente'
+                    && !empty($ca['cupof'])
+                    && isset($licsByCupof[$ca['cupof']])) {
+                    $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
+                    unset($licsByCupof[$ca['cupof']]);
+                }
+            }
+            unset($ca);
 
-            $matchedFromLicCount = 0;
+            // Paso 2: fallback por horas para licencias sin CUPOF
+            $hasActiveLicense = count($licsSinCupof) > 0;
+
             foreach ($cargoAudit as &$ca) {
                 if ($ca['estado_cobertura'] === 'pendiente') {
-                    if ($matchedFromLicCount < $unmatchedLicsCount) {
+                    if ($hasActiveLicense) {
                         $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
-                        $matchedFromLicCount++;
                     } else {
                         $ca['estado_cobertura'] = 'activo';
                     }
                 }
             }
             unset($ca);
-
-            // Restore original order
-            usort($cargoAudit, function($a, $b) {
-                return $b['id'] <=> $a['id'];
-            });
 
             $totalRealHours = array_sum(array_map(fn($c) => (int)$c->horas_catedra, $cargos));
             $totalEstimatedHours = 0;

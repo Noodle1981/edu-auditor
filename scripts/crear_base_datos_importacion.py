@@ -430,6 +430,7 @@ def import_licencias(rows, year, conn):
         col_fecha_inicio = 5
         col_fecha_fin = 6
         col_documento_respaldo = 8
+        col_cupof_licencia = 9  # "CUPOF: XXXXXXX, Descripcion, Padron N°..."
         col_referencia_interna = -1
     else:
         col_id_tramite = 0
@@ -443,6 +444,7 @@ def import_licencias(rows, year, conn):
         col_fecha_fin = 8
         col_dias = 9
         col_referencia_interna = 10
+        col_cupof_licencia = -1
 
     # Validar que el año seleccionado coincida con las fechas reales del archivo
     overlap_count = 0
@@ -450,7 +452,7 @@ def import_licencias(rows, year, conn):
     
     for row in rows[:100]:
         # Ensure the row has enough columns
-        max_col_needed = max(col_fecha_inicio, col_fecha_fin)
+        max_col_needed = max(col_fecha_inicio, col_fecha_fin, col_documento_respaldo)
         if len(row) <= max_col_needed:
             continue
             
@@ -513,7 +515,16 @@ def import_licencias(rows, year, conn):
         documento_respaldo = ""
         if col_documento_respaldo >= 0:
             documento_respaldo = row[col_documento_respaldo].strip()
-            
+
+        # Extraer CUPOF del campo de referencia (col 9 en Format B)
+        # Formato: "CUPOF: 700046200-HC2-17072512005135, Horas de Cátedra Secundario, ..."
+        cupof_licencia = None
+        if col_cupof_licencia >= 0 and len(row) > col_cupof_licencia:
+            cupof_raw = row[col_cupof_licencia].strip()
+            m = re.search(r'CUPOF:\s*([^,\s]+)', cupof_raw, re.IGNORECASE)
+            if m:
+                cupof_licencia = m.group(1).strip()
+
         fecha_inicio = db_helper.normalize_date(row[col_fecha_inicio].strip())
         fecha_fin = db_helper.normalize_date(row[col_fecha_fin].strip())
         
@@ -533,7 +544,7 @@ def import_licencias(rows, year, conn):
         
         insert_data.append((
             id_tramite, fecha_carga, nombre_agente, dni, genero, tipo_licencia,
-            documento_respaldo, fecha_inicio, fecha_fin, dias, referencia_interna, year
+            documento_respaldo, cupof_licencia, fecha_inicio, fecha_fin, dias, referencia_interna, year
         ))
 
     print(f"Inserting/Updating {len(insert_agentes)} unique agents from licencias...")
@@ -547,8 +558,8 @@ def import_licencias(rows, year, conn):
     cursor.executemany("""
         INSERT INTO licencias (
             id_tramite, fecha_carga, nombre_agente, dni, genero, tipo_licencia,
-            documento_respaldo, fecha_inicio, fecha_fin, dias, referencia_interna, anio
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            documento_respaldo, cupof_licencia, fecha_inicio, fecha_fin, dias, referencia_interna, anio
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, insert_data)
 
 def detect_and_validate_file_type(file_path, import_type):

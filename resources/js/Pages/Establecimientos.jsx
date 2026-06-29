@@ -1039,6 +1039,16 @@ const Establecimientos = () => {
                               sortedAgents.push({ ...a, level: currentLevel + idx });
                             });
 
+                            const isUncovered = sortedAgents.length > 0 && sortedAgents.every((agent, agentIdx) => {
+                              const replacedAgent = agentIdx > 0 ? sortedAgents[agentIdx - 1] : null;
+                              const revUpper = (agent.situacion_revista || "").toUpperCase();
+                              const isReplacementLicense = (revUpper === 'SUPLENTE' || revUpper === 'REEMPLAZANTE') && 
+                                                           agent.tiene_licencia_activa && 
+                                                           replacedAgent && 
+                                                           agentIdx === sortedAgents.length - 1 &&
+                                                           (agent.licencia_activa_detalle?.tipo_licencia || '').includes('MAYOR JERARQUÍA');
+                              return agent.tiene_licencia_activa && !isReplacementLicense;
+                            });
 
                             return (
                               <div key={cupof.cupof} className="shrink-0 border border-gray-150 rounded-2xl bg-gray-50/20 overflow-hidden shadow-sm hover:shadow transition-shadow">
@@ -1056,6 +1066,12 @@ const Establecimientos = () => {
                                       }`}>
                                         {cupof.agents.length === 1 ? '1 Persona' : `${cupof.agents.length} Personas`}
                                       </span>
+                                      {isUncovered && (
+                                        <span className="px-2 py-0.5 text-[8.5px] font-black uppercase rounded-full border tracking-wider shrink-0 bg-red-50 text-red-650 border-red-200 shadow-sm animate-pulse flex items-center gap-1">
+                                          <i className="fa-solid fa-triangle-exclamation"></i>
+                                          SIN COBERTURA
+                                        </span>
+                                      )}
                                     </div>
                                     <span className="text-[10.5px] font-black text-gray-700 mt-2 uppercase">
                                       {cupof.cargo_horas || 'Cargo sin denominación'}

@@ -213,11 +213,13 @@
         $totalPlazas = 0;
         $totalAgentes = 0;
         $totalSumaCobertura = 0;
+        $totalAlertas = 0;
         
         foreach ($rows as $row) {
             $totalPlazas += $row->cupof_count;
             $totalAgentes += $row->agent_count;
             $totalSumaCobertura += $row->coverage_percent;
+            $totalAlertas += ($row->suplentes_sin_licencia ?? 0);
         }
         
         $promedioCobertura = $totalEscuelas > 0 ? round($totalSumaCobertura / $totalEscuelas) : 0;
@@ -243,10 +245,16 @@
                     <div class="summary-lbl">Total Agentes únicos</div>
                 </div>
             </td>
-            <td width="25%">
+            <td width="25%" style="padding-right: 10px;">
                 <div class="summary-card" style="border-left: 4px solid #10B981;">
                     <div class="summary-val">{{ $promedioCobertura }}%</div>
                     <div class="summary-lbl">Promedio Cobertura Activa</div>
+                </div>
+            </td>
+            <td width="25%">
+                <div class="summary-card" style="border-left: 4px solid #F05252;">
+                    <div class="summary-val" style="color: {{ $totalAlertas > 0 ? '#9B1C1C' : '#111827' }};">{{ $totalAlertas }}</div>
+                    <div class="summary-lbl">Alertas: Supl. sin Licencia</div>
                 </div>
             </td>
         </tr>
@@ -255,14 +263,15 @@
     <table class="data-table">
         <thead>
             <tr>
-                <th width="30%">Escuela / CUE</th>
-                <th width="20%">Ubicación</th>
-                <th width="8%" class="text-center">Plazas</th>
-                <th width="8%" class="text-center">Agentes</th>
-                <th width="10%" class="text-center">Dotación Nominal</th>
+                <th width="28%">Escuela / CUE</th>
+                <th width="18%">Ubicación</th>
+                <th width="7%" class="text-center">Plazas</th>
+                <th width="7%" class="text-center">Agentes</th>
+                <th width="9%" class="text-center">Dotación Nominal</th>
                 <th width="8%" class="text-center">Cobertura</th>
                 <th width="8%" class="text-center">Extras (Supl.)</th>
-                <th width="8%" class="text-center">Sin Cobertura</th>
+                <th width="7%" class="text-center">Sin Cobertura</th>
+                <th width="8%" class="text-center">⚠ Supl. s/Lic.</th>
             </tr>
         </thead>
         <tbody>
@@ -318,6 +327,13 @@
                         </td>
                         <td class="text-center" style="color: #9B1C1C; font-weight: bold;">
                             {{ $row->uncovered_count ?: '-' }}
+                        </td>
+                        <td class="text-center">
+                            @if (($row->suplentes_sin_licencia ?? 0) > 0)
+                                <span class="badge badge-amber" style="font-weight: bold;">{{ $row->suplentes_sin_licencia }}</span>
+                            @else
+                                <span style="color: #9CA3AF;">-</span>
+                            @endif
                         </td>
                     </tr>
                 @endforeach
