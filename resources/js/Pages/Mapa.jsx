@@ -935,7 +935,7 @@ export default function Mapa({ edificios = [] }) {
                                                                                     }}
                                                                                     className="rounded bg-[#FE8204] hover:bg-[#e07203] px-2.5 py-1 text-[9px] font-black uppercase text-white transition-colors cursor-pointer"
                                                                                 >
-                                                                                    Guardar Obs
+                                                                                    {mod.observaciones ? 'Actualizar Obs' : 'Guardar Obs'}
                                                                                 </button>
                                                                             </div>
                                                                         </div>
