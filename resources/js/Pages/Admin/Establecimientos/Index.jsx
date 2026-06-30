@@ -338,6 +338,9 @@ export default function Index({
                                         <th className="px-6 py-2">
                                             Nivel / Área
                                         </th>
+                                        <th className="px-6 py-2 text-center">
+                                            Radio / SiGE
+                                        </th>
                                         <th className="px-6 py-2">Estado</th>
                                         <th className="px-6 py-2 text-right">
                                             Acciones
@@ -414,6 +417,16 @@ export default function Index({
                                                     </span>
                                                     <span className="max-w-[150px] truncate text-[9px] font-black uppercase text-black/40">
                                                         {item.direccion_area}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-2 text-center">
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-[10px] font-black text-gray-950">
+                                                        {item.radio ?? 'N/A'}
+                                                    </span>
+                                                    <span className="text-[8px] font-bold text-gray-400">
+                                                        SiGE: {item.radio_sige ?? 'N/A'}
                                                     </span>
                                                 </div>
                                             </td>

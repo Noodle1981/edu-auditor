@@ -10,7 +10,10 @@ export const Sidebar = () => {
     ? [
         { href: '/admin/importar', label: 'Cargar Datos', icon: 'fa-solid fa-cloud-arrow-up' },
         { href: '/admin/edificios', label: 'Gestión Edificios', icon: 'fa-solid fa-building' },
-        { href: '/admin/establecimientos', label: 'Gestión Establecimientos', icon: 'fa-solid fa-school-flag' }
+        { href: '/admin/establecimientos', label: 'Gestión Establecimientos', icon: 'fa-solid fa-school-flag' },
+        { href: '/establecimientos', label: 'Establecimientos', icon: 'fa-solid fa-school' },
+        { href: '/mapa', label: 'Mapa Escolar', icon: 'fa-solid fa-map-location-dot' },
+        { href: '/auditoria-automatizada', label: 'Auditoría Automatizada', icon: 'fa-solid fa-wand-magic-sparkles' }
       ]
     : [
         { href: '/establecimientos', label: 'Establecimientos', icon: 'fa-solid fa-school' },
