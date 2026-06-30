@@ -954,7 +954,7 @@ export default function Mapa({ edificios = [] }) {
                                                                     ) : (
                                                                         <span>Radio: <b className="text-gray-950">{mod.radio ?? 'N/A'}</b></span>
                                                                     )}
-                                                                    {mod.radio_sige && (
+                                                                    {mod.radio_sige && mod.radio_sige !== '' && (
                                                                         <>
                                                                             <span className="text-gray-300">•</span>
                                                                             <span>SiGE: <b className="text-gray-950">{mod.radio_sige}</b></span>
