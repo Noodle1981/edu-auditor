@@ -157,6 +157,49 @@ export default function Mapa({ edificios = [] }) {
         }
     };
 
+    const handleInlineObservadoChange = async (modId, isChecked) => {
+        try {
+            await axios.patch(`/api/modalidades/${modId}/observado`, {
+                radio_observado: isChecked
+            });
+
+            // Update the local state reactively
+            setEdificiosList((prevList) => {
+                return prevList.map((edificio) => {
+                    const updatedEstablecimientos = (edificio.establecimientos || []).map((est) => {
+                        const updatedModalidades = (est.modalidades || []).map((mod) => {
+                            if (mod.id === modId) {
+                                return { ...mod, radio_observado: isChecked };
+                            }
+                            return mod;
+                        });
+                        return { ...est, modalidades: updatedModalidades };
+                    });
+                    
+                    return { ...edificio, establecimientos: updatedEstablecimientos };
+                });
+            });
+
+            setSelectedEdificio((prevSelected) => {
+                if (!prevSelected) return null;
+                const nextEstablecimientos = (prevSelected.establecimientos || []).map((est) => {
+                    const nextModalidades = (est.modalidades || []).map((mod) => {
+                        if (mod.id === modId) {
+                            return { ...mod, radio_observado: isChecked };
+                        }
+                        return mod;
+                    });
+                    return { ...est, modalidades: nextModalidades };
+                });
+                return { ...prevSelected, establecimientos: nextEstablecimientos };
+            });
+
+        } catch (error) {
+            console.error('Error al actualizar el estado observado:', error);
+            alert('No se pudo actualizar el estado de la observación. Por favor intente nuevamente.');
+        }
+    };
+
     // Get unique levels and departments dynamically based on other active filters (Faceted search)
     const deptosDisponibles = useMemo(() => {
         const set = new Set();
@@ -743,7 +786,14 @@ export default function Mapa({ edificios = [] }) {
                                                 </span>
                                             </div>
                                             {selectedEdificio.establecimientos.map((est, i) => (
-                                                <div key={i} className="rounded-xl border border-gray-150 bg-gray-50/50 p-4 space-y-3">
+                                                <div
+                                                    key={i}
+                                                    className={`rounded-xl border p-4 space-y-3 transition-all duration-300 ${
+                                                        est.modalidades?.some(m => m.radio_observado)
+                                                            ? 'border-red-200 bg-red-50/20 shadow-sm shadow-red-50'
+                                                            : 'border-gray-150 bg-gray-50/50'
+                                                    }`}
+                                                >
                                                     <div>
                                                         <h4 className="text-xs font-black text-gray-950 leading-snug">
                                                             {est.nombre}
@@ -886,63 +936,57 @@ export default function Mapa({ edificios = [] }) {
                                                                         );
                                                                     }
                                                                 })()}
-
-                                                                {/* Observations Section */}
-                                                                <div className="mt-2.5 space-y-1.5 border-t border-gray-200/60 pt-2">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <span className="text-[9px] font-black uppercase text-gray-400">Observación de Auditoría</span>
-                                                                    </div>
+                                                                                                        {/* Observations Section */}
+                                                                <div className="mt-2.5 space-y-2 border-t border-gray-200/60 pt-2">
                                                                     {isAdmin ? (
-                                                                        <div className="space-y-1.5">
-                                                                            <textarea
-                                                                                defaultValue={mod.observaciones || ''}
-                                                                                id={`obs-input-${mod.id}`}
-                                                                                placeholder="Escribe una observación o selecciona una de abajo..."
-                                                                                className="w-full rounded-lg border border-gray-200 bg-white p-2 text-[10px] text-gray-800 focus:border-[#FE8204] focus:outline-none"
-                                                                                rows={2}
-                                                                            />
-                                                                            {/* Quick suggestions */}
-                                                                            <div className="flex flex-wrap gap-1">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        const el = document.getElementById(`obs-input-${mod.id}`);
-                                                                                        if (el) el.value = "el establecimiento tiene otro radio porque esta ubicado en otro edifcio no le correesponde";
-                                                                                    }}
-                                                                                    className="rounded border border-gray-150 bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 text-[8px] font-bold text-gray-600 transition-colors"
-                                                                                >
-                                                                                    + Otro Edificio
-                                                                                </button>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        const el = document.getElementById(`obs-input-${mod.id}`);
-                                                                                        if (el) el.value = "Radio oficial desactualizado";
-                                                                                    }}
-                                                                                    className="rounded border border-gray-150 bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 text-[8px] font-bold text-gray-600 transition-colors"
-                                                                                >
-                                                                                    + Desactualizado
-                                                                                </button>
-                                                                            </div>
-                                                                            <div className="flex justify-end">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={async () => {
-                                                                                        const el = document.getElementById(`obs-input-${mod.id}`);
-                                                                                        if (el) {
-                                                                                            await handleInlineObsChange(mod.id, el.value);
-                                                                                        }
-                                                                                    }}
-                                                                                    className="rounded bg-[#FE8204] hover:bg-[#e07203] px-2.5 py-1 text-[9px] font-black uppercase text-white transition-colors cursor-pointer"
-                                                                                >
-                                                                                    {mod.observaciones ? 'Actualizar Obs' : 'Guardar Obs'}
-                                                                                </button>
+                                                                        <div className="space-y-2">
+                                                                            {/* Checkbox (Tilde) */}
+                                                                            <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 cursor-pointer select-none bg-white p-2 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50/10 transition-all">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={!!mod.radio_observado}
+                                                                                    onChange={(e) => handleInlineObservadoChange(mod.id, e.target.checked)}
+                                                                                    className="rounded border-gray-300 text-red-600 focus:ring-red-500 h-3.5 w-3.5 cursor-pointer"
+                                                                                />
+                                                                                <span className="flex items-center gap-1">
+                                                                                    <i className="fa-solid fa-flag text-red-500 text-[10px]"></i>
+                                                                                    Ubicado en otro edificio (No le corresponde)
+                                                                                </span>
+                                                                            </label>
+
+                                                                            {/* Text Area for Justificación */}
+                                                                            <div className="space-y-1">
+                                                                                <label className="text-[8px] font-black uppercase text-gray-400">Justificación / Detalle</label>
+                                                                                <textarea
+                                                                                    defaultValue={mod.observaciones || ''}
+                                                                                    id={`obs-input-${mod.id}`}
+                                                                                    placeholder="Ej. El establecimiento tiene otro radio porque está ubicado en otro edificio..."
+                                                                                    className="w-full rounded-lg border border-gray-200 bg-white p-2 text-[10px] text-gray-800 focus:border-[#FE8204] focus:outline-none"
+                                                                                    rows={2}
+                                                                                />
+                                                                                <div className="flex justify-end">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={async () => {
+                                                                                            const el = document.getElementById(`obs-input-${mod.id}`);
+                                                                                            if (el) {
+                                                                                                await handleInlineObsChange(mod.id, el.value);
+                                                                                            }
+                                                                                        }}
+                                                                                        className="rounded bg-[#FE8204] hover:bg-[#e07203] px-2.5 py-1 text-[9px] font-black uppercase text-white transition-colors cursor-pointer"
+                                                                                    >
+                                                                                        {mod.observaciones ? 'Actualizar Justificación' : 'Guardar Justificación'}
+                                                                                    </button>
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     ) : (
-                                                                        <p className="text-[10px] text-gray-600 bg-gray-100/50 p-2 rounded-lg border border-gray-150/50 italic leading-snug">
-                                                                            {mod.observaciones || 'Sin observaciones de auditoría.'}
-                                                                        </p>
+                                                                        mod.observaciones && (
+                                                                            <div className="p-2 rounded-lg bg-red-100/50 border border-red-200 text-red-850 text-[10px] font-medium leading-snug flex items-start gap-1.5">
+                                                                                <i className="fa-solid fa-circle-exclamation text-red-500 mt-0.5 shrink-0"></i>
+                                                                                <span>{mod.observaciones}</span>
+                                                                            </div>
+                                                                        )
                                                                     )}
                                                                 </div>
                                                             </div>

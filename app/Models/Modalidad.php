@@ -16,7 +16,7 @@ class Modalidad extends Model
         'establecimiento_id', 'direccion_area', 'nivel_educativo', 'sector', 'categoria',
         'inst_legal_categoria', 'radio', 'inst_legal_radio', 'radio_justificado', 'inst_legal_categoria_bis',
         'inst_legal_creacion', 'ambito', 'validado', 'estado_validacion', 'validado_por_user_id',
-        'validado_en', 'zona', 'observaciones', 'campos_auditados', 'radio_sige',
+        'validado_en', 'zona', 'observaciones', 'campos_auditados', 'radio_sige', 'radio_observado',
     ];
 
     public function establecimiento(): BelongsTo

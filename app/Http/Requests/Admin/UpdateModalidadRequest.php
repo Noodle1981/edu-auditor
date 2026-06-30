@@ -41,6 +41,7 @@ class UpdateModalidadRequest extends FormRequest
             'letra_zona' => 'nullable',
             'categoria' => 'nullable',
             'observaciones' => 'nullable|string',
+            'radio_observado' => 'boolean',
         ];
     }
 

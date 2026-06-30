@@ -26,7 +26,7 @@ class MapaController extends Controller
             ->whereHas('establecimientos.modalidades')
             ->with([
                 'establecimientos:id,edificio_id,cue,nombre',
-                'establecimientos.modalidades:id,establecimiento_id,ambito,radio,radio_sige,categoria,nivel_educativo,direccion_area,sector,observaciones',
+                'establecimientos.modalidades:id,establecimiento_id,ambito,radio,radio_sige,categoria,nivel_educativo,direccion_area,sector,observaciones,radio_observado',
             ])
             ->get();
 
@@ -50,6 +50,7 @@ class MapaController extends Controller
                         'categoria' => $mod->categoria ?? 'N/A',
                         'ambito' => $esPriv ? 'PRIVADO' : 'PUBLICO',
                         'observaciones' => $mod->observaciones ?? '',
+                        'radio_observado' => !empty($mod->radio_observado),
                     ];
                 }
 

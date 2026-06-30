@@ -77,6 +77,7 @@ Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::get('/api/lookup-cue/{cue}', [ModalidadController::class, 'lookupCue'])->name('api.lookup-cue');
     Route::patch('/api/modalidades/{id}/radio', [ModalidadController::class, 'updateRadioVal'])->name('api.modalidades.update-radio');
     Route::patch('/api/modalidades/{id}/observaciones', [ModalidadController::class, 'updateObservacionesVal'])->name('api.modalidades.update-observaciones');
+    Route::patch('/api/modalidades/{id}/observado', [ModalidadController::class, 'updateObservadoVal'])->name('api.modalidades.update-observado');
 });
 
 require __DIR__.'/auth.php';

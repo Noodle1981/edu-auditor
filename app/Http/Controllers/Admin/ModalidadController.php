@@ -243,4 +243,28 @@ class ModalidadController extends Controller
             'observaciones' => $modalidad->observaciones,
         ]);
     }
+
+    /**
+     * Update the radio_observado flag of a modality directly.
+     */
+    public function updateObservadoVal(Request $request, int $id)
+    {
+        $request->validate([
+            'radio_observado' => 'required|boolean',
+        ]);
+
+        $modalidad = Modalidad::findOrFail($id);
+        $oldFlag = $modalidad->radio_observado;
+        $modalidad->update(['radio_observado' => $request->input('radio_observado')]);
+
+        app(ActivityLogService::class)->logUpdate(
+            $modalidad,
+            "Actualizó estado observado de modalidad a: " . ($request->input('radio_observado') ? 'OBSERVADO' : 'NORMAL') . " (anterior: " . ($oldFlag ? 'OBSERVADO' : 'NORMAL') . ")"
+        );
+
+        return response()->json([
+            'message' => 'Estado de observación actualizado correctamente',
+            'radio_observado' => $modalidad->radio_observado,
+        ]);
+    }
 }
