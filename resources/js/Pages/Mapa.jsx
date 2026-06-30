@@ -332,7 +332,7 @@ export default function Mapa({ edificios = [] }) {
 
             <div className="flex flex-col h-screen w-full overflow-hidden bg-gray-50">
                 {/* 1. Custom Horizontal Filter Header Bar */}
-                <header className="z-30 flex h-16 w-full items-center justify-between border-b border-gray-200/80 bg-white px-6 shadow-sm">
+                <header className="z-[1010] flex h-16 w-full items-center justify-between border-b border-gray-200/80 bg-white px-6 shadow-sm">
                     {/* Brand and Search */}
                     <div className="flex items-center gap-4 flex-1 max-w-xl">
                         <div className="flex items-center gap-2.5 shrink-0">
