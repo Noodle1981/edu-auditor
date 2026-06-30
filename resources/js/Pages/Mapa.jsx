@@ -6,7 +6,7 @@ import React, {
     useMemo,
     useState,
 } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import SIAMELayout from '../Layouts/SIAMELayout';
 import Modal from '../Components/Modal';
 
@@ -16,6 +16,9 @@ import { getTheoreticalRadio } from './MapView';
 const MapView = lazy(() => import('./MapView'));
 
 export default function Mapa({ edificios = [] }) {
+    const { auth } = usePage().props;
+    const isAdmin = auth?.user?.role === 'admin';
+
     const edificiosArray = useMemo(() => {
         if (!edificios) return [];
         return Array.isArray(edificios) ? edificios : Object.values(edificios);
@@ -646,6 +649,20 @@ export default function Mapa({ edificios = [] }) {
                                                         </h4>
                                                         <div className="flex items-center gap-2 mt-1">
                                                             <span className="text-[9px] font-bold text-gray-400">CUE: {est.cue}</span>
+                                                            {isAdmin && (
+                                                                <>
+                                                                    <span className="text-gray-300 text-[8px]">•</span>
+                                                                    <a
+                                                                        href={`/admin/establecimientos?search=${est.cue}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-[9px] font-black uppercase text-[#FE8204] hover:text-[#e07203] hover:underline flex items-center gap-1 transition-all"
+                                                                    >
+                                                                        <i className="fa-solid fa-pen-to-square text-[9px]"></i>
+                                                                        Editar
+                                                                    </a>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
 
