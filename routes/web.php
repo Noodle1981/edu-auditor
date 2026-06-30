@@ -75,6 +75,7 @@ Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     // API Lookups
     Route::get('/api/lookup-edificio/{cui}', [ModalidadController::class, 'lookupEdificio'])->name('api.lookup-edificio');
     Route::get('/api/lookup-cue/{cue}', [ModalidadController::class, 'lookupCue'])->name('api.lookup-cue');
+    Route::patch('/api/modalidades/{id}/radio', [ModalidadController::class, 'updateRadioVal'])->name('api.modalidades.update-radio');
 });
 
 require __DIR__.'/auth.php';

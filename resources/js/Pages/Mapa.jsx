@@ -9,6 +9,7 @@ import React, {
 import { Head, usePage } from '@inertiajs/react';
 import SIAMELayout from '../Layouts/SIAMELayout';
 import Modal from '../Components/Modal';
+import axios from 'axios';
 
 import { getTheoreticalRadio } from './MapView';
 
@@ -19,10 +20,16 @@ export default function Mapa({ edificios = [] }) {
     const { auth } = usePage().props;
     const isAdmin = auth?.user?.role === 'admin';
 
-    const edificiosArray = useMemo(() => {
-        if (!edificios) return [];
-        return Array.isArray(edificios) ? edificios : Object.values(edificios);
+    const [edificiosList, setEdificiosList] = useState(edificios);
+
+    useEffect(() => {
+        setEdificiosList(edificios);
     }, [edificios]);
+
+    const edificiosArray = useMemo(() => {
+        if (!edificiosList) return [];
+        return Array.isArray(edificiosList) ? edificiosList : Object.values(edificiosList);
+    }, [edificiosList]);
 
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -55,6 +62,53 @@ export default function Mapa({ edificios = [] }) {
         email_remitente: '',
     });
     const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+    const handleInlineRadioChange = async (modId, newRadioVal) => {
+        try {
+            const radioVal = newRadioVal === '' ? null : parseInt(newRadioVal);
+
+            // Make the PATCH request to update the database
+            await axios.patch(`/api/modalidades/${modId}/radio`, {
+                radio: radioVal
+            });
+
+            // Update the local state reactively
+            setEdificiosList((prevList) => {
+                return prevList.map((edificio) => {
+                    const updatedEstablecimientos = (edificio.establecimientos || []).map((est) => {
+                        const updatedModalidades = (est.modalidades || []).map((mod) => {
+                            if (mod.id === modId) {
+                                return { ...mod, radio: radioVal };
+                            }
+                            return mod;
+                        });
+                        return { ...est, modalidades: updatedModalidades };
+                    });
+                    
+                    return { ...edificio, establecimientos: updatedEstablecimientos };
+                });
+            });
+
+            // Also update the selectedEdificio state if it contains this modality
+            setSelectedEdificio((prevSelected) => {
+                if (!prevSelected) return null;
+                const nextEstablecimientos = (prevSelected.establecimientos || []).map((est) => {
+                    const nextModalidades = (est.modalidades || []).map((mod) => {
+                        if (mod.id === modId) {
+                            return { ...mod, radio: radioVal };
+                        }
+                        return mod;
+                    });
+                    return { ...est, modalidades: nextModalidades };
+                });
+                return { ...prevSelected, establecimientos: nextEstablecimientos };
+            });
+
+        } catch (error) {
+            console.error('Error al actualizar el radio:', error);
+            alert('No se pudo guardar el cambio del radio. Por favor intente nuevamente.');
+        }
+    };
 
     // Get unique levels and departments dynamically based on other active filters (Faceted search)
     const deptosDisponibles = useMemo(() => {
@@ -678,7 +732,27 @@ export default function Mapa({ edificios = [] }) {
                                                                     </span>
                                                                 </div>
                                                                 <div className="flex items-center gap-2 text-[10px] font-bold text-gray-600">
-                                                                    <span>Radio: <b className="text-gray-950">{mod.radio ?? 'N/A'}</b></span>
+                                                                    {isAdmin ? (
+                                                                        <div className="flex items-center gap-1">
+                                                                            <span>Radio:</span>
+                                                                            <select
+                                                                                value={(mod.radio === 'N/A' || mod.radio === null || mod.radio === undefined) ? '' : mod.radio}
+                                                                                onChange={(e) => handleInlineRadioChange(mod.id, e.target.value)}
+                                                                                className="rounded border border-gray-200 bg-white px-1 py-0.5 text-[10px] font-black text-gray-950 focus:border-[#FE8204] focus:outline-none cursor-pointer"
+                                                                            >
+                                                                                <option value="">N/A</option>
+                                                                                <option value="1">1</option>
+                                                                                <option value="2">2</option>
+                                                                                <option value="3">3</option>
+                                                                                <option value="4">4</option>
+                                                                                <option value="5">5</option>
+                                                                                <option value="6">6</option>
+                                                                                <option value="7">7</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span>Radio: <b className="text-gray-950">{mod.radio ?? 'N/A'}</b></span>
+                                                                    )}
                                                                     {mod.radio_sige && (
                                                                         <>
                                                                             <span className="text-gray-300">•</span>

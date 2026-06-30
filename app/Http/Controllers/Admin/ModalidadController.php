@@ -195,4 +195,28 @@ class ModalidadController extends Controller
             'cui' => $est->edificio?->cui,
         ]);
     }
+
+    /**
+     * Update the radio value of a modality directly.
+     */
+    public function updateRadioVal(Request $request, int $id)
+    {
+        $request->validate([
+            'radio' => 'nullable|numeric|min:0|max:10',
+        ]);
+
+        $modalidad = Modalidad::findOrFail($id);
+        $oldRadio = $modalidad->radio;
+        $modalidad->update(['radio' => $request->input('radio')]);
+
+        app(ActivityLogService::class)->logUpdate(
+            $modalidad,
+            "Actualizó radio de modalidad a " . ($request->input('radio') ?? 'N/A') . " (anterior: " . ($oldRadio ?? 'N/A') . ")"
+        );
+
+        return response()->json([
+            'message' => 'Radio actualizado correctamente',
+            'radio' => $modalidad->radio,
+        ]);
+    }
 }

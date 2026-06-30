@@ -42,6 +42,7 @@ class MapaController extends Controller
                         $esPrivado = true;
                     }
                     $mappedModalidades[] = [
+                        'id' => $mod->id,
                         'nivel' => $mod->nivel_educativo,
                         'area' => $mod->direccion_area,
                         'radio' => $mod->radio ?? 'N/A',

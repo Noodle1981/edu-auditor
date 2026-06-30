@@ -259,4 +259,25 @@ class EstablecimientoTest extends TestCase
         $this->assertEquals('ELIMINADO', $modalidad->estado_validacion);
         $this->assertNotNull($modalidad->deleted_at);
     }
+
+    public function test_admin_can_update_modality_radio_value(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $modalidad = \App\Models\Modalidad::first();
+
+        $response = $this
+            ->actingAs($user)
+            ->patchJson("/api/modalidades/{$modalidad->id}/radio", [
+                'radio' => 2,
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'message' => 'Radio actualizado correctamente',
+                'radio' => 2,
+            ]);
+
+        $modalidad->refresh();
+        $this->assertEquals(2, $modalidad->radio);
+    }
 }
