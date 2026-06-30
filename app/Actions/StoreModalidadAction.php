@@ -34,14 +34,9 @@ class StoreModalidadAction
                     'edificio_id' => $edificio->id,
                     'nombre' => $data['nombre_establecimiento'],
                     'establecimiento_cabecera' => $data['establecimiento_cabecera'],
-                    'cue_edificio_principal' => $data['cue'],
+                    'cue_edificio_principal' => $edificio->cabecera_cue ?? $data['cue'],
                 ]
             );
-
-            // Si el edificio aún no tiene cabecera, este nuevo establecimiento es la cabecera
-            if (is_null($edificio->cabecera_cue)) {
-                $edificio->update(['cabecera_cue' => $establecimiento->cue]);
-            }
 
             // 3. Modalidad
             return Modalidad::create([

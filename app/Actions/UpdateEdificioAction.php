@@ -21,18 +21,22 @@ class UpdateEdificioAction
         if (! empty($data['cue_cabecera'])) {
             $cabecera = Establecimiento::where('cue', $data['cue_cabecera'])->first();
             if ($cabecera) {
-                $data['cabecera_cue'] = $cabecera->cue;
+                $cabeceraAnterior = $edificio->cabecera_cue;
+
+                // Actualizar todas las escuelas de este edificio con el nuevo CUE principal/cabecera
+                $edificio->establecimientos()->update(['cue_edificio_principal' => $cabecera->cue]);
 
                 $this->activityLogger->logUpdate($edificio, 'Actualización de Cabecera', [
-                    'cabecera_anterior' => $edificio->cabecera_cue,
+                    'cabecera_anterior' => $cabeceraAnterior,
                     'cabecera_nueva' => $cabecera->cue,
                     'nombre_cabecera' => $cabecera->nombre,
                 ]);
             }
         }
 
-        // Eliminar cue_cabecera del array antes del fill (no es columna del modelo)
+        // Eliminar cue_cabecera y cabecera_cue del array antes del fill (no son columnas de la tabla)
         unset($data['cue_cabecera']);
+        unset($data['cabecera_cue']);
 
         $edificio->fill($data);
 

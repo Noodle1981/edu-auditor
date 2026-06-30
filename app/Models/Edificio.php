@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -26,9 +27,18 @@ class Edificio extends Model
         return $this->hasMany(Establecimiento::class, 'edificio_id');
     }
 
-    public function cabecera(): BelongsTo
+    public function cabecera(): HasOne
     {
-        return $this->belongsTo(Establecimiento::class, 'cabecera_cue', 'cue');
+        return $this->hasOne(Establecimiento::class, 'edificio_id')
+            ->whereColumn('cue', 'cue_edificio_principal');
+    }
+
+    /**
+     * Get the CUE of the cabecera establishment.
+     */
+    public function getCabeceraCueAttribute(): ?string
+    {
+        return $this->cabecera?->cue;
     }
 
     /**
