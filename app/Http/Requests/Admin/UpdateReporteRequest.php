@@ -11,7 +11,7 @@ class UpdateReporteRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->isAdministrativo() || $this->user()->isAdmin();
+        return $this->user()->isAdmin();
     }
 
     /**
