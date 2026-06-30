@@ -30,4 +30,20 @@ class User extends Authenticatable
             'password_changed_at' => 'datetime',
         ];
     }
+
+    /**
+     * Check if user has the admin role.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Check if user has the administrativo role.
+     */
+    public function isAdministrativo(): bool
+    {
+        return $this->role === 'administrativos' || $this->role === 'administrativo';
+    }
 }
