@@ -110,6 +110,53 @@ export default function Mapa({ edificios = [] }) {
         }
     };
 
+    const handleInlineObsChange = async (modId, newObsVal) => {
+        try {
+            // Make the PATCH request to update the database
+            await axios.patch(`/api/modalidades/${modId}/observaciones`, {
+                observaciones: newObsVal
+            });
+
+            // Update the local state reactively
+            setEdificiosList((prevList) => {
+                return prevList.map((edificio) => {
+                    const updatedEstablecimientos = (edificio.establecimientos || []).map((est) => {
+                        const updatedModalidades = (est.modalidades || []).map((mod) => {
+                            if (mod.id === modId) {
+                                return { ...mod, observaciones: newObsVal };
+                            }
+                            return mod;
+                        });
+                        return { ...est, modalidades: updatedModalidades };
+                    });
+                    
+                    return { ...edificio, establecimientos: updatedEstablecimientos };
+                });
+            });
+
+            // Also update the selectedEdificio state if it contains this modality
+            setSelectedEdificio((prevSelected) => {
+                if (!prevSelected) return null;
+                const nextEstablecimientos = (prevSelected.establecimientos || []).map((est) => {
+                    const nextModalidades = (est.modalidades || []).map((mod) => {
+                        if (mod.id === modId) {
+                            return { ...mod, observaciones: newObsVal };
+                        }
+                        return mod;
+                    });
+                    return { ...est, modalidades: nextModalidades };
+                });
+                return { ...prevSelected, establecimientos: nextEstablecimientos };
+            });
+
+            alert('Observación guardada correctamente.');
+
+        } catch (error) {
+            console.error('Error al actualizar la observación:', error);
+            alert('No se pudo guardar la observación. Por favor intente nuevamente.');
+        }
+    };
+
     // Get unique levels and departments dynamically based on other active filters (Faceted search)
     const deptosDisponibles = useMemo(() => {
         const set = new Set();
@@ -839,6 +886,65 @@ export default function Mapa({ edificios = [] }) {
                                                                         );
                                                                     }
                                                                 })()}
+
+                                                                {/* Observations Section */}
+                                                                <div className="mt-2.5 space-y-1.5 border-t border-gray-200/60 pt-2">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-[9px] font-black uppercase text-gray-400">Observación de Auditoría</span>
+                                                                    </div>
+                                                                    {isAdmin ? (
+                                                                        <div className="space-y-1.5">
+                                                                            <textarea
+                                                                                defaultValue={mod.observaciones || ''}
+                                                                                id={`obs-input-${mod.id}`}
+                                                                                placeholder="Escribe una observación o selecciona una de abajo..."
+                                                                                className="w-full rounded-lg border border-gray-200 bg-white p-2 text-[10px] text-gray-800 focus:border-[#FE8204] focus:outline-none"
+                                                                                rows={2}
+                                                                            />
+                                                                            {/* Quick suggestions */}
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        const el = document.getElementById(`obs-input-${mod.id}`);
+                                                                                        if (el) el.value = "el establecimiento tiene otro radio porque esta ubicado en otro edifcio no le correesponde";
+                                                                                    }}
+                                                                                    className="rounded border border-gray-150 bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 text-[8px] font-bold text-gray-600 transition-colors"
+                                                                                >
+                                                                                    + Otro Edificio
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        const el = document.getElementById(`obs-input-${mod.id}`);
+                                                                                        if (el) el.value = "Radio oficial desactualizado";
+                                                                                    }}
+                                                                                    className="rounded border border-gray-150 bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 text-[8px] font-bold text-gray-600 transition-colors"
+                                                                                >
+                                                                                    + Desactualizado
+                                                                                </button>
+                                                                            </div>
+                                                                            <div className="flex justify-end">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={async () => {
+                                                                                        const el = document.getElementById(`obs-input-${mod.id}`);
+                                                                                        if (el) {
+                                                                                            await handleInlineObsChange(mod.id, el.value);
+                                                                                        }
+                                                                                    }}
+                                                                                    className="rounded bg-[#FE8204] hover:bg-[#e07203] px-2.5 py-1 text-[9px] font-black uppercase text-white transition-colors cursor-pointer"
+                                                                                >
+                                                                                    Guardar Obs
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <p className="text-[10px] text-gray-600 bg-gray-100/50 p-2 rounded-lg border border-gray-150/50 italic leading-snug">
+                                                                            {mod.observaciones || 'Sin observaciones de auditoría.'}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         ))}
                                                     </div>

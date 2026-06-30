@@ -280,4 +280,25 @@ class EstablecimientoTest extends TestCase
         $modalidad->refresh();
         $this->assertEquals(2, $modalidad->radio);
     }
+
+    public function test_admin_can_update_modality_observaciones_value(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $modalidad = \App\Models\Modalidad::first();
+
+        $response = $this
+            ->actingAs($user)
+            ->patchJson("/api/modalidades/{$modalidad->id}/observaciones", [
+                'observaciones' => 'Ubicado en otro edificio',
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'message' => 'Observaciones actualizadas correctamente',
+                'observaciones' => 'Ubicado en otro edificio',
+            ]);
+
+        $modalidad->refresh();
+        $this->assertEquals('Ubicado en otro edificio', $modalidad->observaciones);
+    }
 }

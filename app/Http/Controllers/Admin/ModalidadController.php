@@ -219,4 +219,28 @@ class ModalidadController extends Controller
             'radio' => $modalidad->radio,
         ]);
     }
+
+    /**
+     * Update the observations of a modality directly.
+     */
+    public function updateObservacionesVal(Request $request, int $id)
+    {
+        $request->validate([
+            'observaciones' => 'nullable|string|max:1000',
+        ]);
+
+        $modalidad = Modalidad::findOrFail($id);
+        $oldObs = $modalidad->observaciones;
+        $modalidad->update(['observaciones' => $request->input('observaciones')]);
+
+        app(ActivityLogService::class)->logUpdate(
+            $modalidad,
+            "Actualizó observaciones de modalidad a: " . ($request->input('observaciones') ?? 'N/A') . " (anterior: " . ($oldObs ?? 'N/A') . ")"
+        );
+
+        return response()->json([
+            'message' => 'Observaciones actualizadas correctamente',
+            'observaciones' => $modalidad->observaciones,
+        ]);
+    }
 }
