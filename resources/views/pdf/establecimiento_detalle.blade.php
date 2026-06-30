@@ -305,7 +305,7 @@
             <td class="label">Dist. Km 0 (Camino)</td>
             <td class="val">
                 @if($est->distancia_camino !== null)
-                    {{ number_format($est->distancia_camino, 2) }} km
+                    {{ number_format((float) $est->distancia_camino, 2) }} km
                 @else
                     S/D
                 @endif
@@ -313,7 +313,7 @@
             <td class="label">Tiempo Google (Auto)</td>
             <td class="val">
                 @if($est->tiempo_google_auto !== null)
-                    {{ number_format($est->tiempo_google_auto, 0) }} min
+                    {{ number_format((float) $est->tiempo_google_auto, 0) }} min
                 @else
                     S/D
                 @endif

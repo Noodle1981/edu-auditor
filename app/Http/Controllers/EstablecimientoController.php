@@ -918,8 +918,11 @@ class EstablecimientoController extends Controller
             }
 
             $row->covered = $covered;
+            $row->covered_count = $covered;
             $row->uncovered = $uncovered;
+            $row->uncovered_count = $uncovered;
             $row->extra_agents = $extraAgents;
+            $row->extra_agents_count = $extraAgents;
             $row->reforzados_count = $reforzadosCount;
             $row->suplentes_sin_licencia = $suplenteSinLicencia;
             $row->coverage_percent = $row->cupof_count > 0 ? (int) round(($covered / $row->cupof_count) * 100) : 0;
