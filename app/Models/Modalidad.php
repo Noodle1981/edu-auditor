@@ -23,4 +23,18 @@ class Modalidad extends Model
     {
         return $this->belongsTo(Establecimiento::class, 'establecimiento_id');
     }
+
+    /**
+     * Update the validation status, observations, and auditing user.
+     */
+    public function cambiarEstado(string $estado, ?string $observaciones = null, ?int $userId = null): void
+    {
+        $this->update([
+            'estado_validacion' => $estado,
+            'observaciones' => $observaciones,
+            'validado_por_user_id' => $userId,
+            'validado' => ($estado === 'VALIDADO'),
+            'validado_en' => ($estado === 'VALIDADO' ? now() : null),
+        ]);
+    }
 }

@@ -242,4 +242,21 @@ class EstablecimientoTest extends TestCase
             'cue' => 700038000,
         ]);
     }
+
+    public function test_admin_can_delete_modalidad(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $modalidad = \App\Models\Modalidad::first();
+
+        $response = $this
+            ->actingAs($user)
+            ->delete("/admin/establecimientos/{$modalidad->id}");
+
+        $response->assertRedirect();
+        
+        // Assert that the validation state was updated to ELIMINADO
+        $modalidad->refresh();
+        $this->assertEquals('ELIMINADO', $modalidad->estado_validacion);
+        $this->assertNotNull($modalidad->deleted_at);
+    }
 }
