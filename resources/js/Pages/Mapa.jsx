@@ -950,6 +950,7 @@ export default function Mapa({ edificios = [] }) {
                                                                             <div className="space-y-1">
                                                                                 <label className="text-[8px] font-black uppercase text-gray-400">Justificación / Detalle</label>
                                                                                 <textarea
+                                                                                    key={`obs-${est.cue}`}
                                                                                     defaultValue={refMod.observaciones || ''}
                                                                                     id={`obs-input-${est.cue}`}
                                                                                     placeholder="Ej. El establecimiento tiene otro radio porque está ubicado en otro edificio..."
