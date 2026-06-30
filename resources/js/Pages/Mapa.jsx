@@ -41,6 +41,14 @@ export default function Mapa({ edificios = [] }) {
     const [filterDepto, setFilterDepto] = useState('TODOS');
     const [selectedEdificio, setSelectedEdificio] = useState(null);
     const [isPanelMinimized, setIsPanelMinimized] = useState(false);
+    const [filterAudit, setFilterAudit] = useState({
+        COINCIDE: true,
+        INCONGRUENTE: true,
+        DISTINTO: true,
+    });
+    const toggleAuditFilter = (key) => {
+        setFilterAudit((prev) => ({ ...prev, [key]: !prev[key] }));
+    };
 
     useEffect(() => {
         if (selectedEdificio) {
@@ -288,7 +296,38 @@ export default function Mapa({ edificios = [] }) {
                             const matchesNivel =
                                 filterNivel === 'TODOS' ||
                                 m.nivel === filterNivel;
-                            return matchesScope && matchesNivel;
+
+                            // Audit status filter
+                            const allActive = filterAudit.COINCIDE && filterAudit.INCONGRUENTE && filterAudit.DISTINTO;
+                            let matchesAudit = true;
+                            if (!allActive) {
+                                const thRadio = getTheoreticalRadio(edificio.punto_partida, edificio.dist_circunf);
+                                if (thRadio) {
+                                    const sysRaw = (m.radio !== null && m.radio !== undefined && m.radio !== 'N/A' && m.radio !== '') ? m.radio : m.radio_sige;
+                                    let s = (sysRaw && sysRaw !== 'N/A' && sysRaw !== '') ? parseInt(sysRaw) : null;
+                                    if (s === 7) s = 6;
+                                    const circ  = edificio.radio_circ    ? parseInt(edificio.radio_circ)    : null;
+                                    const camino = edificio.radio_camino ? parseInt(edificio.radio_camino) : null;
+                                    const hasCirc   = circ   !== null && !isNaN(circ);
+                                    const hasCamino = camino !== null && !isNaN(camino);
+
+                                    let status = 'COINCIDE';
+                                    if (!m.radio_justificado && s !== null && !isNaN(s)) {
+                                        if (hasCirc && hasCamino) {
+                                            if (s === circ && s === camino) status = 'COINCIDE';
+                                            else if (s === circ || s === camino) status = 'INCONGRUENTE';
+                                            else status = 'DISTINTO';
+                                        } else if (hasCirc) {
+                                            status = s === circ ? 'COINCIDE' : 'DISTINTO';
+                                        } else if (hasCamino) {
+                                            status = s === camino ? 'COINCIDE' : 'DISTINTO';
+                                        }
+                                    }
+                                    matchesAudit = !!filterAudit[status];
+                                }
+                            }
+
+                            return matchesScope && matchesNivel && matchesAudit;
                         });
 
                         if (filteredMods.length === 0) return null;
@@ -356,7 +395,7 @@ export default function Mapa({ edificios = [] }) {
                 };
             })
             .filter(Boolean);
-    }, [edificiosArray, searchQuery, activeFilters, filterNivel, filterDepto]);
+    }, [edificiosArray, searchQuery, activeFilters, filterNivel, filterDepto, filterAudit]);
 
     // Statistics for the sidebar
     const stats = useMemo(() => {
@@ -444,6 +483,7 @@ export default function Mapa({ edificios = [] }) {
         setActiveFilters({ publico: true, privado: false });
         setFilterNivel('TODOS');
         setFilterDepto('TODOS');
+        setFilterAudit({ COINCIDE: true, INCONGRUENTE: true, DISTINTO: true });
         setSelectedEdificio(null);
     }, []);
 
@@ -633,6 +673,29 @@ export default function Mapa({ edificios = [] }) {
                                 ))}
                             </select>
                             <i className="fa-solid fa-chevron-down pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]"></i>
+                        </div>
+
+                        {/* Audit Status Filter */}
+                        <div className="flex gap-1 rounded-xl border border-gray-100 bg-gray-50 p-1 shrink-0">
+                            {[
+                                { key: 'COINCIDE',     label: 'Coincide',     color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: 'fa-circle-check' },
+                                { key: 'INCONGRUENTE', label: 'Incongruente', color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200',   icon: 'fa-circle-exclamation' },
+                                { key: 'DISTINTO',     label: 'Distinto',     color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200',     icon: 'fa-triangle-exclamation' },
+                            ].map(({ key, label, color, bg, border, icon }) => (
+                                <button
+                                    key={key}
+                                    onClick={() => toggleAuditFilter(key)}
+                                    title={`${filterAudit[key] ? 'Ocultar' : 'Mostrar'} ${label}`}
+                                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-black transition-all cursor-pointer ${
+                                        filterAudit[key]
+                                            ? `${bg} ${color} border ${border} shadow-sm`
+                                            : 'text-gray-400 bg-transparent border border-transparent opacity-40'
+                                    }`}
+                                >
+                                    <i className={`fa-solid ${icon} text-[9px]`}></i>
+                                    <span className="hidden xl:inline">{label}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
 
