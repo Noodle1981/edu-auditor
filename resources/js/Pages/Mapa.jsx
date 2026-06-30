@@ -936,61 +936,61 @@ export default function Mapa({ edificios = [] }) {
                                                                         );
                                                                     }
                                                                 })()}
-                                                                                                       {/* Observations Section */}
-                                                                <div className="mt-2.5 space-y-2 border-t border-gray-200/60 pt-2">
+                                                            </div>
+                                                        ))}
+
+                                                        {/* ── Observation per Establishment (outside modalities loop) ── */}
+                                                        {(() => {
+                                                            const refMod = est.modalidades?.[0];
+                                                            if (!refMod) return null;
+                                                            return (
+                                                                <div className="mt-2.5 border-t border-gray-200/60 pt-2.5">
                                                                     {isAdmin ? (
                                                                         <div className="space-y-2">
-                                                                            {/* Text Area for Justificación */}
                                                                             <div className="space-y-1">
                                                                                 <label className="text-[8px] font-black uppercase text-gray-400">Justificación / Detalle</label>
                                                                                 <textarea
-                                                                                    defaultValue={mod.observaciones || ''}
-                                                                                    id={`obs-input-${mod.id}`}
+                                                                                    defaultValue={refMod.observaciones || ''}
+                                                                                    id={`obs-input-${est.cue}`}
                                                                                     placeholder="Ej. El establecimiento tiene otro radio porque está ubicado en otro edificio..."
                                                                                     className="w-full rounded-lg border border-gray-200 bg-white p-2 text-[10px] text-gray-800 focus:border-[#FE8204] focus:outline-none"
                                                                                     rows={2}
                                                                                 />
                                                                             </div>
-
-                                                                            {/* Controls: Checkbox and button side by side */}
-                                                                            <div className="flex items-center justify-between gap-2 pt-0.5">
-                                                                                {/* Simple checkbox toggle (tilde) */}
-                                                                                <label className="flex items-center gap-1.5 text-[10px] font-black uppercase text-red-750 cursor-pointer select-none bg-red-50/50 hover:bg-red-100/50 px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors">
+                                                                            <div className="flex items-center justify-between gap-2">
+                                                                                <label className="flex items-center gap-1.5 text-[10px] font-black uppercase cursor-pointer select-none bg-red-50/50 hover:bg-red-100/50 px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors">
                                                                                     <input
                                                                                         type="checkbox"
-                                                                                        checked={!!mod.radio_observado}
-                                                                                        onChange={(e) => handleInlineObservadoChange(mod.id, e.target.checked)}
-                                                                                        className="rounded border-gray-300 text-red-650 focus:ring-red-500 h-3.5 w-3.5 cursor-pointer"
+                                                                                        checked={!!refMod.radio_observado}
+                                                                                        onChange={(e) => handleInlineObservadoChange(refMod.id, e.target.checked)}
+                                                                                        className="rounded border-gray-300 text-red-600 focus:ring-red-500 h-3.5 w-3.5 cursor-pointer"
                                                                                     />
                                                                                     <i className="fa-solid fa-flag text-red-500 text-[10px]"></i>
-                                                                                    <span>Observado</span>
+                                                                                    <span className="text-red-700">Observado</span>
                                                                                 </label>
-
                                                                                 <button
                                                                                     type="button"
                                                                                     onClick={async () => {
-                                                                                        const el = document.getElementById(`obs-input-${mod.id}`);
-                                                                                        if (el) {
-                                                                                            await handleInlineObsChange(mod.id, el.value);
-                                                                                        }
+                                                                                        const el = document.getElementById(`obs-input-${est.cue}`);
+                                                                                        if (el) await handleInlineObsChange(refMod.id, el.value);
                                                                                     }}
                                                                                     className="rounded bg-[#FE8204] hover:bg-[#e07203] px-2.5 py-1.5 text-[9px] font-black uppercase text-white transition-colors cursor-pointer"
                                                                                 >
-                                                                                    {mod.observaciones ? 'Actualizar Justificación' : 'Guardar Justificación'}
+                                                                                    {refMod.observaciones ? 'Actualizar Justificación' : 'Guardar Justificación'}
                                                                                 </button>
                                                                             </div>
                                                                         </div>
                                                                     ) : (
-                                                                        mod.observaciones && (
-                                                                            <div className="p-2 rounded-lg bg-red-100/50 border border-red-200 text-red-850 text-[10px] font-medium leading-snug flex items-start gap-1.5">
+                                                                        refMod.observaciones && (
+                                                                            <div className="p-2 rounded-lg bg-red-100/50 border border-red-200 text-[10px] font-medium leading-snug flex items-start gap-1.5">
                                                                                 <i className="fa-solid fa-circle-exclamation text-red-500 mt-0.5 shrink-0"></i>
-                                                                                <span>{mod.observaciones}</span>
+                                                                                <span className="text-red-800">{refMod.observaciones}</span>
                                                                             </div>
                                                                         )
                                                                     )}
                                                                 </div>
-                                                            </div>
-                                                        ))}
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                             ))}
