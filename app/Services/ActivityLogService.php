@@ -46,7 +46,7 @@ class ActivityLogService
      */
     protected function log(string $action, Model $model, string $description, ?array $changes = null)
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return;
         }
 

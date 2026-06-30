@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use App\Models\ImportLog;
-use Inertia\Inertia;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 
 class ImportController extends Controller
 {
@@ -65,8 +64,8 @@ class ImportController extends Controller
     public function csvStatus()
     {
         $baseDir = base_path('datos_csv');
-        $agenteFile = $baseDir . '/agentes.csv';
-        $licenciaFile = $baseDir . '/licencias.csv';
+        $agenteFile = $baseDir.'/agentes.csv';
+        $licenciaFile = $baseDir.'/licencias.csv';
 
         $files = [];
 
@@ -76,7 +75,7 @@ class ImportController extends Controller
             'name' => 'agentes.csv',
             'type' => 'agentes',
             'exists' => $agenteExists,
-            'size' => $agenteExists ? round(filesize($agenteFile) / 1024 / 1024, 2) . ' MB' : 'N/A',
+            'size' => $agenteExists ? round(filesize($agenteFile) / 1024 / 1024, 2).' MB' : 'N/A',
             'modified_at' => $agenteExists ? date('Y-m-d H:i:s', filemtime($agenteFile)) : 'N/A',
             'db_records' => $agenteExists ? DB::table('agente_cargos')->count() : 0,
             'description' => 'Padrón unificado de agentes, cargos activos y designaciones (2026)',
@@ -88,7 +87,7 @@ class ImportController extends Controller
             'name' => 'licencias.csv',
             'type' => 'licencias',
             'exists' => $licenciaExists,
-            'size' => $licenciaExists ? round(filesize($licenciaFile) / 1024 / 1024, 2) . ' MB' : 'N/A',
+            'size' => $licenciaExists ? round(filesize($licenciaFile) / 1024 / 1024, 2).' MB' : 'N/A',
             'modified_at' => $licenciaExists ? date('Y-m-d H:i:s', filemtime($licenciaFile)) : 'N/A',
             'db_records' => $licenciaExists ? DB::table('licencias')->count() : 0,
             'description' => 'Histórico consolidado de licencias médicas y administrativas (2020-2026)',
@@ -130,26 +129,27 @@ class ImportController extends Controller
     public function trigger(Request $request)
     {
         $request->validate([
-            'type' => 'required|in:agentes,licencias,all'
+            'type' => 'required|in:agentes,licencias,all',
         ]);
 
         $type = $request->input('type');
-        
+
         try {
             // Queue the artisan command to run in the background
             Artisan::queue('app:seed-from-csv', [
-                '--type' => $type
+                '--type' => $type,
             ]);
-            
+
             return response()->json([
                 'status' => 'success',
-                'message' => 'Proceso de importación encolado correctamente. Verificando en segundo plano.'
+                'message' => 'Proceso de importación encolado correctamente. Verificando en segundo plano.',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error al desencadenar importación: ' . $e->getMessage());
+            Log::error('Error al desencadenar importación: '.$e->getMessage());
+
             return response()->json([
                 'status' => 'error',
-                'message' => 'Hubo un problema al iniciar la importación.'
+                'message' => 'Hubo un problema al iniciar la importación.',
             ], 500);
         }
     }

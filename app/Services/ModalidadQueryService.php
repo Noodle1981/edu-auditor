@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Edificio;
 use App\Models\Modalidad;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class ModalidadQueryService
 {
@@ -14,18 +16,18 @@ class ModalidadQueryService
     public function getFilteredQuery(Request $request): Builder
     {
         $query = Modalidad::with([
-            'establecimiento' => function($q) {
+            'establecimiento' => function ($q) {
                 $q->withCount('modalidades');
             },
-            'establecimiento.edificio'
+            'establecimiento.edificio',
         ]);
         if ($search = $request->input('search')) {
             $query->whereHas('establecimiento', function ($q) use ($search) {
-                $q->where('nombre', 'like', '%' . $search . '%')
-                  ->orWhere('cue', 'like', '%' . $search . '%')
-                  ->orWhereHas('edificio', function ($qEdificio) use ($search) {
-                      $qEdificio->where('cui', 'like', '%' . $search . '%');
-                  });
+                $q->where('nombre', 'like', '%'.$search.'%')
+                    ->orWhere('cue', 'like', '%'.$search.'%')
+                    ->orWhereHas('edificio', function ($qEdificio) use ($search) {
+                        $qEdificio->where('cui', 'like', '%'.$search.'%');
+                    });
             });
         }
 
@@ -53,10 +55,10 @@ class ModalidadQueryService
 
         // Missing instruments filter
         if ($request->boolean('missing')) {
-            $query->where(function($q) {
+            $query->where(function ($q) {
                 $q->whereNull('inst_legal_radio')->orWhere('inst_legal_radio', '')
-                  ->orWhereNull('inst_legal_categoria')->orWhere('inst_legal_categoria', '')
-                  ->orWhereNull('inst_legal_creacion')->orWhere('inst_legal_creacion', '');
+                    ->orWhereNull('inst_legal_categoria')->orWhere('inst_legal_categoria', '')
+                    ->orWhereNull('inst_legal_creacion')->orWhere('inst_legal_creacion', '');
             });
         }
 
@@ -71,7 +73,7 @@ class ModalidadQueryService
         $niveles = Modalidad::select('nivel_educativo')->distinct()->whereNotNull('nivel_educativo')->orderBy('nivel_educativo')->pluck('nivel_educativo')->toArray();
         $ambitos = Modalidad::select('ambito')->distinct()->whereNotNull('ambito')->pluck('ambito')->toArray();
         $areas = Modalidad::select('direccion_area')->distinct()->whereNotNull('direccion_area')->orderBy('direccion_area')->pluck('direccion_area')->toArray();
-        $zonas = \App\Models\Edificio::select('zona_departamento')->distinct()->whereNotNull('zona_departamento')->orderBy('zona_departamento')->pluck('zona_departamento')->toArray();
+        $zonas = Edificio::select('zona_departamento')->distinct()->whereNotNull('zona_departamento')->orderBy('zona_departamento')->pluck('zona_departamento')->toArray();
         $radios = Modalidad::select('radio')->distinct()->whereNotNull('radio')->orderBy('radio')->pluck('radio')->toArray();
         $sectores = Modalidad::select('sector')->distinct()->whereNotNull('sector')->orderBy('sector')->pluck('sector')->toArray();
         $categorias = Modalidad::select('categoria')->distinct()->whereNotNull('categoria')->where('categoria', '<>', '')->orderBy('categoria')->pluck('categoria')->toArray();
@@ -122,8 +124,8 @@ class ModalidadQueryService
     /**
      * Get building names map.
      */
-    public function getBuildingNamesMap(): \Illuminate\Support\Collection
+    public function getBuildingNamesMap(): Collection
     {
-        return \App\Models\Edificio::getNamesMap();
+        return Edificio::getNamesMap();
     }
 }

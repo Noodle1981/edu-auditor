@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Process\Process;
 
 return new class extends Migration
 {
@@ -36,8 +37,8 @@ return new class extends Migration
         });
 
         // Run python script to seed schools database (only if not running unit tests)
-        if (!app()->runningUnitTests()) {
-            $process = new \Symfony\Component\Process\Process(['python', base_path('crear_base_datos_escuela.py')]);
+        if (! app()->runningUnitTests()) {
+            $process = new Process(['python', base_path('crear_base_datos_escuela.py')]);
             $process->run();
         }
     }

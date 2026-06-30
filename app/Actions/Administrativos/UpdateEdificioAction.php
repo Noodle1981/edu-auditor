@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\Edificio;
+use App\Models\Establecimiento;
 use App\Services\ActivityLogService;
 
 class UpdateEdificioAction
@@ -17,15 +18,15 @@ class UpdateEdificioAction
     public function execute(Edificio $edificio, array $data): void
     {
         // Actualizar cabecera_cue del edificio si se envió un nuevo CUE cabecera
-        if (!empty($data['cue_cabecera'])) {
-            $cabecera = \App\Models\Establecimiento::where('cue', $data['cue_cabecera'])->first();
+        if (! empty($data['cue_cabecera'])) {
+            $cabecera = Establecimiento::where('cue', $data['cue_cabecera'])->first();
             if ($cabecera) {
                 $data['cabecera_cue'] = $cabecera->cue;
 
                 $this->activityLogger->logUpdate($edificio, 'Actualización de Cabecera', [
                     'cabecera_anterior' => $edificio->cabecera_cue,
-                    'cabecera_nueva'    => $cabecera->cue,
-                    'nombre_cabecera'   => $cabecera->nombre,
+                    'cabecera_nueva' => $cabecera->cue,
+                    'nombre_cabecera' => $cabecera->nombre,
                 ]);
             }
         }
@@ -38,7 +39,7 @@ class UpdateEdificioAction
         if ($edificio->isDirty()) {
             $this->activityLogger->logUpdate($edificio, 'Actualización de Edificio', [
                 'before' => array_intersect_key($edificio->getOriginal(), $edificio->getDirty()),
-                'after'  => $edificio->getDirty(),
+                'after' => $edificio->getDirty(),
             ]);
             $edificio->save();
         }

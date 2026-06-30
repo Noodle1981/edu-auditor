@@ -2,16 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use Carbon\Carbon;
 
 class AgenteController extends Controller
 {
     public const MAX_HOURS_THRESHOLD = 50;
-
-
 
     public function search(Request $request)
     {
@@ -23,48 +21,52 @@ class AgenteController extends Controller
             $cue = trim($request->input('cue', ''));
             $normaLegal = trim($request->input('norma_legal', ''));
 
-            $page = (int)$request->input('page', 1);
-            $limit = (int)$request->input('limit', 20);
+            $page = (int) $request->input('page', 1);
+            $limit = (int) $request->input('limit', 20);
 
-            if ($page < 1) $page = 1;
-            if ($limit < 1 || $limit > 100) $limit = 20;
+            if ($page < 1) {
+                $page = 1;
+            }
+            if ($limit < 1 || $limit > 100) {
+                $limit = 20;
+            }
             $offset = ($page - 1) * $limit;
-            $year = $this->getDefaultYear((int)$request->input('year'));
+            $year = $this->getDefaultYear((int) $request->input('year'));
 
             // Build queries dynamically
             $bindings = [$year];
-            $whereClause = "WHERE c.anio = ?";
+            $whereClause = 'WHERE c.anio = ?';
 
             if ($search !== '') {
-                $whereClause .= " AND (a.dni LIKE ? OR a.nombre_agente LIKE ? OR a.legajo LIKE ?)";
+                $whereClause .= ' AND (a.dni LIKE ? OR a.nombre_agente LIKE ? OR a.legajo LIKE ?)';
                 $searchLike = "%{$search}%";
                 array_push($bindings, $searchLike, $searchLike, $searchLike);
             }
 
             if ($revista !== '') {
-                $whereClause .= " AND c.situacion_revista = ?";
+                $whereClause .= ' AND c.situacion_revista = ?';
                 $bindings[] = $revista;
             }
 
             if ($escalafon !== '') {
-                $whereClause .= " AND c.escalafon = ?";
+                $whereClause .= ' AND c.escalafon = ?';
                 $bindings[] = $escalafon;
             }
 
             if ($turno !== '') {
-                $whereClause .= " AND c.turno = ?";
+                $whereClause .= ' AND c.turno = ?';
                 $bindings[] = $turno;
             }
 
             if ($cue !== '') {
                 if (ctype_digit($cue)) {
-                    $whereClause .= " AND c.cue = ?";
-                    $bindings[] = (int)$cue;
+                    $whereClause .= ' AND c.cue = ?';
+                    $bindings[] = (int) $cue;
                 }
             }
 
             if ($normaLegal !== '') {
-                $whereClause .= " AND c.norma_legal LIKE ?";
+                $whereClause .= ' AND c.norma_legal LIKE ?';
                 $bindings[] = "%{$normaLegal}%";
             }
 
@@ -76,7 +78,7 @@ class AgenteController extends Controller
                 {$whereClause}
             ";
             $countResult = DB::selectOne($countQuery, $bindings);
-            $totalUnicos = $countResult ? (int)$countResult->total_unicos : 0;
+            $totalUnicos = $countResult ? (int) $countResult->total_unicos : 0;
 
             // 2. Get paginated data
             $dataQuery = "
@@ -104,9 +106,9 @@ class AgenteController extends Controller
             $licenciasRows = [];
             $suplentesByCupof = [];
 
-            if (!empty($dnis)) {
+            if (! empty($dnis)) {
                 $placeholders = implode(',', array_fill(0, count($dnis), '?'));
-                
+
                 // Fetch cargos
                 $cargosRows = DB::select("
                     SELECT id, dni, centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra, turno, plan_estudio, situacion_revista, norma_legal
@@ -125,7 +127,7 @@ class AgenteController extends Controller
 
                 // Fetch suplentes map for these cupofs
                 $cupofs = array_filter(array_column($cargosRows, 'cupof'));
-                if (!empty($cupofs)) {
+                if (! empty($cupofs)) {
                     $cupofs = array_unique($cupofs);
                     $cupofPlaceholders = implode(',', array_fill(0, count($cupofs), '?'));
                     $suplentesRows = DB::select("
@@ -157,7 +159,7 @@ class AgenteController extends Controller
             foreach ($rows as $r) {
                 $dni = $r->dni;
                 $cargos = $cargosByDni[$dni] ?? [];
-                
+
                 // Perform quick audit on these cargos to determine coverage/activo state
                 $cargoAudit = $this->buildCargoAudit($cargos, $year, $suplentesByCupof);
 
@@ -188,19 +190,22 @@ class AgenteController extends Controller
                 unset($ca);
 
                 // --- Matching por CUPOF exacto (nuevo) ---
-                $agentActiveLics = array_filter($licenciasByDni[$dni] ?? [], function($lic) use ($today) {
+                $agentActiveLics = array_filter($licenciasByDni[$dni] ?? [], function ($lic) use ($today) {
                     $start = self::parseAuditDate($lic->fecha_inicio);
-                    $end   = self::parseAuditDate($lic->fecha_fin);
-                    if (!$start || !$end) return false;
+                    $end = self::parseAuditDate($lic->fecha_fin);
+                    if (! $start || ! $end) {
+                        return false;
+                    }
                     $normDb = self::normalizeLicenseName($lic->tipo_licencia);
+
                     return $start->lte($today) && $today->lte($end)
                         && in_array($normDb, $excludedLics);
                 });
 
-                $licsByCupof   = [];
-                $licsSinCupof  = [];
+                $licsByCupof = [];
+                $licsSinCupof = [];
                 foreach ($agentActiveLics as $lic) {
-                    if (!empty($lic->cupof_licencia)) {
+                    if (! empty($lic->cupof_licencia)) {
                         $licsByCupof[$lic->cupof_licencia] = $lic;
                     } else {
                         $licsSinCupof[] = $lic;
@@ -210,7 +215,7 @@ class AgenteController extends Controller
                 // Paso 1: CUPOF exacto
                 foreach ($cargoAudit as &$ca) {
                     if ($ca['estado_cobertura'] === 'pendiente'
-                        && !empty($ca['cupof'])
+                        && ! empty($ca['cupof'])
                         && isset($licsByCupof[$ca['cupof']])) {
                         $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
                         unset($licsByCupof[$ca['cupof']]);
@@ -221,9 +226,14 @@ class AgenteController extends Controller
                 // Paso 2: fallback por horas para licencias sin CUPOF (datos históricos)
                 $unmatchedLicsCount = count($licsSinCupof);
 
-                usort($cargoAudit, function($a, $b) {
-                    if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') return 1;
-                    if ($a['estado_cobertura'] !== 'cubierto_suplente' && $b['estado_cobertura'] === 'cubierto_suplente') return -1;
+                usort($cargoAudit, function ($a, $b) {
+                    if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') {
+                        return 1;
+                    }
+                    if ($a['estado_cobertura'] !== 'cubierto_suplente' && $b['estado_cobertura'] === 'cubierto_suplente') {
+                        return -1;
+                    }
+
                     return $b['horas_equivalentes'] <=> $a['horas_equivalentes'];
                 });
 
@@ -256,15 +266,15 @@ class AgenteController extends Controller
                     'nombre_agente' => $r->nombre_agente,
                     'genero' => $r->genero,
                     'legajo' => $r->legajo,
-                    'cargos_activos' => (int)$r->cargos_activos,
-                    'total_horas_catedra' => (int)$r->total_horas_catedra,
+                    'cargos_activos' => (int) $r->cargos_activos,
+                    'total_horas_catedra' => (int) $r->total_horas_catedra,
                     'escuelas' => $escuelas,
                     'cargos_funcionales_total' => $jergaInfo['cargos_funcionales_total'],
                     'horas_catedra_total' => $jergaInfo['horas_catedra_total'],
                     'cargos_funcionales_activo' => $jergaInfo['cargos_funcionales_activo'],
                     'horas_catedra_activo' => $jergaInfo['horas_catedra_activo'],
                     'jerga_total' => $jergaInfo['jerga_total'],
-                    'jerga_activa' => $jergaInfo['jerga_activa']
+                    'jerga_activa' => $jergaInfo['jerga_activa'],
                 ];
             }
 
@@ -273,7 +283,7 @@ class AgenteController extends Controller
                 'total' => $totalUnicos,
                 'page' => $page,
                 'limit' => $limit,
-                'total_pages' => ceil($totalUnicos / $limit)
+                'total_pages' => ceil($totalUnicos / $limit),
             ]);
 
         } catch (\Exception $e) {
@@ -284,38 +294,38 @@ class AgenteController extends Controller
     public function detail($dni)
     {
         try {
-            if (!$dni) {
+            if (! $dni) {
                 return response()->json(['error' => 'DNI is required'], 400);
             }
 
             // 1. Fetch parent agent info
-            $agentInfo = DB::selectOne("SELECT dni, nombre_agente, genero, legajo, fecha_alta FROM agentes WHERE dni = ?", [$dni]);
-            if (!$agentInfo) {
+            $agentInfo = DB::selectOne('SELECT dni, nombre_agente, genero, legajo, fecha_alta FROM agentes WHERE dni = ?', [$dni]);
+            if (! $agentInfo) {
                 $search = trim($dni);
-                $agentInfo = DB::selectOne("
+                $agentInfo = DB::selectOne('
                     SELECT dni, nombre_agente, genero, legajo, fecha_alta 
                     FROM agentes 
                     WHERE legajo = ? OR UPPER(nombre_agente) = ? OR nombre_agente LIKE ?
                     LIMIT 1
-                ", [$search, strtoupper($search), "%{$search}%"]);
+                ', [$search, strtoupper($search), "%{$search}%"]);
                 if ($agentInfo) {
                     $dni = $agentInfo->dni;
                 }
             }
-            if (!$agentInfo) {
+            if (! $agentInfo) {
                 return response()->json(['error' => 'Agent not found in unified database'], 404);
             }
 
-            $year = $this->getDefaultYear((int)request()->query('year'));
+            $year = $this->getDefaultYear((int) request()->query('year'));
 
             // 2. Fetch active cargos
-            $rowsAgentes = DB::select("
+            $rowsAgentes = DB::select('
                 SELECT id, centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
                        turno, plan_estudio, situacion_revista, norma_legal, observaciones, control_id 
                 FROM agente_cargos 
                 WHERE dni = ? AND anio = ?
                 ORDER BY id DESC
-            ", [$dni, $year]);
+            ', [$dni, $year]);
 
             // Add fields to match what frontend expects
             foreach ($rowsAgentes as $r) {
@@ -332,44 +342,48 @@ class AgenteController extends Controller
                 'genero' => $agentInfo->genero,
                 'legajo' => $agentInfo->legajo,
                 'cargos_count' => count($rowsAgentes),
-                'total_horas_catedra' => array_sum(array_map(fn($r) => (int)$r->horas_catedra, $rowsAgentes)),
-                'cargos' => $rowsAgentes
+                'total_horas_catedra' => array_sum(array_map(fn ($r) => (int) $r->horas_catedra, $rowsAgentes)),
+                'cargos' => $rowsAgentes,
             ];
 
             // 2. Fetch designaciones
-            $rowsDesig = DB::select("
+            $rowsDesig = DB::select('
                 SELECT id, centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
                        turno, plan_estudio, nombre_agente, dni, genero, legajo, 
                        fecha_alta, situacion_revista, norma_legal, observaciones, control_id 
                 FROM designaciones 
                 WHERE dni = ? AND anio = ?
                 ORDER BY fecha_alta DESC
-            ", [$dni, $year]);
+            ', [$dni, $year]);
             $profile['designaciones'] = $rowsDesig;
 
             // Collect unique CUEs
             $cues = [];
             foreach ($rowsAgentes as $r) {
-                if ($r->cue !== null) $cues[] = $r->cue;
+                if ($r->cue !== null) {
+                    $cues[] = $r->cue;
+                }
             }
             foreach ($rowsDesig as $r) {
-                if ($r->cue !== null) $cues[] = $r->cue;
+                if ($r->cue !== null) {
+                    $cues[] = $r->cue;
+                }
             }
             $cues = array_unique($cues);
 
             // 3. Fetch licencias
-            $rowsLic = DB::select("
+            $rowsLic = DB::select('
                 SELECT id, id_tramite, fecha_carga, nombre_agente, dni, genero,
                        tipo_licencia, cupof_licencia, documento_respaldo, fecha_inicio, fecha_fin, dias, referencia_interna
                 FROM licencias 
                 WHERE dni = ?
                 ORDER BY fecha_inicio DESC
-            ", [$dni]);
+            ', [$dni]);
             $profile['licencias'] = $rowsLic;
 
             // 4. Fetch escuelas info
-            $profile['escuelas_fisicas'] = (object)[];
-            if (!empty($cues)) {
+            $profile['escuelas_fisicas'] = (object) [];
+            if (! empty($cues)) {
                 $placeholders = implode(',', array_fill(0, count($cues), '?'));
                 $rowsEst = DB::select("
                     SELECT e.cue, e.nombre as nombre_establecimiento,
@@ -386,7 +400,7 @@ class AgenteController extends Controller
                 foreach ($rowsEst as $r) {
                     $escuelasFisicas[$r->cue] = $r;
                 }
-                $profile['escuelas_fisicas'] = (object)$escuelasFisicas;
+                $profile['escuelas_fisicas'] = (object) $escuelasFisicas;
             }
 
             // 5. Automated Audit (Active licenses & cargo-level coverage)
@@ -422,10 +436,10 @@ class AgenteController extends Controller
             unset($ca);
 
             // --- Matching por CUPOF exacto ---
-            $licsByCupof  = [];
+            $licsByCupof = [];
             $licsSinCupof = [];
             foreach ($activeLics as $lic) {
-                if (!empty($lic->cupof_licencia)) {
+                if (! empty($lic->cupof_licencia)) {
                     $licsByCupof[$lic->cupof_licencia] = $lic;
                 } else {
                     $licsSinCupof[] = $lic;
@@ -435,7 +449,7 @@ class AgenteController extends Controller
             // Paso 1: CUPOF exacto
             foreach ($cargoAudit as &$ca) {
                 if ($ca['estado_cobertura'] === 'pendiente'
-                    && !empty($ca['cupof'])
+                    && ! empty($ca['cupof'])
                     && isset($licsByCupof[$ca['cupof']])) {
                     $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
                     unset($licsByCupof[$ca['cupof']]);
@@ -446,9 +460,14 @@ class AgenteController extends Controller
             // Paso 2: fallback por horas para licencias sin CUPOF (datos históricos)
             $unmatchedLicsCount = count($licsSinCupof);
 
-            usort($cargoAudit, function($a, $b) {
-                if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') return 1;
-                if ($a['estado_cobertura'] !== 'cubierto_suplente' && $b['estado_cobertura'] === 'cubierto_suplente') return -1;
+            usort($cargoAudit, function ($a, $b) {
+                if ($a['estado_cobertura'] === 'cubierto_suplente' && $b['estado_cobertura'] !== 'cubierto_suplente') {
+                    return 1;
+                }
+                if ($a['estado_cobertura'] !== 'cubierto_suplente' && $b['estado_cobertura'] === 'cubierto_suplente') {
+                    return -1;
+                }
+
                 return $b['horas_equivalentes'] <=> $a['horas_equivalentes'];
             });
 
@@ -466,7 +485,7 @@ class AgenteController extends Controller
             unset($ca);
 
             // Restore original order
-            usort($cargoAudit, function($a, $b) {
+            usort($cargoAudit, function ($a, $b) {
                 return $b['id'] <=> $a['id'];
             });
 
@@ -512,12 +531,12 @@ class AgenteController extends Controller
                 'alerta_incompatibilidad_horas' => $horasActivas > self::MAX_HOURS_THRESHOLD,
                 'alerta_multi_cargo' => $profile['cargos_count'] > 1,
                 'licencias_activas' => $activeLics,
-                'tiene_licencia_activa' => !empty($activeLics),
+                'tiene_licencia_activa' => ! empty($activeLics),
                 'horas_licenciadas' => $horasCubiertas,
                 'horas_activas_netas' => $horasActivas,
                 'status_auditoria' => $statusAuditoria,
                 'coincide_en_designaciones' => count($profile['designaciones']) > 0,
-                'requiere_auditoria_af' => ($horasActivas > self::MAX_HOURS_THRESHOLD) || ($profile['cargos_count'] > 1) || !empty($activeLics)
+                'requiere_auditoria_af' => ($horasActivas > self::MAX_HOURS_THRESHOLD) || ($profile['cargos_count'] > 1) || ! empty($activeLics),
             ];
 
             return response()->json($profile);
@@ -527,8 +546,6 @@ class AgenteController extends Controller
         }
     }
 
-
-
     public function auditoriaAutomatizadaPage()
     {
         return Inertia::render('AuditoriaAutomatizada');
@@ -537,42 +554,44 @@ class AgenteController extends Controller
     public function getLocalAnalysis($dni)
     {
         try {
-            $agentInfo = DB::selectOne("SELECT dni, nombre_agente, genero, legajo, fecha_alta FROM agentes WHERE dni = ?", [$dni]);
-            if (!$agentInfo) {
+            $agentInfo = DB::selectOne('SELECT dni, nombre_agente, genero, legajo, fecha_alta FROM agentes WHERE dni = ?', [$dni]);
+            if (! $agentInfo) {
                 return response()->json(['error' => 'No se encontró ningún agente con el DNI ingresado.'], 404);
             }
 
-            $year = $this->getDefaultYear((int)request()->query('year'));
+            $year = $this->getDefaultYear((int) request()->query('year'));
 
-            $cargos = DB::select("
+            $cargos = DB::select('
                 SELECT id, centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
                        turno, plan_estudio, situacion_revista, norma_legal, observaciones
                 FROM agente_cargos 
                 WHERE dni = ? AND anio = ?
-            ", [$dni, $year]);
+            ', [$dni, $year]);
 
-            $designaciones = DB::select("
+            $designaciones = DB::select('
                 SELECT centro, establecimiento, escalafon, cupof, cue, cargo_horas, horas_catedra,
                        turno, plan_estudio, situacion_revista, norma_legal, observaciones
                 FROM designaciones 
                 WHERE dni = ? AND anio = ?
-            ", [$dni, $year]);
+            ', [$dni, $year]);
 
-            $licencias = DB::select("
+            $licencias = DB::select('
                 SELECT id_tramite, fecha_carga, tipo_licencia, cupof_licencia, fecha_inicio, fecha_fin, dias, documento_respaldo
                 FROM licencias 
                 WHERE dni = ?
-            ", [$dni]);
+            ', [$dni]);
 
             // Fetch physical school details
             $cues = [];
             foreach ($cargos as $c) {
-                if ($c->cue !== null) $cues[] = $c->cue;
+                if ($c->cue !== null) {
+                    $cues[] = $c->cue;
+                }
             }
             $cues = array_unique($cues);
 
             $escuelasFisicas = [];
-            if (!empty($cues)) {
+            if (! empty($cues)) {
                 $placeholders = implode(',', array_fill(0, count($cues), '?'));
                 $rowsEst = DB::select("
                     SELECT e.cue, e.nombre as nombre_establecimiento,
@@ -619,10 +638,10 @@ class AgenteController extends Controller
             unset($ca);
 
             // --- Matching por CUPOF exacto ---
-            $licsByCupof  = [];
+            $licsByCupof = [];
             $licsSinCupof = [];
             foreach ($activeLics as $lic) {
-                if (!empty($lic->cupof_licencia)) {
+                if (! empty($lic->cupof_licencia)) {
                     $licsByCupof[$lic->cupof_licencia] = $lic;
                 } else {
                     $licsSinCupof[] = $lic;
@@ -632,7 +651,7 @@ class AgenteController extends Controller
             // Paso 1: CUPOF exacto
             foreach ($cargoAudit as &$ca) {
                 if ($ca['estado_cobertura'] === 'pendiente'
-                    && !empty($ca['cupof'])
+                    && ! empty($ca['cupof'])
                     && isset($licsByCupof[$ca['cupof']])) {
                     $ca['estado_cobertura'] = 'licencia_sin_suplente_db';
                     unset($licsByCupof[$ca['cupof']]);
@@ -654,7 +673,7 @@ class AgenteController extends Controller
             }
             unset($ca);
 
-            $totalRealHours = array_sum(array_map(fn($c) => (int)$c->horas_catedra, $cargos));
+            $totalRealHours = array_sum(array_map(fn ($c) => (int) $c->horas_catedra, $cargos));
             $totalEstimatedHours = 0;
             $horasCubiertas = 0;
             $horasActivasNetas = 0;
@@ -670,13 +689,13 @@ class AgenteController extends Controller
                 }
 
                 $motivoEstimacion = '';
-                if ((int)$ca['horas_catedra'] === 0) {
-                    $motivoEstimacion = ' (' . $ca['etiqueta_equivalencia'] . ')';
+                if ((int) $ca['horas_catedra'] === 0) {
+                    $motivoEstimacion = ' ('.$ca['etiqueta_equivalencia'].')';
                 }
 
                 $coberturaLabel = 'Activo';
                 if ($ca['estado_cobertura'] === 'cubierto_suplente') {
-                    $coberturaLabel = 'Cubierto por suplente (DNI: ' . ($ca['suplente_dni'] ?? '-') . ' - ' . ($ca['suplente_nombre'] ?? '-') . ')';
+                    $coberturaLabel = 'Cubierto por suplente (DNI: '.($ca['suplente_dni'] ?? '-').' - '.($ca['suplente_nombre'] ?? '-').')';
                 } elseif ($ca['estado_cobertura'] === 'licencia_sin_suplente_db') {
                     $coberturaLabel = 'Licenciado sin suplente registrado';
                 }
@@ -686,11 +705,11 @@ class AgenteController extends Controller
                     'escuela' => $ca['establecimiento'] ?: 'Escuela no especificada',
                     'cue' => $ca['cue'],
                     'turno' => $ca['turno'] ?: 'No especificado',
-                    'horas_reales' => (int)$ca['horas_catedra'],
+                    'horas_reales' => (int) $ca['horas_catedra'],
                     'horas_estimadas' => $hs,
                     'motivo_estimacion' => $motivoEstimacion,
                     'situacion_revista' => $ca['situacion_revista'] ?: 'No especificada',
-                    'cobertura_label' => $coberturaLabel
+                    'cobertura_label' => $coberturaLabel,
                 ];
             }
 
@@ -717,7 +736,7 @@ class AgenteController extends Controller
                     if (isset($e1->latitud) && isset($e1->longitud) && isset($e2->latitud) && isset($e2->longitud) &&
                         $e1->latitud !== null && $e1->longitud !== null && $e2->latitud !== null && $e2->longitud !== null) {
                         $dist = $this->calculateDistance($e1->latitud, $e1->longitud, $e2->latitud, $e2->longitud);
-                        $distStr = number_format($dist, 2) . " km";
+                        $distStr = number_format($dist, 2).' km';
                         $distanciaComentarios[] = "- Distancia entre **{$e1->nombre_establecimiento}** (CUE: {$e1->cue}) y **{$e2->nombre_establecimiento}** (CUE: {$e2->cue}): **{$distStr}**.";
                         if ($dist > 10) {
                             $highRiskGeo = true;
@@ -730,10 +749,10 @@ class AgenteController extends Controller
 
             // Discrepancias administrativas
             $discrepancias = [];
-            
+
             // 1. Fecha de alta futura
             if ($agentInfo->fecha_alta) {
-                $alta = \Carbon\Carbon::parse($agentInfo->fecha_alta);
+                $alta = Carbon::parse($agentInfo->fecha_alta);
                 if ($alta->isFuture()) {
                     $discrepancias[] = "Fecha de alta registrada es futura: **{$agentInfo->fecha_alta}** (inconsistencia cronológica).";
                 }
@@ -755,21 +774,21 @@ class AgenteController extends Controller
             }
             foreach ($turnosActivos as $t => $list) {
                 if (count($list) > 1) {
-                    $cargosNombres = implode(" y ", array_map(fn($item) => "'{$item->cargo_horas}' en '{$item->establecimiento}'", $list));
-                    $discrepancias[] = "Posible superposición horaria directa: El docente posee **" . count($list) . "** cargos en el **Turno " . ucfirst($t) . "** ({$cargosNombres}).";
+                    $cargosNombres = implode(' y ', array_map(fn ($item) => "'{$item->cargo_horas}' en '{$item->establecimiento}'", $list));
+                    $discrepancias[] = 'Posible superposición horaria directa: El docente posee **'.count($list).'** cargos en el **Turno '.ucfirst($t)."** ({$cargosNombres}).";
                 }
             }
 
             // 3. Cargos sin coincidencia en designaciones
             if (count($cargos) !== count($designaciones)) {
-                $discrepancias[] = "Discrepancia en registros de cargos: Se registran **" . count($cargos) . "** cargos activos en planta pero figuran **" . count($designaciones) . "** designaciones históricas en el sistema.";
+                $discrepancias[] = 'Discrepancia en registros de cargos: Se registran **'.count($cargos).'** cargos activos en planta pero figuran **'.count($designaciones).'** designaciones históricas en el sistema.';
             }
 
             // Generate report in Markdown
-            $hoy = \Carbon\Carbon::now()->locale('es')->isoFormat('D [de] MMMM [de] YYYY');
+            $hoy = Carbon::now()->locale('es')->isoFormat('D [de] MMMM [de] YYYY');
             $nombre = e($agentInfo->nombre_agente);
-            $dniDoc = number_format((int)$dni, 0, ',', '.');
-            
+            $dniDoc = number_format((int) $dni, 0, ',', '.');
+
             $markdown = "*SISTEMA INTEGRAL DE AGENTES - MINISTERIO DE EDUCACIÓN\n";
             $markdown .= "*REPORTE DE ESTADO POF/PON\n";
             $markdown .= "*Fecha: {$hoy}\n";
@@ -782,16 +801,16 @@ class AgenteController extends Controller
             $markdown .= "*2. DATOS DEL AGENTE\n";
             $markdown .= "DNI: **{$agentInfo->dni}**\n";
             $markdown .= "Nombre Completo: **{$nombre}**\n";
-            $markdown .= "Género: **" . ($agentInfo->genero === 'F' ? 'Femenino' : 'Masculino') . "**\n";
-            $markdown .= "Legajo: **" . ($agentInfo->legajo ?: 'Sin legajo') . "**\n";
-            $markdown .= "Fecha de Alta: **" . ($agentInfo->fecha_alta ? date('d/m/Y', strtotime($agentInfo->fecha_alta)) : 'No registrada') . "**\n";
-            $markdown .= "Total de Cargos Asignados: **" . count($cargos) . "**\n";
+            $markdown .= 'Género: **'.($agentInfo->genero === 'F' ? 'Femenino' : 'Masculino')."**\n";
+            $markdown .= 'Legajo: **'.($agentInfo->legajo ?: 'Sin legajo')."**\n";
+            $markdown .= 'Fecha de Alta: **'.($agentInfo->fecha_alta ? date('d/m/Y', strtotime($agentInfo->fecha_alta)) : 'No registrada')."**\n";
+            $markdown .= 'Total de Cargos Asignados: **'.count($cargos)."**\n";
             $markdown .= "Horas Cátedra Totales: **{$totalRealHours} hs** (Equivalentes: **{$totalEstimatedHours} hs**)\n";
             $markdown .= "Horas Licenciadas (Hoy): **{$horasLicenciadas} hs**\n";
             $markdown .= "Horas Activas Netas (Frente a Aula): **{$horasActivasNetas} hs**\n\n";
 
             $markdown .= "*3. DETALLE DE CARGOS Y COBERTURA (PON/POF)\n";
-            
+
             if (count($cargosDetalles) === 0) {
                 $markdown .= "No se registran cargos activos en el presente año lectivo.\n\n";
             } else {
@@ -800,7 +819,7 @@ class AgenteController extends Controller
                     $markdown .= "**Cargo {$num}**: {$cd['cargo']} en *{$cd['escuela']}* (CUE: {$cd['cue']}).\n";
                     $markdown .= "- Turno: *{$cd['turno']}*\n";
                     $markdown .= "- Carga horaria: **{$cd['horas_estimadas']} hs**{$cd['motivo_estimacion']}\n";
-                    
+
                     $sitRev = strtoupper($cd['situacion_revista']);
                     if (in_array($sitRev, ['SUPLENTE', 'REEMPLAZANTE'])) {
                         $markdown .= "- Situación de Revista: *{$cd['situacion_revista']}* (TOMÓ CARGO POR Licencia Activa de docente asignado)\n";
@@ -821,8 +840,8 @@ class AgenteController extends Controller
                 'report' => $markdown,
                 'agent' => [
                     'dni' => $agentInfo->dni,
-                    'nombre_agente' => $agentInfo->nombre_agente
-                ]
+                    'nombre_agente' => $agentInfo->nombre_agente,
+                ],
             ]);
 
         } catch (\Exception $e) {
@@ -835,17 +854,16 @@ class AgenteController extends Controller
         $earthRadius = 6371; // in km
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
-        $a = sin($dLat/2) * sin($dLat/2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon/2) * sin($dLon/2);
-        $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+        $a = sin($dLat / 2) * sin($dLat / 2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) * sin($dLon / 2);
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
         return $earthRadius * $c;
     }
-
-
 
     public static function getCargoCostEquivalencia($cargoHoras, $planEstudio): array
     {
         $cfg = config('auditoria.equivalencias_cargo', []);
-        $desc = strtolower(($cargoHoras ?? '') . ' ' . ($planEstudio ?? ''));
+        $desc = strtolower(($cargoHoras ?? '').' '.($planEstudio ?? ''));
         foreach ($cfg as $rule) {
             foreach ($rule['palabras_clave'] as $kw) {
                 if (str_contains($desc, strtolower($kw))) {
@@ -854,23 +872,34 @@ class AgenteController extends Controller
             }
         }
         $def = config('auditoria.equivalencia_cargo_defecto', ['horas_equivalentes' => 25, 'etiqueta' => 'Cargo sin clasificar (estimado)']);
+
         return ['horas' => $def['horas_equivalentes'], 'etiqueta' => $def['etiqueta']];
     }
 
     public static function parseAuditDate($dateStr): ?Carbon
     {
-        if (!$dateStr) return null;
+        if (! $dateStr) {
+            return null;
+        }
         try {
             if (str_contains($dateStr, '/')) {
                 $p = array_map('intval', explode('/', $dateStr));
-                if ($p[2] < 100) $p[2] += 2000;
+                if ($p[2] < 100) {
+                    $p[2] += 2000;
+                }
+
                 return Carbon::create($p[2], $p[1], $p[0]);
             } elseif (str_contains($dateStr, '-')) {
                 $p = array_map('intval', explode('-', $dateStr));
-                if ($p[0] < 100) $p[0] += 2000;
+                if ($p[0] < 100) {
+                    $p[0] += 2000;
+                }
+
                 return Carbon::create($p[0], $p[1], $p[2]);
             }
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+        }
+
         return null;
     }
 
@@ -878,7 +907,7 @@ class AgenteController extends Controller
     {
         $result = [];
         foreach ($cargos as $c) {
-            $horasReales = (int)$c->horas_catedra;
+            $horasReales = (int) $c->horas_catedra;
 
             // Determinar si es una hora cátedra con dato faltante (0 hs pero descripción de HC)
             // vs un cargo real sin horas (director, maestro, etc.) que merece equivalencia.
@@ -905,7 +934,7 @@ class AgenteController extends Controller
             $tieneSuplente = false;
             $suplenteInfo = null;
 
-            if (!empty($c->cupof)) {
+            if (! empty($c->cupof)) {
                 if (is_array($suplentesByCupof)) {
                     if (isset($suplentesByCupof[$c->cupof])) {
                         $supl = $suplentesByCupof[$c->cupof];
@@ -923,14 +952,14 @@ class AgenteController extends Controller
                           AND ac.situacion_revista IN ('SUPLENTE', 'REEMPLAZANTE')
                         LIMIT 1
                     ", [$c->cupof, $c->dni ?? '', $year]);
-                    if (!empty($suplentes)) {
+                    if (! empty($suplentes)) {
                         $tieneSuplente = true;
                         $suplenteInfo = $suplentes[0];
                     }
                 }
             }
 
-            $entry = (array)$c;
+            $entry = (array) $c;
             $entry['tipo_cargo'] = $tipoCargo;
             $entry['horas_equivalentes'] = $eq['horas'];
             $entry['etiqueta_equivalencia'] = $eq['etiqueta'];
@@ -940,6 +969,7 @@ class AgenteController extends Controller
             $entry['suplente_nombre'] = $suplenteInfo?->nombre_agente ?? null;
             $result[] = $entry;
         }
+
         return $result;
     }
 
@@ -967,7 +997,7 @@ class AgenteController extends Controller
         if (str_contains($desc, 'horas de cátedra') || str_contains($desc, 'horas de catedra')) {
             // Si tiene patrón de cantidad (ej: "4 Hs.", "3 Hs.") → tiene dato real pero horas_catedra=0 por otro motivo
             // Si es solo "Horas de Cátedra Secundario" sin número → dato faltante
-            if (!preg_match('/\d+\s*hs\.?/i', $cargoHoras)) {
+            if (! preg_match('/\d+\s*hs\.?/i', $cargoHoras)) {
                 return true;
             }
         }
@@ -978,7 +1008,7 @@ class AgenteController extends Controller
     public static function getExcludedLicenseTypes()
     {
         $filePath = base_path('licencias_clasificacion.md');
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             return [];
         }
 
@@ -1013,7 +1043,7 @@ class AgenteController extends Controller
         foreach ($cargoAudit as $ca) {
             $hs = $ca['horas_equivalentes'];
             $isCargo = ($ca['tipo_cargo'] === 'cargo');
-            
+
             if ($isCargo) {
                 $cargosFuncionalesTotal++;
                 if (($ca['estado_cobertura'] ?? 'activo') === 'activo') {
@@ -1027,17 +1057,18 @@ class AgenteController extends Controller
             }
         }
 
-        $buildJerga = function($cargosCount, $horasCount) {
+        $buildJerga = function ($cargosCount, $horasCount) {
             $partes = [];
             if ($cargosCount > 0) {
-                $partes[] = $cargosCount . ' ' . ($cargosCount === 1 ? 'cargo' : 'cargos');
+                $partes[] = $cargosCount.' '.($cargosCount === 1 ? 'cargo' : 'cargos');
             }
             if ($horasCount > 0) {
-                $partes[] = $horasCount . ' horas cátedras';
+                $partes[] = $horasCount.' horas cátedras';
             }
             if (empty($partes)) {
                 return '0 horas cátedras';
             }
+
             return implode(' y ', $partes);
         };
 
@@ -1060,6 +1091,7 @@ class AgenteController extends Controller
             $name
         );
         $name = preg_replace('/\s+/', ' ', $name);
+
         return trim($name);
     }
 }

@@ -39,7 +39,7 @@ return new class extends Migration
                 'distancia_camino',
                 'radio_camino',
                 'tiempo_google_auto',
-                'observacion'
+                'observacion',
             ]);
         });
 

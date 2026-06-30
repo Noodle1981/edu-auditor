@@ -5,9 +5,9 @@ namespace App\Services;
 use App\Models\Edificio;
 use App\Models\Establecimiento;
 use App\Models\Modalidad;
-use PhpOffice\PhpSpreadsheet\IOFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ExcelImportService
 {
@@ -16,49 +16,50 @@ class ExcelImportService
         $reader = IOFactory::createReader('Xlsx');
         $spreadsheet = $reader->load($filePath);
         $worksheet = $spreadsheet->getActiveSheet();
-        
+
         $stats = [
             'edificios' => 0,
             'establecimientos' => 0,
             'modalidades' => 0,
             'omitidos' => 0,
-            'errores' => []
+            'errores' => [],
         ];
-        
+
         $skippedCount = 0;
-        
+
         DB::beginTransaction();
-        
+
         try {
             $rowIterator = $worksheet->getRowIterator(2); // Skip header
-            
+
             foreach ($rowIterator as $row) {
                 $cellIterator = $row->getCellIterator();
                 $cellIterator->setIterateOnlyExistingCells(false);
-                
+
                 $data = [];
                 foreach ($cellIterator as $cell) {
                     $data[] = $cell->getValue();
                 }
-                
+
                 // Skip empty rows
                 if (empty($data[4]) || empty($data[7])) { // CUE or CUI empty
                     continue;
                 }
-               // Mapear datos de la fila
+                // Mapear datos de la fila
                 $rowData = $this->mapRowData($data); // Keep existing $data parameter for mapRowData
 
                 // [CLEANUP] Evitar registros redundantes de modalidad ADULTOS
                 $dirClean = strtoupper(trim($rowData['direccion_area'] ?? ''));
                 $nivelClean = strtoupper(trim($rowData['nivel_educativo'] ?? ''));
-                
+
                 if ($nivelClean === 'ADULTOS') {
                     if ($dirClean === 'ADULTOS' || $dirClean === 'PRIVADA') {
                         $skippedCount++;
+
                         continue;
                     }
                 }
-                
+
                 try {
                     // 1. Crear/obtener Edificio por CUI
                     $edificio = Edificio::firstOrCreate(
@@ -76,11 +77,11 @@ class ExcelImportService
                             'te_voip' => $rowData['te_voip'],
                         ]
                     );
-                    
+
                     if ($edificio->wasRecentlyCreated) {
                         $stats['edificios']++;
                     }
-                    
+
                     // 2. Crear/obtener Establecimiento por CUE
                     $establecimiento = Establecimiento::firstOrCreate(
                         ['cue' => $rowData['cue']],
@@ -91,11 +92,11 @@ class ExcelImportService
                             'establecimiento_cabecera' => $rowData['establecimiento_cabecera'],
                         ]
                     );
-                    
+
                     if ($establecimiento->wasRecentlyCreated) {
                         $stats['establecimientos']++;
                     }
-                    
+
                     // 3. Crear Modalidad (cada fila del Excel)
                     Modalidad::create([
                         'establecimiento_id' => $establecimiento->id,
@@ -111,18 +112,18 @@ class ExcelImportService
                         'ambito' => strtoupper($rowData['ambito']),
                         'validado' => $rowData['validado'] === 'VALIDADO',
                     ]);
-                    
+
                     $stats['modalidades']++;
-                    
+
                 } catch (\Exception $e) {
                     $stats['errores'][] = "Fila {$row->getRowIndex()}: {$e->getMessage()}";
                     Log::error("Error importando fila {$row->getRowIndex()}", [
                         'error' => $e->getMessage(),
-                        'data' => $rowData
+                        'data' => $rowData,
                     ]);
                 }
             }
-            
+
             // Resolviendo nombres de cabecera a CUEs
             DB::statement("
                 UPDATE establecimientos 
@@ -158,19 +159,20 @@ class ExcelImportService
                    OR establecimiento_cabecera = ''
                    OR establecimiento_cabecera NOT IN (SELECT cue FROM establecimientos);
             ");
-            
+
             DB::commit();
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
             $stats['errores'][] = "Error general: {$e->getMessage()}";
-            Log::error("Error general en importación", ['error' => $e->getMessage()]);
+            Log::error('Error general en importación', ['error' => $e->getMessage()]);
         }
-        
+
         $stats['omitidos'] = $skippedCount;
+
         return $stats;
     }
-    
+
     private function sanitizeString(?string $value): ?string
     {
         if ($value === null) {
@@ -180,6 +182,7 @@ class ExcelImportService
         $value = mb_convert_encoding($value, 'UTF-8', 'UTF-8, ISO-8859-1, WINDOWS-1252');
         // Remove non-breaking spaces and trim
         $value = str_replace("\xC2\xA0", ' ', $value);
+
         return trim($value) === '' ? null : trim($value);
     }
 
@@ -214,16 +217,16 @@ class ExcelImportService
             'validado' => $this->sanitizeString($data[25] ?? null),
         ];
     }
-    
+
     private function normalizeCoordinate(?string $coord): ?float
     {
         if (empty($coord)) {
             return null;
         }
-        
+
         // Reemplazar coma por punto
         $normalized = str_replace(',', '.', $coord);
-        
+
         return (float) $normalized;
     }
 }

@@ -2,11 +2,12 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use App\Models\ImportLog;
-use Symfony\Component\Process\Process;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\Process\Process;
 
 class RunImport extends Command
 {
@@ -35,8 +36,9 @@ class RunImport extends Command
         $year = $this->argument('year');
 
         $log = ImportLog::find($logId);
-        if (!$log) {
+        if (! $log) {
             $this->error("Import log not found: {$logId}");
+
             return 1;
         }
 
@@ -45,7 +47,7 @@ class RunImport extends Command
             'started_at' => Carbon::now(),
         ]);
 
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             $errorMsg = "File not found at: {$filePath}";
             $log->update([
                 'status' => 'failed',
@@ -53,6 +55,7 @@ class RunImport extends Command
                 'error_message' => $errorMsg,
             ]);
             $this->error($errorMsg);
+
             return 1;
         }
 
@@ -90,12 +93,12 @@ class RunImport extends Command
                 'error_message' => $this->cleanUtf8($output),
             ]);
 
-            \Illuminate\Support\Facades\Cache::forget('dashboard_stats_' . $year);
+            Cache::forget('dashboard_stats_'.$year);
 
             return 0;
         } else {
             $errorOutput = $process->getErrorOutput() ?: $process->getOutput();
-            $this->error("Script failed: " . $errorOutput);
+            $this->error('Script failed: '.$errorOutput);
 
             $log->update([
                 'status' => 'failed',

@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 class Edificio extends Model
 {
@@ -16,7 +18,7 @@ class Edificio extends Model
     protected $fillable = [
         'cui', 'calle', 'numero_puerta', 'orientacion', 'codigo_postal',
         'localidad', 'latitud', 'longitud', 'letra_zona', 'zona_departamento', 'te_voip',
-        'punto_partida', 'dist_circunf', 'radio_circ', 'distancia_camino', 'radio_camino', 'tiempo_google_auto', 'observacion'
+        'punto_partida', 'dist_circunf', 'radio_circ', 'distancia_camino', 'radio_camino', 'tiempo_google_auto', 'observacion',
     ];
 
     public function establecimientos(): HasMany
@@ -32,17 +34,17 @@ class Edificio extends Model
     /**
      * Obtener mapa de nombres de edificios indexados por ID.
      */
-    public static function getNamesMap(): \Illuminate\Support\Collection
+    public static function getNamesMap(): Collection
     {
-        $mapArray = \Illuminate\Support\Facades\Cache::remember('edificios_names_map_v2', 3600, function () {
+        $mapArray = Cache::remember('edificios_names_map_v2', 3600, function () {
             return self::with('cabecera')
                 ->get()
-                ->mapWithKeys(fn($e) => [
+                ->mapWithKeys(fn ($e) => [
                     $e->id => $e->cabecera?->nombre ?? 'Sin Nombre',
                 ])
                 ->toArray();
         });
-        
+
         return collect($mapArray);
     }
 }

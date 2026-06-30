@@ -3,12 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Edificio;
-use App\Models\Establecimiento;
-use App\Models\Modalidad;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Http\Request;
 
 class MapaController extends Controller
 {
@@ -20,8 +17,8 @@ class MapaController extends Controller
         $result = collect();
 
         $edificios = Edificio::select(
-            'id', 'cui', 'latitud', 'longitud', 'localidad', 'calle', 'numero_puerta', 
-            'zona_departamento', 'punto_partida', 'dist_circunf', 'radio_circ', 
+            'id', 'cui', 'latitud', 'longitud', 'localidad', 'calle', 'numero_puerta',
+            'zona_departamento', 'punto_partida', 'dist_circunf', 'radio_circ',
             'distancia_camino', 'radio_camino', 'tiempo_google_auto', 'observacion'
         )
             ->whereNotNull('latitud')
@@ -29,7 +26,7 @@ class MapaController extends Controller
             ->whereHas('establecimientos.modalidades')
             ->with([
                 'establecimientos:id,edificio_id,cue,nombre',
-                'establecimientos.modalidades:id,establecimiento_id,ambito,radio,radio_sige,categoria,nivel_educativo,direccion_area,sector'
+                'establecimientos.modalidades:id,establecimiento_id,ambito,radio,radio_sige,categoria,nivel_educativo,direccion_area,sector',
             ])
             ->get();
 
@@ -54,7 +51,7 @@ class MapaController extends Controller
                     ];
                 }
 
-                if (!empty($mappedModalidades)) {
+                if (! empty($mappedModalidades)) {
                     $mappedEstablecimientos[] = [
                         'nombre' => $est->nombre,
                         'cue' => $est->cue,
@@ -63,7 +60,7 @@ class MapaController extends Controller
                 }
             }
 
-            if (!empty($mappedEstablecimientos)) {
+            if (! empty($mappedEstablecimientos)) {
                 $result->push([
                     'id' => $edificio->id,
                     'cui' => $edificio->cui,

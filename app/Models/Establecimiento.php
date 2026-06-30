@@ -3,9 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Establecimiento extends Model
 {
@@ -14,7 +14,7 @@ class Establecimiento extends Model
     protected $table = 'establecimientos';
 
     protected $fillable = [
-        'edificio_id', 'cue', 'cue_edificio_principal', 'nombre', 'establecimiento_cabecera'
+        'edificio_id', 'cue', 'cue_edificio_principal', 'nombre', 'establecimiento_cabecera',
     ];
 
     public function edificio(): BelongsTo

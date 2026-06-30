@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Models\Edificio;
 use App\Models\Modalidad;
+use App\Services\ActivityLogService;
 use Illuminate\Support\Facades\DB;
 
 class UpdateModalidadAction
@@ -49,9 +50,9 @@ class UpdateModalidadAction
                 'categoria' => $data['categoria'] ?? null,
             ]);
 
-            app(\App\Services\ActivityLogService::class)->logUpdate(
-                $modalidad, 
-                "Actualizó modalidad", 
+            app(ActivityLogService::class)->logUpdate(
+                $modalidad,
+                'Actualizó modalidad',
                 ['after' => $data]
             );
         });

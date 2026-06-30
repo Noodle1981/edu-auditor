@@ -20,14 +20,14 @@ class EdificioQueryService
         ]);
 
         if ($searchCui = $request->input('search_cui')) {
-            $query->where('cui', 'like', '%' . $searchCui . '%');
+            $query->where('cui', 'like', '%'.$searchCui.'%');
         }
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->whereHas('establecimientos', function ($qEst) use ($search) {
-                    $qEst->where('nombre', 'like', '%' . $search . '%')
-                         ->orWhere('cue', 'like', '%' . $search . '%');
+                    $qEst->where('nombre', 'like', '%'.$search.'%')
+                        ->orWhere('cue', 'like', '%'.$search.'%');
                 });
             });
         }
@@ -49,7 +49,7 @@ class EdificioQueryService
         // Sorting
         $sortBy = $request->input('sort_by', 'created_at');
         $sortDir = $request->input('sort_dir', 'desc');
-        
+
         $allowedSorts = ['cui', 'calle', 'localidad', 'zona_departamento', 'created_at'];
         if (in_array($sortBy, $allowedSorts)) {
             $query->orderBy($sortBy, $sortDir);

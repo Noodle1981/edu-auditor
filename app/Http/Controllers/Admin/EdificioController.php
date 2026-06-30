@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use App\Models\Edificio;
-use App\Services\EdificioQueryService;
-use App\Services\ExcelExportService;
 use App\Actions\StoreEdificioAction;
 use App\Actions\UpdateEdificioAction;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreEdificioRequest;
 use App\Http\Requests\Admin\UpdateEdificioRequest;
+use App\Models\Edificio;
+use App\Services\ActivityLogService;
+use App\Services\EdificioQueryService;
+use App\Services\ExcelExportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
@@ -18,6 +19,7 @@ use Inertia\Response;
 class EdificioController extends Controller
 {
     protected EdificioQueryService $queryService;
+
     protected ExcelExportService $exportService;
 
     public function __construct(EdificioQueryService $queryService, ExcelExportService $exportService)
@@ -43,7 +45,7 @@ class EdificioController extends Controller
         return Inertia::render('Admin/Edificios/Index', [
             'edificios' => $edificios,
             'filters' => $request->only(['search', 'search_cui', 'zona_departamento', 'localidad', 'ambito']),
-            'options' => $options
+            'options' => $options,
         ]);
     }
 
@@ -63,7 +65,7 @@ class EdificioController extends Controller
     public function update(UpdateEdificioRequest $request, int $id, UpdateEdificioAction $action)
     {
         $edificio = Edificio::findOrFail($id);
-        
+
         $action->execute($edificio, $request->validated());
 
         return back()->with('success', 'Edificio actualizado correctamente.');
@@ -72,7 +74,7 @@ class EdificioController extends Controller
     /**
      * Remove the specified building from storage (soft delete).
      */
-    public function destroy(int $id, \App\Services\ActivityLogService $activityLogger)
+    public function destroy(int $id, ActivityLogService $activityLogger)
     {
         $edificio = Edificio::findOrFail($id);
 
@@ -83,7 +85,7 @@ class EdificioController extends Controller
 
         $edificio->delete();
 
-        $activityLogger->logDelete($edificio, "Baja del edificio/inmueble CUI: " . $edificio->cui);
+        $activityLogger->logDelete($edificio, 'Baja del edificio/inmueble CUI: '.$edificio->cui);
 
         return back()->with('success', 'Edificio enviado a la papelera correctamente.');
     }
@@ -94,25 +96,25 @@ class EdificioController extends Controller
     public function export(Request $request)
     {
         $edificios = $this->queryService->getFilteredQuery($request)->get();
-        
+
         $headers = ['CUI', 'CALLE', 'N° PUERTA', 'LOCALIDAD', 'ZONA/DEPARTAMENTO', 'AMBITO'];
         [$spreadsheet, $sheet] = $this->exportService->setupSheet('Edificios', $headers);
 
         $row = 2;
         foreach ($edificios as $edificio) {
             $ambito = $edificio->establecimientos->flatMap->modalidades->first()?->ambito ?? 'S/D';
-            
-            $sheet->setCellValue('A' . $row, $edificio->cui);
-            $sheet->setCellValue('B' . $row, $edificio->calle);
-            $sheet->setCellValue('C' . $row, $edificio->numero_puerta);
-            $sheet->setCellValue('D' . $row, $edificio->localidad);
-            $sheet->setCellValue('E' . $row, $edificio->zona_departamento);
-            $sheet->setCellValue('F' . $row, $ambito);
+
+            $sheet->setCellValue('A'.$row, $edificio->cui);
+            $sheet->setCellValue('B'.$row, $edificio->calle);
+            $sheet->setCellValue('C'.$row, $edificio->numero_puerta);
+            $sheet->setCellValue('D'.$row, $edificio->localidad);
+            $sheet->setCellValue('E'.$row, $edificio->zona_departamento);
+            $sheet->setCellValue('F'.$row, $ambito);
             $row++;
         }
 
         $this->exportService->autoSizeColumns($sheet, count($headers));
-        
-        return $this->exportService->download($spreadsheet, 'edificios_' . date('Y-m-d') . '.xlsx');
+
+        return $this->exportService->download($spreadsheet, 'edificios_'.date('Y-m-d').'.xlsx');
     }
 }

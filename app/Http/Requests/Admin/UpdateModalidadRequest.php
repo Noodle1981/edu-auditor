@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Modalidad;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateModalidadRequest extends FormRequest
 {
@@ -19,15 +21,15 @@ class UpdateModalidadRequest extends FormRequest
      */
     public function rules(): array
     {
-        $modalidad = \App\Models\Modalidad::find($this->route('id'));
+        $modalidad = Modalidad::find($this->route('id'));
         $establecimientoId = $modalidad ? $modalidad->establecimiento_id : null;
 
         return [
             'cui' => ['required', 'regex:/^(\d{7}|PROV.*)$/'],
             'cue' => [
-                'required', 
+                'required',
                 'regex:/^(\d{9}|PROV.*)$/',
-                \Illuminate\Validation\Rule::unique('establecimientos', 'cue')->ignore($establecimientoId)
+                Rule::unique('establecimientos', 'cue')->ignore($establecimientoId),
             ],
             'nombre_establecimiento' => 'required|string',
             'nivel_educativo' => 'required',

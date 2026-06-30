@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\DB;
+
 abstract class Controller
 {
     /**
@@ -13,7 +15,8 @@ abstract class Controller
             return $requestedYear;
         }
 
-        $latestYearRow = \Illuminate\Support\Facades\DB::selectOne("SELECT MAX(anio) as max_year FROM agente_cargos");
-        return $latestYearRow && $latestYearRow->max_year ? (int)$latestYearRow->max_year : 2026;
+        $latestYearRow = DB::selectOne('SELECT MAX(anio) as max_year FROM agente_cargos');
+
+        return $latestYearRow && $latestYearRow->max_year ? (int) $latestYearRow->max_year : 2026;
     }
 }

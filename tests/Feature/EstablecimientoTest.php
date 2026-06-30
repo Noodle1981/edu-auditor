@@ -113,7 +113,7 @@ class EstablecimientoTest extends TestCase
                         'uncovered_count',
                         'extra_agents_count',
                         'coverage_percent',
-                    ]
+                    ],
                 ],
                 'total',
                 'page',
@@ -227,7 +227,7 @@ class EstablecimientoTest extends TestCase
         $responseAll = $this
             ->actingAs($user)
             ->getJson('/api/establecimientos');
-        
+
         $responseAll->assertOk();
         $this->assertCount(2, $responseAll->json('data'));
 
@@ -235,11 +235,11 @@ class EstablecimientoTest extends TestCase
         $responseFiltered = $this
             ->actingAs($user)
             ->getJson('/api/establecimientos?hide_empty=1');
-        
+
         $responseFiltered->assertOk();
         $this->assertCount(1, $responseFiltered->json('data'));
         $responseFiltered->assertJsonFragment([
-            'cue' => 700038000
+            'cue' => 700038000,
         ]);
     }
 }

@@ -115,5 +115,5 @@ return [
     // ─────────────────────────────────────────────────────────
     'licencia_larga_dias' => 30,      // > 30 días → Nivel A (prolongada, con suplente formal)
     'licencia_media_dias' => 5,       // 6–30 días → Nivel B (rotativo, sin designación formal)
-                                      // ≤ 5 días → Nivel C (ausencia breve, sin reemplazo)
+    // ≤ 5 días → Nivel C (ausencia breve, sin reemplazo)
 ];

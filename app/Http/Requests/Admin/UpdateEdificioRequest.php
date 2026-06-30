@@ -20,18 +20,18 @@ class UpdateEdificioRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cui'              => 'required|string|max:50|unique:edificios,cui,' . $this->route('id'),
-            'calle'            => 'required|string|max:255',
-            'numero_puerta'    => 'nullable|string|max:20',
-            'codigo_postal'    => 'nullable|numeric',
-            'localidad'        => 'required|string|max:255',
-            'latitud'          => 'nullable|numeric',
-            'longitud'         => 'nullable|numeric',
-            'letra_zona'       => 'nullable|string|max:10',
-            'zona_departamento'=> 'required|string|max:255',
-            'orientacion'      => 'nullable|string|max:50',
-            'te_voip'          => 'nullable|string|max:50',
-            'cue_cabecera'     => 'nullable|exists:establecimientos,cue',
+            'cui' => 'required|string|max:50|unique:edificios,cui,'.$this->route('id'),
+            'calle' => 'required|string|max:255',
+            'numero_puerta' => 'nullable|string|max:20',
+            'codigo_postal' => 'nullable|numeric',
+            'localidad' => 'required|string|max:255',
+            'latitud' => 'nullable|numeric',
+            'longitud' => 'nullable|numeric',
+            'letra_zona' => 'nullable|string|max:10',
+            'zona_departamento' => 'required|string|max:255',
+            'orientacion' => 'nullable|string|max:50',
+            'te_voip' => 'nullable|string|max:50',
+            'cue_cabecera' => 'nullable|exists:establecimientos,cue',
         ];
     }
 

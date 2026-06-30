@@ -18,7 +18,7 @@ class StoreEdificioAction
     {
         $edificio = Edificio::create($data);
 
-        $this->activityLogger->logUpdate($edificio, "Creación de Edificio", [
+        $this->activityLogger->logUpdate($edificio, 'Creación de Edificio', [
             'after' => $data,
         ]);
 

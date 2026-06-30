@@ -2,12 +2,12 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use App\Models\ImportLog;
-use Symfony\Component\Process\Process;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\Process\Process;
 
 class SeedFromCsvCommand extends Command
 {
@@ -37,11 +37,12 @@ class SeedFromCsvCommand extends Command
         $customFile = $this->option('file');
 
         $baseDir = base_path('datos_csv');
-        $agenteFile = $customFile ?: ($baseDir . '/agentes.csv');
-        $licenciaFile = $customFile ?: ($baseDir . '/licencias.csv');
+        $agenteFile = $customFile ?: ($baseDir.'/agentes.csv');
+        $licenciaFile = $customFile ?: ($baseDir.'/licencias.csv');
 
         if ($type === 'status') {
             $this->showStatus($agenteFile, $licenciaFile);
+
             return 0;
         }
 
@@ -54,19 +55,25 @@ class SeedFromCsvCommand extends Command
         }
 
         if ($type === 'all') {
-            $this->info("=== PASO 1: Importando Agentes y Designaciones ===");
+            $this->info('=== PASO 1: Importando Agentes y Designaciones ===');
             $res = $this->importAgentes($agenteFile);
-            if ($res !== 0) return $res;
+            if ($res !== 0) {
+                return $res;
+            }
 
             $this->info("\n=== PASO 2: Importando Licencias Históricas Consolidadas ===");
             $res = $this->importLicencias($licenciaFile);
-            if ($res !== 0) return $res;
+            if ($res !== 0) {
+                return $res;
+            }
 
             $this->info("\n🎉 ¡Proceso de importación unificada finalizado con éxito!");
+
             return 0;
         }
 
-        $this->error("Tipo de importación inválido. Tipos permitidos: status, agentes, licencias, all");
+        $this->error('Tipo de importación inválido. Tipos permitidos: status, agentes, licencias, all');
+
         return 1;
     }
 
@@ -75,26 +82,26 @@ class SeedFromCsvCommand extends Command
      */
     private function showStatus($agenteFile, $licenciaFile)
     {
-        $this->info("=== ESTADO DE ARCHIVOS LOCALES CONSOLIDADOS (datos_csv/) ===");
-        
+        $this->info('=== ESTADO DE ARCHIVOS LOCALES CONSOLIDADOS (datos_csv/) ===');
+
         $filesRows = [];
-        
+
         // Agentes
         $agenteExists = file_exists($agenteFile);
-        $agenteSize = $agenteExists ? round(filesize($agenteFile) / 1024 / 1024, 2) . ' MB' : 'N/A';
+        $agenteSize = $agenteExists ? round(filesize($agenteFile) / 1024 / 1024, 2).' MB' : 'N/A';
         $agenteDate = $agenteExists ? date('Y-m-d H:i:s', filemtime($agenteFile)) : 'N/A';
         $dbCargos = DB::table('agente_cargos')->count();
         $dbDesignaciones = DB::table('designaciones')->count();
-        $statusDbAgente = ($dbCargos > 0) ? "✅ {$dbCargos} cargos / {$dbDesignaciones} desig" : "❌ Vacío";
-        
+        $statusDbAgente = ($dbCargos > 0) ? "✅ {$dbCargos} cargos / {$dbDesignaciones} desig" : '❌ Vacío';
+
         $filesRows[] = ['agentes.csv (Agentes y cargos)', $agenteExists ? '✅ SI' : '❌ NO', $agenteSize, $agenteDate, $statusDbAgente];
 
         // Licencias
         $licenciaExists = file_exists($licenciaFile);
-        $licenciaSize = $licenciaExists ? round(filesize($licenciaFile) / 1024 / 1024, 2) . ' MB' : 'N/A';
+        $licenciaSize = $licenciaExists ? round(filesize($licenciaFile) / 1024 / 1024, 2).' MB' : 'N/A';
         $licenciaDate = $licenciaExists ? date('Y-m-d H:i:s', filemtime($licenciaFile)) : 'N/A';
         $dbLicencias = DB::table('licencias')->count();
-        $statusDbLicencia = $dbLicencias > 0 ? "✅ {$dbLicencias} licencias" : "❌ Vacío";
+        $statusDbLicencia = $dbLicencias > 0 ? "✅ {$dbLicencias} licencias" : '❌ Vacío';
 
         $filesRows[] = ['licencias.csv (Licencias históricas)', $licenciaExists ? '✅ SI' : '❌ NO', $licenciaSize, $licenciaDate, $statusDbLicencia];
 
@@ -111,8 +118,8 @@ class SeedFromCsvCommand extends Command
         $this->line("• Total Designaciones: {$dbDesignaciones}");
         $this->line("• Total Licencias: {$dbLicencias}");
         $this->line("\nUsa --type=agentes para importar el padrón unificado.");
-        $this->line("Usa --type=licencias para importar todas las licencias.");
-        $this->line("Usa --type=all para hacer la carga completa.");
+        $this->line('Usa --type=licencias para importar todas las licencias.');
+        $this->line('Usa --type=all para hacer la carga completa.');
     }
 
     /**
@@ -120,15 +127,16 @@ class SeedFromCsvCommand extends Command
      */
     private function importAgentes($file)
     {
-        if (!file_exists($file)) {
+        if (! file_exists($file)) {
             $this->error("Archivo no encontrado: {$file}");
+
             return 1;
         }
 
         // We assume year 2026 for active designations since they are the active ones in the dump
         $year = 2026;
-        $this->info("Importando Agentes y Designaciones...");
-        
+        $this->info('Importando Agentes y Designaciones...');
+
         $log = ImportLog::create([
             'filename' => basename($file),
             'status' => 'running',
@@ -138,9 +146,9 @@ class SeedFromCsvCommand extends Command
         ]);
 
         $scriptPath = base_path('crear_base_datos_importacion.py');
-        $process = new Process(['python', $scriptPath, '--type', 'agentes_designaciones', '--file', $file, '--year', (string)$year]);
+        $process = new Process(['python', $scriptPath, '--type', 'agentes_designaciones', '--file', $file, '--year', (string) $year]);
         $process->setTimeout(900); // 15 minutes timeout
-        
+
         $process->run(function ($type, $buffer) {
             $this->output->write($buffer);
         });
@@ -158,6 +166,7 @@ class SeedFromCsvCommand extends Command
 
             $this->info("\n✅ Agentes importados correctamente. Cargos: {$countCargos}, Designaciones: {$countDesignaciones}");
             Cache::flush();
+
             return 0;
         } else {
             $error = $process->getErrorOutput() ?: $process->getOutput();
@@ -166,7 +175,8 @@ class SeedFromCsvCommand extends Command
                 'completed_at' => Carbon::now(),
                 'error_message' => substr($error, 0, 1000),
             ]);
-            $this->error("\n❌ Error ejecutando importación: " . $error);
+            $this->error("\n❌ Error ejecutando importación: ".$error);
+
             return 1;
         }
     }
@@ -176,13 +186,14 @@ class SeedFromCsvCommand extends Command
      */
     private function importLicencias($file)
     {
-        if (!file_exists($file)) {
+        if (! file_exists($file)) {
             $this->error("Archivo no encontrado: {$file}");
+
             return 1;
         }
 
         $this->info("Importando Licencias Históricas desde {$file}...");
-        
+
         $log = ImportLog::create([
             'filename' => basename($file),
             'status' => 'running',
@@ -211,20 +222,20 @@ class SeedFromCsvCommand extends Command
         // OR we can write a clean parser directly in PHP to import the CSV in bulk without calling Python!
         // Writing the parser in PHP is extremely fast, simple, and avoids having to split files and call python multiple times!
         // Let's write the licencias parser directly in PHP! It will be incredibly fast and run 100% locally.
-        
-        $this->info("Procesando archivo CSV en memoria...");
-        
+
+        $this->info('Procesando archivo CSV en memoria...');
+
         $isIncremental = $this->option('incremental');
 
         // Open file
-        if (($handle = fopen($file, "r")) !== FALSE) {
+        if (($handle = fopen($file, 'r')) !== false) {
             // Read header
-            $header = fgetcsv($handle, 10000, ",");
-            
+            $header = fgetcsv($handle, 10000, ',');
+
             // Check if this is a report with metadata at the beginning (e.g. licencias_ultimo.csv)
             if ($header && strpos(strtolower($header[0]), 'txtagente') === false) {
                 // Keep reading lines until we find the real header
-                while (($line = fgetcsv($handle, 10000, ",")) !== FALSE) {
+                while (($line = fgetcsv($handle, 10000, ',')) !== false) {
                     if ($line && strpos(strtolower($line[0]), 'txtagente') !== false) {
                         $header = $line;
                         break;
@@ -233,9 +244,9 @@ class SeedFromCsvCommand extends Command
             }
 
             if ($isIncremental) {
-                $this->info("Modo INCREMENTAL activo: se conservarán los registros históricos.");
+                $this->info('Modo INCREMENTAL activo: se conservarán los registros históricos.');
             } else {
-                $this->info("Limpiando registros de licencias anteriores (2020-2026)...");
+                $this->info('Limpiando registros de licencias anteriores (2020-2026)...');
                 DB::table('licencias')->whereBetween('anio', [2020, 2026])->delete();
             }
 
@@ -249,28 +260,32 @@ class SeedFromCsvCommand extends Command
             DB::beginTransaction();
 
             try {
-                while (($row = fgetcsv($handle, 10000, ",")) !== FALSE) {
-                    if (count($row) < 10) continue;
+                while (($row = fgetcsv($handle, 10000, ',')) !== false) {
+                    if (count($row) < 10) {
+                        continue;
+                    }
 
                     $nombreAgente = $row[0];
                     $dni = $row[1];
                     $genero = strtoupper($row[2]);
                     $tipoLicencia = $row[3];
-                    $dias = (int)$row[4];
-                    
+                    $dias = (int) $row[4];
+
                     // Dates in format DD/MM/YYYY
                     $fechaInicio = $this->parseDate($row[5]);
                     $fechaFin = $this->parseDate($row[6]);
                     $fechaCarga = $this->parseDateTime($row[7]);
-                    
+
                     $documentoRespaldo = $row[8];
-                    $referenciaInterna = (int)$row[9];
-                    
+                    $referenciaInterna = (int) $row[9];
+
                     // Extract year from start date
-                    $year = $fechaInicio ? (int)date('Y', strtotime($fechaInicio)) : 2026;
+                    $year = $fechaInicio ? (int) date('Y', strtotime($fechaInicio)) : 2026;
                     if ($year < 2020 || $year > 2026) {
                         // Default to the year of the start date if valid, else skip or default
-                        if ($year < 2000 || $year > 2100) $year = 2026;
+                        if ($year < 2000 || $year > 2100) {
+                            $year = 2026;
+                        }
                     }
 
                     // If incremental, check if license already exists
@@ -292,10 +307,10 @@ class SeedFromCsvCommand extends Command
                     }
 
                     // Add agent to insert or ignore list if not seen yet
-                    if ($dni && !isset($insertedAgentes[$dni])) {
+                    if ($dni && ! isset($insertedAgentes[$dni])) {
                         // Check if agent exists in DB to avoid SQL integrity constraint violations
                         $exists = DB::table('agentes')->where('dni', $dni)->exists();
-                        if (!$exists) {
+                        if (! $exists) {
                             $agentesBatch[] = [
                                 'dni' => $dni,
                                 'nombre_agente' => $nombreAgente,
@@ -332,8 +347,8 @@ class SeedFromCsvCommand extends Command
                         }
                         DB::table('licencias')->insert($batchData);
                         $batchData = [];
-                        
-                        $this->output->write(".");
+
+                        $this->output->write('.');
                     }
                 }
 
@@ -352,29 +367,32 @@ class SeedFromCsvCommand extends Command
                     'status' => 'success',
                     'completed_at' => Carbon::now(),
                     'records_count' => $totalCount,
-                    'error_message' => $isIncremental 
-                        ? 'Importación incremental de licencias completada desde ' . basename($file)
-                        : 'Importación de licencias completada desde ' . basename($file),
+                    'error_message' => $isIncremental
+                        ? 'Importación incremental de licencias completada desde '.basename($file)
+                        : 'Importación de licencias completada desde '.basename($file),
                 ]);
 
                 $this->info("\n✅ Licencias importadas correctamente. Total registros insertados: {$totalCount}");
                 Cache::flush();
+
                 return 0;
 
             } catch (\Exception $e) {
                 DB::rollBack();
                 fclose($handle);
-                
+
                 $log->update([
                     'status' => 'failed',
                     'completed_at' => Carbon::now(),
                     'error_message' => substr($e->getMessage(), 0, 1000),
                 ]);
-                $this->error("\n❌ Error en la base de datos durante la importación: " . $e->getMessage());
+                $this->error("\n❌ Error en la base de datos durante la importación: ".$e->getMessage());
+
                 return 1;
             }
         } else {
             $this->error("No se pudo abrir el archivo: {$file}");
+
             return 1;
         }
     }
@@ -384,15 +402,19 @@ class SeedFromCsvCommand extends Command
      */
     private function parseDate($dateStr)
     {
-        if (empty($dateStr)) return null;
+        if (empty($dateStr)) {
+            return null;
+        }
         try {
             $parts = explode('/', $dateStr);
             if (count($parts) === 3) {
                 $day = str_pad($parts[0], 2, '0', STR_PAD_LEFT);
                 $month = str_pad($parts[1], 2, '0', STR_PAD_LEFT);
                 $year = $parts[2];
+
                 return "{$year}-{$month}-{$day}";
             }
+
             return date('Y-m-d', strtotime($dateStr));
         } catch (\Exception $e) {
             return null;
@@ -404,7 +426,9 @@ class SeedFromCsvCommand extends Command
      */
     private function parseDateTime($dateTimeStr)
     {
-        if (empty($dateTimeStr)) return null;
+        if (empty($dateTimeStr)) {
+            return null;
+        }
         try {
             $parts = explode(' ', $dateTimeStr);
             $date = $this->parseDate($parts[0]);
@@ -412,6 +436,7 @@ class SeedFromCsvCommand extends Command
             if ($date) {
                 return "{$date} {$time}";
             }
+
             return null;
         } catch (\Exception $e) {
             return null;
