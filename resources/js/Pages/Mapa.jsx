@@ -63,6 +63,13 @@ export default function Mapa({ edificios = [] }) {
     });
     const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
+    // Toast notification state
+    const [toast, setToast] = useState(null); // { message, type: 'success'|'error' }
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    };
+
     const handleInlineRadioChange = async (modId, newRadioVal) => {
         try {
             const radioVal = newRadioVal === '' ? null : parseInt(newRadioVal);
@@ -149,11 +156,11 @@ export default function Mapa({ edificios = [] }) {
                 return { ...prevSelected, establecimientos: nextEstablecimientos };
             });
 
-            alert('Observación guardada correctamente.');
+            showToast('Observación guardada correctamente.');
 
         } catch (error) {
             console.error('Error al actualizar la observación:', error);
-            alert('No se pudo guardar la observación. Por favor intente nuevamente.');
+            showToast('No se pudo guardar la observación. Intente nuevamente.', 'error');
         }
     };
 
@@ -476,6 +483,40 @@ export default function Mapa({ edificios = [] }) {
                     content="Explora el Mapa Escolar. Encuentra establecimientos educativos públicos y privados, consulta niveles, modalidades y ubicaciones exactas."
                 />
             </Head>
+
+            {/* ── Toast Notification ── */}
+            {toast && (
+                <div
+                    className={`fixed bottom-6 right-6 z-[9999] flex items-center gap-3 rounded-2xl px-5 py-3.5 shadow-2xl backdrop-blur-md border transition-all duration-500 animate-slide-up ${
+                        toast.type === 'error'
+                            ? 'bg-red-600/90 border-red-400/40 text-white'
+                            : 'bg-[#FE8204]/90 border-orange-300/40 text-white'
+                    }`}
+                    style={{ animation: 'slideUpFade 0.35s cubic-bezier(0.16,1,0.3,1) both' }}
+                >
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                        toast.type === 'error' ? 'bg-red-500/40' : 'bg-white/20'
+                    }`}>
+                        <i className={`fa-solid ${
+                            toast.type === 'error' ? 'fa-circle-xmark' : 'fa-circle-check'
+                        } text-[15px]`}></i>
+                    </span>
+                    <span className="text-[12px] font-bold leading-tight tracking-wide">{toast.message}</span>
+                    <button
+                        onClick={() => setToast(null)}
+                        className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20 hover:bg-white/35 transition-colors"
+                    >
+                        <i className="fa-solid fa-xmark text-[10px]"></i>
+                    </button>
+                </div>
+            )}
+
+            <style>{`
+                @keyframes slideUpFade {
+                    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+                    to   { opacity: 1; transform: translateY(0)   scale(1);    }
+                }
+            `}</style>
 
             <div className="flex flex-col h-screen w-full overflow-hidden bg-gray-50">
                 {/* 1. Custom Horizontal Filter Header Bar */}
