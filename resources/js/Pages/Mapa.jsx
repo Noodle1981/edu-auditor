@@ -936,24 +936,10 @@ export default function Mapa({ edificios = [] }) {
                                                                         );
                                                                     }
                                                                 })()}
-                                                                                                        {/* Observations Section */}
+                                                                                                       {/* Observations Section */}
                                                                 <div className="mt-2.5 space-y-2 border-t border-gray-200/60 pt-2">
                                                                     {isAdmin ? (
                                                                         <div className="space-y-2">
-                                                                            {/* Checkbox (Tilde) */}
-                                                                            <label className="flex items-center gap-2 text-[10px] font-bold text-gray-700 cursor-pointer select-none bg-white p-2 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50/10 transition-all">
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    checked={!!mod.radio_observado}
-                                                                                    onChange={(e) => handleInlineObservadoChange(mod.id, e.target.checked)}
-                                                                                    className="rounded border-gray-300 text-red-600 focus:ring-red-500 h-3.5 w-3.5 cursor-pointer"
-                                                                                />
-                                                                                <span className="flex items-center gap-1">
-                                                                                    <i className="fa-solid fa-flag text-red-500 text-[10px]"></i>
-                                                                                    Ubicado en otro edificio (No le corresponde)
-                                                                                </span>
-                                                                            </label>
-
                                                                             {/* Text Area for Justificación */}
                                                                             <div className="space-y-1">
                                                                                 <label className="text-[8px] font-black uppercase text-gray-400">Justificación / Detalle</label>
@@ -964,20 +950,34 @@ export default function Mapa({ edificios = [] }) {
                                                                                     className="w-full rounded-lg border border-gray-200 bg-white p-2 text-[10px] text-gray-800 focus:border-[#FE8204] focus:outline-none"
                                                                                     rows={2}
                                                                                 />
-                                                                                <div className="flex justify-end">
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={async () => {
-                                                                                            const el = document.getElementById(`obs-input-${mod.id}`);
-                                                                                            if (el) {
-                                                                                                await handleInlineObsChange(mod.id, el.value);
-                                                                                            }
-                                                                                        }}
-                                                                                        className="rounded bg-[#FE8204] hover:bg-[#e07203] px-2.5 py-1 text-[9px] font-black uppercase text-white transition-colors cursor-pointer"
-                                                                                    >
-                                                                                        {mod.observaciones ? 'Actualizar Justificación' : 'Guardar Justificación'}
-                                                                                    </button>
-                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* Controls: Checkbox and button side by side */}
+                                                                            <div className="flex items-center justify-between gap-2 pt-0.5">
+                                                                                {/* Simple checkbox toggle (tilde) */}
+                                                                                <label className="flex items-center gap-1.5 text-[10px] font-black uppercase text-red-750 cursor-pointer select-none bg-red-50/50 hover:bg-red-100/50 px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors">
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={!!mod.radio_observado}
+                                                                                        onChange={(e) => handleInlineObservadoChange(mod.id, e.target.checked)}
+                                                                                        className="rounded border-gray-300 text-red-650 focus:ring-red-500 h-3.5 w-3.5 cursor-pointer"
+                                                                                    />
+                                                                                    <i className="fa-solid fa-flag text-red-500 text-[10px]"></i>
+                                                                                    <span>Observado</span>
+                                                                                </label>
+
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={async () => {
+                                                                                        const el = document.getElementById(`obs-input-${mod.id}`);
+                                                                                        if (el) {
+                                                                                            await handleInlineObsChange(mod.id, el.value);
+                                                                                        }
+                                                                                    }}
+                                                                                    className="rounded bg-[#FE8204] hover:bg-[#e07203] px-2.5 py-1.5 text-[9px] font-black uppercase text-white transition-colors cursor-pointer"
+                                                                                >
+                                                                                    {mod.observaciones ? 'Actualizar Justificación' : 'Guardar Justificación'}
+                                                                                </button>
                                                                             </div>
                                                                         </div>
                                                                     ) : (
