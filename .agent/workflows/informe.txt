@@ -1,0 +1,241 @@
+================================================================================
+MINISTERIO DE EDUCACIÓN - SISTEMA SIAME
+INFORME DE IMPLEMENTACIÓN Y DIAGNÓSTICO: PLAN DE MODERNIZACIÓN POF/PON
+================================================================================
+
+A: Autoridades de la Jurisdicción y Directivos del Ministerio de Educación
+DE: Equipo de Desarrollo y Auditoría de Sistemas
+ASUNTO: Presentación de la Plataforma de Auditoría Educativa (EDU-Auditor)
+FECHA: Julio 2026
+
+--------------------------------------------------------------------------------
+1. INTRODUCCIÓN Y OBJETIVOS DEL PROYECTO
+--------------------------------------------------------------------------------
+El proyecto "EDU-Auditor" (SIAME) surge ante la necesidad crítica de contar con
+un control riguroso, ágil y automatizado sobre el estado de la Planta Orgánica
+Funcional (POF) y la Planta Orgánica Nominal (PON) del personal docente y
+administrativo en el ámbito educativo.
+
+Históricamente, la gestión de este personal ha residido en el sistema legado
+SIGE, el cual, debido a su estructura de base de datos de alta complejidad,
+presenta importantes demoras para la extracción y procesamiento consolidado de
+información clave en tiempo real. Aunque existe un plan en desarrollo para la
+modernización mediante el sistema EDUGE, la complejidad técnica de replicar la
+infraestructura heredada ha ralentizado su despliegue definitivo.
+
+EDU-Auditor se posiciona como una solución estratégica intermedia y de salvataje
+bajo dos enfoques:
+- ODS (Operational Data Store) de alto rendimiento: Capacidad de cruzar datos en
+  milisegundos y presentar diagnósticos que el sistema legado no realiza.
+- Enfoque Backend-for-Frontend (BFF): Construcción basada en las necesidades de
+  negocio listas para integrarse directamente con las APIs de EDUGE una vez que
+  estas se encuentren operativas, garantizando una transición fluida y de alta
+  velocidad de usuario (UX).
+
+--------------------------------------------------------------------------------
+2. ARQUITECTURA DE INTEGRACIÓN Y ALIMENTACIÓN DE DATOS
+--------------------------------------------------------------------------------
+Actualmente, la plataforma se nutre e importa información consolidada a través
+de los reportes periódicos provistos por la base de datos del sistema SIGE:
+- Padrones unificados de agentes, cargos activos y designaciones (agentes.csv).
+- Histórico consolidado de licencias médicas y administrativas (licencias.csv).
+
+Esta alimentación se realiza mediante un gestor de importaciones incorporado en
+el panel de administración del sistema.
+
+* CAMINO A LA AUTOMATIZACIÓN (PROPUESTA EDUGE API):
+El modelo ideal de alimentación del sistema consiste en reemplazar la descarga
+y carga manual de archivos CSV por una sincronización programada o en tiempo real
+consumiendo las APIs del sistema EDUGE. Esto permitirá:
+1. Eliminar el margen de error y demoras propios de la manipulación manual de datos.
+2. Contar con un tablero de control dinámico que se actualice de forma continua.
+3. Asegurar consistencia inmediata entre las cargas de licencias y la validación
+   de cobertura en las escuelas.
+
+--------------------------------------------------------------------------------
+3. DETALLE DE MÓDULOS, OBJETIVOS Y VISTAS CLAVE
+--------------------------------------------------------------------------------
+
+================================================================================
+3.1. MAPA ESCOLAR GEORREFERENCIADO Y ANÁLISIS DE RADIOS
+================================================================================
+* URL de Acceso: http://radios_cupof.test/mapa
+
+* Objetivo:
+Ofrecer una representación visual, interactiva y georreferenciada del universo
+escolar, cruzando datos de localización edilicia, ámbitos (público/privado) y
+cálculos de movilidad geográfica de la planta para la auditoría de compensación
+por zona (Radios).
+
+* Captura de Pantalla Requerida:
+[------------------------------------------------------------------------------]
+[   INSERTE AQUÍ CAPTURA DE LA VISTA DE MAPA INTERACTIVO (URL: /mapa)          ]
+[   Muestre el mapa interactivo con la distribución geográfica de los          ]
+[   edificios escolares, los marcadores y los detalles del panel lateral.       ]
+[------------------------------------------------------------------------------]
+
+* Elementos Visualizados en el Mapa:
+1. Plazas de Origen (Puntos de Partida / Km 0 de Compensación):
+   Se representan con un marcador en forma de estrella de color identificativo:
+   - Plaza 25 de Mayo (Capital): Marcador Amarillo. Punto de referencia central.
+   - Plaza de Caucete: Marcador Azul.
+   - Plaza de Jáchal: Marcador Verde.
+   Estas plazas definen la distancia de origen sobre la cual se calcula el radio
+   de zona correspondiente a cada establecimiento para el pago de adicionales.
+
+2. Círculos Concéntricos de Radios Geográficos:
+   - Al seleccionar un establecimiento escolar, el mapa despliega líneas circulares
+     discontinuas que indican los límites geográficos de cada radio desde su plaza
+     de origen (ej: R1, R2, R3, R4, R5, R6).
+   - Se renderizan etiquetas identificativas (R1 a R6) en los ejes cardinales
+     (Norte, Sur, Este, Oeste) para facilitar la lectura territorial.
+   - El radio o área teórica asignada a la escuela seleccionada se resalta con un
+     anillo sombreado de color naranja (fillOpacity 0.13), permitiendo verificar
+     inmediatamente si la ubicación física real coincide con dicho rango.
+
+3. Línea de Conexión y Distancia:
+   Una línea discontinua naranja conecta de forma directa el marcador del edificio
+   escolar seleccionado con su correspondiente Plaza de Origen, ilustrando el vector
+   de distancia calculado.
+
+4. Límites Departamentales (Polígonos):
+   Mediante una capa GeoJSON, se visualizan los límites de los departamentos. Al
+   filtrar por departamento en el panel lateral, el polígono correspondiente se
+   ilumina y se realiza un zoom automático al área.
+
+5. Marcadores de Escuelas (Codificación por Estado de Auditoría de Radios):
+   Cada edificio escolar se dibuja con una burbuja indicando el número del radio
+   registrado en base de datos. El color de la burbuja representa el resultado
+   de la auditoría automatizada entre el radio administrativo registrado y el radio
+   geográfico real calculado (lineal y por carretera):
+   - Verde (#10B981) - COINCIDE: El radio de la escuela pública cargado en el
+     sistema coincide perfectamente con los cálculos geográficos (circular/vial).
+   - Azul (#3B82F6) - PRIVADO: Establecimientos del sector privado (quedan exentos
+     del pago del adicional de zona o se consideran coincidentes por defecto).
+   - Amarillo (#F59E0B) - INCONGRUENTE: Se detecta que el radio cargado coincide
+     con uno de los cálculos (por ejemplo, con el radio por carretera) pero no
+     con el otro (circular), requiriendo revisión administrativa.
+   - Rojo (#EF4444) - DISTINTO: El radio cargado en el sistema no coincide ni con
+     el cálculo circular ni con el de carretera, indicando una posible liquidación
+     anómala del adicional de zona.
+   - Cian (#06B6D4) - JUSTIFICADO: El radio difiere del geográfico pero cuenta con
+     una validación legal cargada y justificada mediante norma (ej. Decreto o Resolución
+     registrada).
+
+* Explicación Técnica y Utilidad Operativa:
+- La vista renderiza en un plano interactivo todos los edificios escolares que
+  cuentan con coordenadas (latitud/longitud) válidas.
+- Incorpora algoritmos de distancia: Calcula la distancia lineal ("dist_circunf"),
+  distancia viales por carretera ("distancia_camino") y estimaciones de tiempo de
+  conducción ("tiempo_google_auto").
+- Facilita la fiscalización de millones de pesos liquidados en adicionales de zona:
+  permite a los supervisores visualizar anomalías geográficas en segundos, corregir
+  el radio asignado de forma interactiva en la base de datos o justificarlo
+  cargando el número de resolución legal correspondiente.
+
+================================================================================
+3.2. GESTIÓN DE ESTABLECIMIENTOS Y ANÁLISIS DE COBERTURA (CUPOF)
+================================================================================
+* URL de Acceso: http://radios_cupof.test/establecimientos
+
+* Objetivo:
+Administrar, filtrar y fiscalizar el estado funcional de la planta de personal en
+cada una de las escuelas públicas del distrito, detectando posiciones vacantes o
+reemplazos irregulares.
+
+* Captura de Pantalla Requerida:
+[------------------------------------------------------------------------------]
+[   INSERTE AQUÍ CAPTURA DE LA VISTA DE ESTABLECIMIENTOS (URL: /establecimientos)]
+[   Muestre la lista de escuelas, las herramientas de búsqueda y filtros       ]
+[   por departamento/nivel, así como la tarjeta de detalle de una escuela.      ]
+[------------------------------------------------------------------------------]
+
+* Explicación Técnica y Utilidad Operativa:
+- El módulo permite filtrar establecimientos por departamento, nivel educativo
+  (inicial, primario, secundario, etc.) y dirección de área, ocultando de ser
+  necesario aquellas instituciones sin personal docente activo.
+- Al acceder al detalle de un establecimiento, el sistema consolida la información
+  bajo la estructura de CUPOF (Clave Única de Puesto Orgánico Funcional).
+- Cadena de Reemplazo Jerárquica: Los agentes son ordenados jerárquicamente por su
+  situación de revista (Titular/Interino -> Suplente -> Reemplazante). Esto genera
+  una vista de "cascada" que revela el estado de cobertura real:
+  - Cubierto: El titular está activo, o bien se encuentra con licencia pero existe
+    un reemplazante/suplente asignado que cubre efectivamente el puesto.
+  - Descubierto por Licencia sin Suplente: El agente titular posee una licencia médica
+    o administrativa vigente en la fecha consultada, pero no figura ningún suplente
+    asociado a la CUPOF en los registros.
+- Exportación y Reportes PDF:
+  - PDF de Lista General: Genera un reporte horizontal (landscape) A4 de todos los
+    establecimientos coincidentes con los filtros activos.
+  - PDF de Detalle Escolar: Genera un reporte vertical (portrait) A4 que funciona
+    como una auditoría focalizada de la escuela seleccionada. Detalla de forma individual
+    cada CUPOF, los agentes asociados en orden de cascada, el estado de sus licencias,
+    las observaciones de base de datos, y métricas generales del colegio (porcentaje
+    de cobertura y relación agentes/puesto).
+
+================================================================================
+3.3. AUDITORÍA AUTOMATIZADA DE AGENTES (ANÁLISIS DE INCOMPATIBILIDADES)
+================================================================================
+* URL de Acceso: http://radios_cupof.test/auditoria-automatizada
+
+* Objetivo:
+Realizar un diagnóstico automático, inmediato y centralizado de la situación laboral
+y territorial de un agente (docente o administrativo) ingresando su número de DNI.
+
+* Captura de Pantalla Requerida:
+[------------------------------------------------------------------------------]
+[   INSERTE AQUÍ CAPTURA DEL DIAGNÓSTICO DE AGENTE (URL: /auditoria-automatizada)]
+[   Muestre los datos del docente auditado, la estimación de horas, los        ]
+[   indicadores de riesgo y el desglose de los cargos/licencias en pantalla.    ]
+[------------------------------------------------------------------------------]
+
+* Explicación Técnica y Utilidad Operativa (Reglas de Negocio Automatizadas):
+El motor de auditoría ejecuta de forma simultánea cuatro grandes verificaciones:
+
+1. Incompatibilidad Horaria Crítica:
+   - Suma las horas cátedra reales y estimadas asignadas al agente.
+   - Determina si las "horas activas netas" (es decir, descontando aquellas posiciones
+     donde el agente está con licencia activa) superan el límite reglamentario permitido
+     (Threshold estándar).
+   - Genera clasificaciones automáticas: "Regular", "Exceso Justificado" (excede el
+     límite pero tiene licencias activas cubiertas por suplentes) o "Incompatibilidad Crítica".
+
+2. Superposición Horaria Directa de Turnos:
+   - Analiza si el agente posee múltiples cargos asignados en el mismo turno
+     (ej. dos cargos activos en el Turno Mañana en establecimientos diferentes).
+   - Emite una alerta de superposición horaria directa detallando los cargos en conflicto.
+
+3. Dispersión Geográfica Inviable (Riesgo de Traslado):
+   - A través de las coordenadas de las escuelas asociadas a los cargos del agente,
+     calcula la distancia física entre los establecimientos.
+   - Si la distancia que el docente debe recorrer para trasladarse de una escuela a otra
+     durante su jornada excede los 10 km, el sistema marca el caso como "Dispersión
+     Geográfica de Alto Riesgo".
+
+4. Discrepancias Administrativas e Inconsistencias Cronológicas:
+   - Detecta si la fecha de alta cargada en el padrón es futura (inconsistencia cronológica).
+   - Compara y expone diferencias numéricas si la cantidad de cargos vigentes en planta
+     no coincide con el histórico de designaciones registradas en el sistema.
+
+* Exportación a PDF de Auditoría:
+- La pantalla cuenta con una función de exportación optimizada para su impresión directa
+  o guardado como archivo PDF (`window.print()`).
+- Se definieron estilos CSS de impresión que ocultan barras de navegación laterales,
+  botones de búsqueda, e inputs de texto, preservando únicamente la cabecera oficial
+  del Ministerio de Educación y el informe detallado formateado, permitiendo anexarlo
+  como documento oficial al legajo físico del docente.
+
+--------------------------------------------------------------------------------
+4. CONCLUSIÓN Y HOJA DE RUTA
+--------------------------------------------------------------------------------
+EDU-Auditor dota al Ministerio de Educación de una herramienta de control y gestión
+que optimiza el uso de los recursos docentes y previene gastos superfluos derivados
+de dobles cobros o licencias mal cubiertas.
+
+La hoja de ruta sugerida para la consolidación de la plataforma incluye:
+1. Validar con los analistas de personal las reglas y límites de horas aplicados
+   en el motor de auditoría.
+2. Iniciar la integración técnica con el equipo de desarrollo de EDUGE para consumir
+   sus servicios web y apagar progresivamente la carga manual de archivos CSV.
+3. Capacitar a los equipos de supervisión escolar en el uso del mapa georreferenciado
+   y la ficha CUPOF de escuelas para auditorías en territorio.
