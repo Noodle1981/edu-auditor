@@ -742,6 +742,16 @@ export default function Mapa({ edificios = [] }) {
                             </div>
                         </div>
 
+                        {/* Export Excel Button */}
+                        <a
+                            href="/api/mapa/reporte-excel"
+                            title="Exportar datos del mapa a Excel"
+                            className="flex h-9 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 transition-all hover:bg-emerald-100 hover:border-emerald-300 hover:shadow-sm shrink-0"
+                        >
+                            <i className="fa-solid fa-file-excel text-emerald-600"></i>
+                            <span className="hidden sm:inline">Excel</span>
+                        </a>
+
                         {/* Clear Button */}
                         <button
                             onClick={clearFilters}
@@ -751,6 +761,7 @@ export default function Mapa({ edificios = [] }) {
                             <i className="fa-solid fa-arrows-rotate"></i>
                         </button>
                     </div>
+
                 </header>
 
                 {/* 2. Main Map + Sidebar Layout Container */}

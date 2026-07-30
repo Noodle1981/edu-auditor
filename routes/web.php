@@ -42,6 +42,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Mapa Escolar
     Route::get('/mapa', [MapaController::class, 'index'])->name('mapa');
+    Route::get('/api/mapa/reporte-excel', [MapaController::class, 'exportExcel'])->name('mapa.export-excel');
 
     // Profile settings
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
