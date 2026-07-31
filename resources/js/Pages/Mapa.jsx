@@ -699,10 +699,10 @@ export default function Mapa({ edificios = [] }) {
                         </div>
                     </div>
 
-                    {/* Right Options (Layers, Stats, Reset) */}
-                    <div className="flex items-center gap-4 shrink-0">
+                    {/* Right Options (Layers, Export Excel, Reset, Stats) */}
+                    <div className="flex items-center gap-2.5 shrink-0">
                         {/* Layer Switches */}
-                        <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 p-1">
+                        <div className="flex items-center gap-1.5 rounded-xl border border-gray-100 bg-gray-50 p-1">
                             <button
                                 onClick={() => setShowDeptoBorders(!showDeptoBorders)}
                                 title="Límites de Departamentos"
@@ -729,8 +729,27 @@ export default function Mapa({ edificios = [] }) {
                             </button>
                         </div>
 
-                        {/* Stats Badges */}
-                        <div className="hidden lg:flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-xl p-1 shrink-0">
+                        {/* Export Excel Button - Prominent Green Button */}
+                        <a
+                            href={route('mapa.export-excel')}
+                            title="Descargar Reporte Completo del Mapa Escolar en Excel"
+                            className="flex h-8 items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition-all hover:bg-emerald-700 shrink-0"
+                        >
+                            <i className="fa-solid fa-file-excel text-sm"></i>
+                            <span className="text-xs font-bold">Excel</span>
+                        </a>
+
+                        {/* Clear Button */}
+                        <button
+                            onClick={clearFilters}
+                            title="Limpiar Filtros"
+                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 transition-all hover:border-[#FE8204] hover:text-[#FE8204] shrink-0"
+                        >
+                            <i className="fa-solid fa-arrows-rotate text-xs"></i>
+                        </button>
+
+                        {/* Stats Badges - Shown on wide screens at the end */}
+                        <div className="hidden 2xl:flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-xl p-1 shrink-0">
                             <div className="px-2 py-0.5">
                                 <p className="text-[7px] font-black uppercase text-gray-400 tracking-wider">Edificios</p>
                                 <p className="text-xs font-black text-gray-700 leading-tight">{stats.totalEdificios}</p>
@@ -741,15 +760,6 @@ export default function Mapa({ edificios = [] }) {
                                 <p className="text-xs font-black text-gray-700 leading-tight">{stats.totalEstablecimientos}</p>
                             </div>
                         </div>
-
-                        {/* Clear Button */}
-                        <button
-                            onClick={clearFilters}
-                            title="Limpiar Filtros"
-                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 transition-all hover:border-[#FE8204] hover:text-[#FE8204]"
-                        >
-                            <i className="fa-solid fa-arrows-rotate"></i>
-                        </button>
                     </div>
                 </header>
 
