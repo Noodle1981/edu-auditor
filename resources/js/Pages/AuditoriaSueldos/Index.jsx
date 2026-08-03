@@ -379,14 +379,14 @@ export default function AuditoriaSueldosIndex({
           </div>
 
           {/* Detailed Status Breakdown */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <GlassCard className="p-6">
               <h2 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
                 <i className="fa-solid fa-list-ol text-[#FE8204]"></i>
                 Distribución del Estado de Auditoría
               </h2>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center justify-between p-3.5 bg-emerald-50 rounded-xl border border-emerald-100">
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
                     <span className="text-sm font-bold text-emerald-900">Coincidencia Total (Sueldo = SIGE = Geo)</span>
@@ -394,7 +394,7 @@ export default function AuditoriaSueldosIndex({
                   <span className="text-sm font-black text-emerald-700">458 sectores</span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-teal-50 rounded-xl border border-teal-100">
+                <div className="flex items-center justify-between p-3.5 bg-teal-50 rounded-xl border border-teal-100">
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-teal-500"></span>
                     <span className="text-sm font-bold text-teal-900">Coincide SIGE y Camino/Circunferencia</span>
@@ -402,7 +402,7 @@ export default function AuditoriaSueldosIndex({
                   <span className="text-sm font-black text-teal-700">327 sectores</span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100">
+                <div className="flex items-center justify-between p-3.5 bg-red-50 rounded-xl border border-red-100">
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-red-500"></span>
                     <span className="text-sm font-bold text-red-900">Paga MÁS que SIGE (Exceso de liquidación)</span>
@@ -410,7 +410,7 @@ export default function AuditoriaSueldosIndex({
                   <span className="text-sm font-black text-red-700">30 sectores (1.694 filas)</span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-100">
+                <div className="flex items-center justify-between p-3.5 bg-blue-50 rounded-xl border border-blue-100">
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-blue-500"></span>
                     <span className="text-sm font-bold text-blue-900">Paga MENOS que SIGE (Perjuicio al docente)</span>
@@ -418,68 +418,12 @@ export default function AuditoriaSueldosIndex({
                   <span className="text-sm font-black text-blue-700">25 sectores (1.674 filas)</span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200 md:col-span-2">
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-slate-400"></span>
                     <span className="text-sm font-bold text-slate-800">Sectores Sin Registro en SIGE PÚBLICO</span>
                   </div>
                   <span className="text-sm font-black text-slate-700">184 sectores (6.173 filas)</span>
-                </div>
-              </div>
-            </GlassCard>
-
-            <GlassCard className="p-6">
-              <h2 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
-                <i className="fa-solid fa-triangle-exclamation text-amber-500"></i>
-                Alertas Críticas de Acción Inmediata
-              </h2>
-              <div className="space-y-3">
-                <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-red-700 uppercase">
-                      Desviación Extrema (+5 Radios)
-                    </span>
-                    <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-md">
-                      Sector 726
-                    </span>
-                  </div>
-                  <p className="text-xs font-bold text-gray-900 mt-1">
-                    Esc. Comercio Nocturna Dr. Santiago Cortánez (Zonda)
-                  </p>
-                  <p className="text-xs text-gray-600 mt-0.5">
-                    Paga <strong className="text-red-700">Radio 6 (135%)</strong> pero en SIGE y Geográfico figura como <strong className="text-gray-800">Radio 1 (40%)</strong>.
-                  </p>
-                </div>
-
-                <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-blue-700 uppercase">
-                      Mayor Volumen Subpagado (753 docentes)
-                    </span>
-                    <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-md">
-                      Sector 681
-                    </span>
-                  </div>
-                  <p className="text-xs font-bold text-gray-900 mt-1">
-                    Escuela Anexo Normal Superior Sarmiento (Aberastain)
-                  </p>
-                  <p className="text-xs text-gray-600 mt-0.5">
-                    Paga <strong className="text-blue-700">Radio 1 (40%)</strong> pero en SIGE el anexo Aberastain tiene asignado <strong className="text-gray-800">Radio 4 (95%)</strong>.
-                  </p>
-                </div>
-
-                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-amber-700 uppercase">
-                      Conflicto de Datos SIGE
-                    </span>
-                    <span className="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-md">
-                      27 Sectores
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 mt-0.5">
-                    Sectores con múltiples radios oficiales en la base de datos (ej. Sector 685 La Chimbera vs Fray Justo). Requieren saneamiento en tabla `modalidades`.
-                  </p>
                 </div>
               </div>
             </GlassCard>
