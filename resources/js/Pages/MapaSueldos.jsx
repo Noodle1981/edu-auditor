@@ -235,165 +235,146 @@ export default function MapaSueldos({ edificios = [] }) {
         </div>
       )}
 
-      <div className="flex flex-col h-[calc(100vh)] bg-[#f8fafc] overflow-hidden">
+      <div className="flex flex-col h-screen w-full overflow-hidden bg-gray-50">
         {/* Top Control Bar */}
-        <header className="z-20 border-b border-gray-200/80 bg-white/95 px-6 py-3 shadow-sm backdrop-blur shrink-0">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            {/* Title & Subtitle */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-purple-600/10 text-purple-600 flex items-center justify-center text-lg shrink-0">
-                <i className="fa-solid fa-money-bill-transfer"></i>
+        <header className="z-[1010] flex h-16 w-full items-center justify-between border-b border-gray-200/80 bg-white px-6 shadow-sm shrink-0">
+          {/* Brand and Search */}
+          <div className="flex items-center gap-4 flex-1 max-w-xl">
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="rounded-xl border border-purple-600/10 bg-purple-600/5 p-2 text-purple-600">
+                <i className="fa-solid fa-money-bill-transfer text-lg"></i>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base font-black text-gray-900 tracking-tight">
-                    Mapa de Ejecución Salarial (Radio Sueldos A04)
-                  </h1>
-                  <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-md bg-purple-100 text-purple-800">
-                    AUDITORÍA SALARIAL
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 font-medium">
-                  Contraste espacial entre el sueldo liquidado, el SIGE y la distancia física real.
+              <div className="hidden sm:block">
+                <h1 className="text-sm font-black leading-tight text-gray-900">
+                  Mapa <span className="text-purple-600">Salarial</span>
+                </h1>
+                <p className="text-[8px] font-bold uppercase tracking-widest text-gray-400">
+                  SIAME
                 </p>
               </div>
             </div>
 
-            {/* Filter Controls */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* Search input */}
-              <div className="relative w-60">
-                <i className="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400 text-xs"></i>
-                <input
-                  type="text"
-                  placeholder="Buscar CUE, escuela..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-[#FE8204] focus:border-[#FE8204]"
-                />
-              </div>
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="Buscar CUE o Escuela..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-gray-55 py-2.5 pl-9 pr-4 text-xs font-semibold text-gray-950 transition-all focus:border-[#FE8204]/50 focus:ring-1 focus:ring-[#FE8204]/30 focus:bg-white"
+              />
+              <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-gray-400 text-xs"></i>
+            </div>
+          </div>
 
-              {/* Scope Toggles */}
-              <div className="flex items-center gap-1 rounded-xl border border-gray-150 bg-gray-55 p-1 shrink-0">
-                <button
-                  onClick={() => toggleFilter('publico')}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                    activeFilters.publico
-                      ? 'bg-white text-gray-950 shadow-sm border border-gray-150'
-                      : 'text-gray-400 bg-transparent border border-transparent grayscale'
-                  }`}
-                >
-                  <div className="h-1.5 w-1.5 rounded-full bg-[#FE8204]"></div>
-                  Público
-                </button>
-                <button
-                  onClick={() => toggleFilter('privado')}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                    activeFilters.privado
-                      ? 'bg-blue-50 text-blue-600 border border-blue-200 shadow-sm'
-                      : 'text-gray-400 bg-transparent border border-transparent grayscale'
-                  }`}
-                >
-                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
-                  Privado
-                </button>
-              </div>
+          {/* Middle Filters (Ambito, Depto, Nivel) */}
+          <div className="flex items-center gap-3 px-4">
+            {/* Ambito Toggle */}
+            <div className="flex gap-1 rounded-xl border border-gray-100 bg-gray-50 p-1 shrink-0 bg-white">
+              <button
+                onClick={() => toggleFilter('publico')}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                  activeFilters.publico
+                    ? 'bg-orange-50 text-[#FE8204] border border-[#FE8204]/20 shadow-sm'
+                    : 'text-gray-400 bg-transparent border border-transparent grayscale'
+                }`}
+              >
+                <div className="h-1.5 w-1.5 rounded-full bg-[#FE8204]"></div>
+                Público
+              </button>
+              <button
+                onClick={() => toggleFilter('privado')}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                  activeFilters.privado
+                    ? 'bg-blue-50 text-blue-600 border border-blue-200 shadow-sm'
+                    : 'text-gray-400 bg-transparent border border-transparent grayscale'
+                }`}
+              >
+                <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
+                Privado
+              </button>
+            </div>
 
-              {/* Department Select */}
+            {/* Departamento select */}
+            <div className="relative shrink-0">
               <select
                 value={filterDepto}
                 onChange={(e) => setFilterDepto(e.target.value)}
-                className="text-xs font-bold bg-gray-50 border border-gray-200 text-gray-700 rounded-xl px-3 py-1.5 focus:ring-[#FE8204]"
+                className="appearance-none rounded-xl border border-gray-150 bg-gray-55 py-2.5 pl-3 pr-8 text-xs font-bold text-gray-700 shadow-sm transition-all focus:border-[#FE8204] focus:bg-white"
               >
                 <option value="TODOS">Todos los Deptos</option>
                 {deptosDisponibles.map((d) => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
+              <i className="fa-solid fa-chevron-down pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]"></i>
+            </div>
 
-              {/* Nivel Select */}
+            {/* Nivel select */}
+            <div className="relative shrink-0">
               <select
                 value={filterNivel}
                 onChange={(e) => setFilterNivel(e.target.value)}
-                className="text-xs font-bold bg-gray-50 border border-gray-200 text-gray-700 rounded-xl px-3 py-1.5 focus:ring-[#FE8204]"
+                className="appearance-none rounded-xl border border-gray-150 bg-gray-55 py-2.5 pl-3 pr-8 text-xs font-bold text-gray-700 shadow-sm transition-all focus:border-[#FE8204] focus:bg-white"
               >
                 <option value="TODOS">Todos los Niveles</option>
                 {nivelesDisponibles.map((n) => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>
-
-              {/* Estado Salarial Filter Buttons */}
-              <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl border border-gray-200">
-                <button
-                  onClick={() => setFilterEstadoSueldo('TODOS')}
-                  className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition ${
-                    filterEstadoSueldo === 'TODOS'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  Todos
-                </button>
-                <button
-                  onClick={() => setFilterEstadoSueldo('COINCIDE')}
-                  className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition flex items-center gap-1 ${
-                    filterEstadoSueldo === 'COINCIDE'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'text-emerald-700 hover:bg-emerald-50'
-                  }`}
-                >
-                  <i className="fa-solid fa-circle-check text-[9px]"></i>
-                  Coincide (🟢)
-                </button>
-                <button
-                  onClick={() => setFilterEstadoSueldo('SOBREPAGO')}
-                  className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition flex items-center gap-1 ${
-                    filterEstadoSueldo === 'SOBREPAGO'
-                      ? 'bg-purple-600 text-white shadow-sm'
-                      : 'text-purple-700 hover:bg-purple-50'
-                  }`}
-                >
-                  <i className="fa-solid fa-arrow-trend-up text-[9px]"></i>
-                  Sobrepago (🟣)
-                </button>
-                <button
-                  onClick={() => setFilterEstadoSueldo('SUBPAGO')}
-                  className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition flex items-center gap-1 ${
-                    filterEstadoSueldo === 'SUBPAGO'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-blue-700 hover:bg-blue-50'
-                  }`}
-                >
-                  <i className="fa-solid fa-arrow-trend-down text-[9px]"></i>
-                  Subpago (🔵)
-                </button>
-              </div>
-
-              {/* Reset button */}
-              <button
-                onClick={clearFilters}
-                title="Limpiar Filtros"
-                className="w-8 h-8 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 hover:text-[#FE8204]"
-              >
-                <i className="fa-solid fa-rotate-left text-xs"></i>
-              </button>
+              <i className="fa-solid fa-chevron-down pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]"></i>
             </div>
+          </div>
+
+          {/* Right Options (Estado Salarial Buttons & Reset) */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Estado Salarial Filter Buttons */}
+            <div className="flex gap-1 rounded-xl border border-gray-100 bg-gray-50 p-1 shrink-0">
+              {[
+                { key: 'TODOS', label: 'Todos', color: 'text-gray-700', bg: 'bg-white', border: 'border-gray-200' },
+                { key: 'COINCIDE', label: 'Coincide', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-250', icon: 'fa-circle-check' },
+                { key: 'SOBREPAGO', label: 'Sobrepago', color: 'text-purple-700', bg: 'bg-purple-50', border: 'border-purple-250', icon: 'fa-arrow-trend-up' },
+                { key: 'SUBPAGO', label: 'Subpago', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-250', icon: 'fa-arrow-trend-down' }
+              ].map((btn) => (
+                <button
+                  key={btn.key}
+                  onClick={() => setFilterEstadoSueldo(btn.key)}
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-black transition-all cursor-pointer ${
+                    filterEstadoSueldo === btn.key
+                      ? `${btn.bg} ${btn.color} border ${btn.border} shadow-sm`
+                      : 'text-gray-400 bg-transparent border border-transparent opacity-60'
+                  }`}
+                >
+                  {btn.icon && <i className={`fa-solid ${btn.icon} text-[9px]`}></i>}
+                  <span>{btn.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Reset button */}
+            <button
+              onClick={clearFilters}
+              title="Limpiar Filtros"
+              className="w-8 h-8 flex items-center justify-center rounded-xl border border-gray-150 bg-white text-gray-400 hover:text-[#FE8204] transition hover:border-[#FE8204]/30 shadow-sm"
+            >
+              <i className="fa-solid fa-rotate-left text-xs"></i>
+            </button>
           </div>
         </header>
 
         {/* Map Container Body */}
-        <div className="relative flex-1 w-full h-full overflow-hidden">
-          <Suspense
-            fallback={
-              <div className="flex h-full w-full items-center justify-center bg-gray-50">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-10 h-10 rounded-full border-4 border-[#FE8204] border-t-transparent animate-spin"></div>
-                  <span className="text-xs font-bold text-gray-600">Cargando Mapa Salarial...</span>
+        <div className="flex-1 flex min-h-0 relative">
+          <div className="flex-1 h-full relative">
+            <Suspense
+              fallback={
+                <div className="flex h-full w-full items-center justify-center bg-gray-50">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-10 h-10 rounded-full border-4 border-[#FE8204] border-t-transparent animate-spin"></div>
+                    <span className="text-xs font-bold text-gray-600">Cargando Mapa Salarial...</span>
+                  </div>
                 </div>
-              </div>
-            }
-          >
+              }
+            >
             <MapView
               filteredEdificios={filteredEdificios}
               edificios={edificiosArray}
@@ -452,6 +433,7 @@ export default function MapaSueldos({ edificios = [] }) {
               <i className="fa-solid fa-star text-sm"></i>
             </button>
           </div>
+        </div>
 
           {/* Right Collapsible Info Panel */}
           {selectedEdificio && selectedEdificio.establecimientos && (

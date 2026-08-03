@@ -33,8 +33,18 @@ class AuditoriaSueldosController extends Controller
             ]);
         }
 
-        $resultados = AuditoriaRadioResultado::where('nomina_id', $nominaSeleccionada->id)
-            ->orderBy('sector')
+        $resultados = DB::table('auditoria_radio_resultados as r')
+            ->where('r.nomina_id', $nominaSeleccionada->id)
+            ->leftJoin('establecimientos as e', 'e.cue', '=', 'r.cue')
+            ->leftJoin('modalidades as m', 'm.establecimiento_id', '=', 'e.id')
+            ->leftJoin('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+            ->select(
+                'r.*',
+                DB::raw('COALESCE(ed.zona_departamento, "S/D") as departamento'),
+                DB::raw('COALESCE(m.ambito, "PUBLICO") as ambito')
+            )
+            ->groupBy('r.id')
+            ->orderBy('r.sector')
             ->get();
 
         $viejos = DB::table('auditoria_sueldo_registros_viejos as v')
@@ -49,6 +59,7 @@ class AuditoriaSueldosController extends Controller
                 DB::raw('COALESCE(e.nombre, "Sin Establecimiento Registrado") as nombre_establecimiento'),
                 DB::raw('e.cue as cue'),
                 DB::raw('COALESCE(ed.zona_departamento, "S/D") as departamento'),
+                DB::raw('COALESCE(m.ambito, "PUBLICO") as ambito'),
                 DB::raw('COALESCE(m.radio_sige, m.radio) as radio_sige'),
                 DB::raw('COALESCE(m.direccion_area, "S/N") as nivel_educativo')
             )
@@ -70,18 +81,17 @@ class AuditoriaSueldosController extends Controller
             return $v;
         });
 
-        // 27 sectores SIGE con conflicto interno
+        // Sectores SIGE con conflicto interno (públicos y privados)
         $conflictosSige = DB::table('modalidades as m')
             ->join('establecimientos as e', 'e.id', '=', 'm.establecimiento_id')
             ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
-            ->where('m.ambito', 'PUBLICO')
             ->whereNull('m.deleted_at')
             ->whereNull('e.deleted_at')
             ->select(
                 DB::raw('CAST(m.sector AS INTEGER) as sector'),
                 DB::raw('GROUP_CONCAT(DISTINCT m.radio) as radios_distintos'),
                 DB::raw('GROUP_CONCAT(DISTINCT m.direccion_area) as niveles'),
-                DB::raw('GROUP_CONCAT(DISTINCT e.nombre) as establecimientos'),
+                DB::raw("GROUP_CONCAT(e.nombre || '||' || e.cue || '||' || ed.cui || '||' || COALESCE(ed.zona_departamento, 'S/D') || '||' || m.radio || '||' || m.ambito, '###') as establecimientos_detallados"),
                 DB::raw('COUNT(m.id) as cant_modalidades')
             )
             ->groupBy(DB::raw('CAST(m.sector AS INTEGER)'))
@@ -101,23 +111,54 @@ class AuditoriaSueldosController extends Controller
             ->orderBy('e.nombre')
             ->get();
 
-        // Métricas KPIs
-        $totalSectores = $resultados->pluck('sector')->filter()->unique()->count();
-        $totalFilasDocentes = $resultados->sum('total_filas_docentes');
+        $cruceEscuelas = DB::table('establecimientos as e')
+            ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+            ->join('modalidades as m', 'm.establecimiento_id', '=', 'e.id')
+            ->leftJoin('auditoria_radio_resultados as r', function ($join) use ($nominaSeleccionada) {
+                $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector')
+                     ->where('r.nomina_id', '=', $nominaSeleccionada->id);
+            })
+            ->whereNull('e.deleted_at')
+            ->whereNull('m.deleted_at')
+            ->select(
+                'e.id as establecimiento_id',
+                'e.cue',
+                'e.nombre as nombre_establecimiento',
+                'ed.zona_departamento as departamento',
+                'm.nivel_educativo',
+                'm.direccion_area',
+                'm.sector as sector_sige',
+                'm.radio as radio_sige',
+                'm.ambito as ambito',
+                'r.radio_sueldo',
+                'r.total_filas_docentes',
+                'r.estado_auditoria',
+                'r.id as auditoria_id'
+            )
+            ->orderBy('e.nombre')
+            ->get();
 
-        $coincidenTotal = $resultados->where('estado_auditoria', 'COINCIDE_TOTAL')->sum('total_filas_docentes');
-        $coincidenSige = $resultados->whereIn('estado_auditoria', ['COINCIDE_TOTAL', 'COINCIDE_SIGE', 'COINCIDE_SIGE_Y_CAMINO', 'COINCIDE_SIGE_Y_CIRC'])->sum('total_filas_docentes');
+        // Filter results and old records to those linked to a school/CUE
+        $linkedResultados = $resultados->filter(fn($r) => !empty($r->cue));
+        $linkedViejos = $viejos->filter(fn($v) => !empty($v->cue) && $v->nombre_establecimiento !== 'Sin Establecimiento Registrado');
+
+        // Métricas KPIs (enfocadas en establecimientos)
+        $totalSectores = $linkedResultados->pluck('sector')->filter()->unique()->count();
+        $totalFilasDocentes = $linkedResultados->sum('total_filas_docentes');
+
+        $coincidenTotal = $linkedResultados->where('estado_auditoria', 'COINCIDE_TOTAL')->sum('total_filas_docentes');
+        $coincidenSige = $linkedResultados->whereIn('estado_auditoria', ['COINCIDE_TOTAL', 'COINCIDE_SIGE', 'COINCIDE_SIGE_Y_CAMINO', 'COINCIDE_SIGE_Y_CIRC'])->sum('total_filas_docentes');
         
-        $pagaMasCount = $resultados->where('estado_auditoria', 'PAGA_MAS_QUE_SIGE')->count();
-        $pagaMasDocentes = $resultados->where('estado_auditoria', 'PAGA_MAS_QUE_SIGE')->sum('total_filas_docentes');
+        $pagaMasCount = $linkedResultados->where('estado_auditoria', 'PAGA_MAS_QUE_SIGE')->count();
+        $pagaMasDocentes = $linkedResultados->where('estado_auditoria', 'PAGA_MAS_QUE_SIGE')->sum('total_filas_docentes');
 
-        $pagaMenosCount = $resultados->where('estado_auditoria', 'PAGA_MENOS_QUE_SIGE')->count();
-        $pagaMenosDocentes = $resultados->where('estado_auditoria', 'PAGA_MENOS_QUE_SIGE')->sum('total_filas_docentes');
+        $pagaMenosCount = $linkedResultados->where('estado_auditoria', 'PAGA_MENOS_QUE_SIGE')->count();
+        $pagaMenosDocentes = $linkedResultados->where('estado_auditoria', 'PAGA_MENOS_QUE_SIGE')->sum('total_filas_docentes');
 
-        $sinSigeCount = $resultados->where('estado_auditoria', 'SIN_SIGE')->count();
-        $sinSigeDocentes = $resultados->where('estado_auditoria', 'SIN_SIGE')->sum('total_filas_docentes');
+        $sinSigeCount = $linkedResultados->where('estado_auditoria', 'SIN_SIGE')->count();
+        $sinSigeDocentes = $linkedResultados->where('estado_auditoria', 'SIN_SIGE')->sum('total_filas_docentes');
 
-        $zonasInconsistentesCount = $resultados->where('coincide_zona', false)->whereNotNull('zona_sige')->pluck('sector')->filter()->unique()->count();
+        $zonasInconsistentesCount = $linkedResultados->where('coincide_zona', false)->whereNotNull('zona_sige')->pluck('sector')->filter()->unique()->count();
 
         $kpis = [
             'total_sectores' => $totalSectores,
@@ -131,7 +172,7 @@ class AuditoriaSueldosController extends Controller
             'sin_sige_docentes' => $sinSigeDocentes,
             'conflictos_sige_sectores' => $conflictosSige->count(),
             'zonas_inconsistentes_sectores' => $zonasInconsistentesCount,
-            'registros_escala_vieja' => $viejos->count(),
+            'registros_escala_vieja' => $linkedViejos->count(),
         ];
 
         return Inertia::render('AuditoriaSueldos/Index', [
@@ -142,6 +183,7 @@ class AuditoriaSueldosController extends Controller
             'conflictosSige' => $conflictosSige,
             'sectoresSinSige' => $sectoresSinSige,
             'establecimientosList' => $establecimientosList,
+            'cruceEscuelas' => $cruceEscuelas,
             'kpis' => $kpis,
         ]);
     }

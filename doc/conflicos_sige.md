@@ -56,7 +56,17 @@ graph TD
 
 ## 5. Funcionalidades en el Panel de Auditoría
 
-1. **Identificación Transparente:**
-   Muestra el listado de los 27 sectores en conflicto, listando los radios distintos conviviendo en el SIGE (ej. `Radio 1, Radio 4`), las escuelas involucradas y las direcciones de área.
-2. **Asignación de Dictamen Técnico:**
-   Permite al auditor documentar qué radio debe prevalecer para cada nivel educativo o si se requiere emitir una nueva resolución de desglose de sector.
+1. **Identificación Transparente (Pestaña "Conflictos SIGE"):**
+   Muestra el listado de sectores en conflicto y la lista de radios distintos conviviendo en el SIGE para ese sector (ej. `Radio 1, Radio 4`).
+2. **Establecimientos Relacionados mediante Modal:**
+   Para evitar que la tabla principal se rompa o deforme debido a la cantidad y longitud de nombres de escuelas, se muestra la cantidad total de establecimientos en un botón interactivo. Al hacer clic, se despliega un **Modal de Detalles** estructurado con una tabla que detalla:
+   * **CUE** (con enlace directo de edición administrativa a `/admin/establecimientos`).
+   * **Nombre del Establecimiento / Escuela**.
+   * **Ámbito** (badge visual indicando si es PÚBLICO o PRIVADO).
+   * **Radio SIGE** asignado.
+   * **CUI Edificio** (con enlace directo de edición administrativa a `/admin/edificios`).
+   * **Departamento**.
+3. **Consolidación Dinámica en Cliente (Deduplicación):**
+   Debido a las restricciones de agregación múltiple en SQLite (`1 DISTINCT aggregates must have exactly one argument`), el backend agrupa la información básica separándola por delimitadores (`||` y `###`), y el cliente en React realiza dinámicamente la deduplicación e indexación por CUE, Radio y Ámbito para mostrar información precisa y detallada.
+4. **Filtros Avanzados Aplicados:**
+   Los conflictos pueden ser filtrados de forma reactiva en base a Departamento, Ámbito (Público/Privado) o un Radio específico en la barra global del panel.

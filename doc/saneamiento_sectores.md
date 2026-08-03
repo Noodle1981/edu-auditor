@@ -25,7 +25,7 @@ El módulo de **Saneamiento de Sectores** es una herramienta administrativa inte
 
 ## 3. Instructivo del Flujo de Vinculación Directa
 
-El módulo permite al auditor ejecutar la vinculación en 3 sencillos pasos desde la pestaña **`Saneamiento Sectores`**:
+El módulo permite al auditor ejecutar la vinculación en 3 sencillos pasos desde la pestaña **`Sectores sin Escuela`**:
 
 ```mermaid
 sequenceDiagram
@@ -35,7 +35,7 @@ sequenceDiagram
     participant API as Controlador Laravel (AuditoriaSueldosController)
     participant DB as Base de Datos SQLite
 
-    Auditor->>UI: Selecciona sector en pestaña 'Saneamiento Sectores'
+    Auditor->>UI: Selecciona sector en pestaña 'Sectores sin Escuela'
     UI->>Auditor: Despliega Modal de Vinculación con Buscador de Escuelas y CUEs
     Auditor->>UI: Elige la Escuela / CUE destino e ingresa Observación / Decreto
     Auditor->>UI: Presiona 'Vincular y Sanear Sector'
