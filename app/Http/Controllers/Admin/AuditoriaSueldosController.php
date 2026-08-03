@@ -49,13 +49,28 @@ class AuditoriaSueldosController extends Controller
                 DB::raw('COALESCE(e.nombre, "Sin Establecimiento Registrado") as nombre_establecimiento'),
                 DB::raw('e.cue as cue'),
                 DB::raw('COALESCE(ed.zona_departamento, "S/D") as departamento'),
-                DB::raw('COALESCE(m.radio_sige, m.radio) as radio_sige')
+                DB::raw('COALESCE(m.radio_sige, m.radio) as radio_sige'),
+                DB::raw('COALESCE(m.direccion_area, "S/N") as nivel_educativo')
             )
             ->groupBy('v.id')
             ->orderBy('v.sector', 'asc')
             ->get();
 
-        // 27 sectores SIGE con conflicto interno (distintos radios en modalidades del mismo sector)
+        // Deducir radio sueldo (A04) para cada registro viejo
+        $viejos = $viejos->map(function ($v) {
+            $p = (float)$v->porcentaje_pagado;
+            if ($p <= 45) $r = 1;
+            else if ($p <= 55) $r = 2;
+            else if ($p <= 85) $r = 3;
+            else if ($p <= 105) $r = 4;
+            else if ($p <= 125) $r = 5;
+            else if ($p <= 145) $r = 6;
+            else $r = 7;
+            $v->radio_sueldo = $r;
+            return $v;
+        });
+
+        // 27 sectores SIGE con conflicto interno
         $conflictosSige = DB::table('modalidades as m')
             ->join('establecimientos as e', 'e.id', '=', 'm.establecimiento_id')
             ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
@@ -72,6 +87,18 @@ class AuditoriaSueldosController extends Controller
             ->groupBy(DB::raw('CAST(m.sector AS INTEGER)'))
             ->havingRaw('COUNT(DISTINCT m.radio) > 1')
             ->orderBy(DB::raw('CAST(m.sector AS INTEGER)'))
+            ->get();
+
+        // Sectores sin SIGE para la pestaña de saneamiento
+        $sectoresSinSige = AuditoriaRadioResultado::where('nomina_id', $nominaSeleccionada->id)
+            ->whereIn('estado_auditoria', ['SIN_SIGE', 'SIN_SECTOR'])
+            ->orderBy('sector')
+            ->get();
+
+        $establecimientosList = DB::table('establecimientos as e')
+            ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+            ->select('e.id', 'e.cue', 'e.nombre', 'ed.zona_departamento as departamento', 'ed.localidad')
+            ->orderBy('e.nombre')
             ->get();
 
         // Métricas KPIs
@@ -113,6 +140,8 @@ class AuditoriaSueldosController extends Controller
             'resultados' => $resultados,
             'viejos' => $viejos,
             'conflictosSige' => $conflictosSige,
+            'sectoresSinSige' => $sectoresSinSige,
+            'establecimientosList' => $establecimientosList,
             'kpis' => $kpis,
         ]);
     }
@@ -160,6 +189,43 @@ class AuditoriaSueldosController extends Controller
         return response()->json([
             'message' => 'Clasificación y norma legal actualizadas correctamente',
             'item' => $item,
+        ]);
+    }
+
+    /**
+     * Link/sanear an unmapped sector to an establishment.
+     */
+    public function sanearSector(Request $request)
+    {
+        $request->validate([
+            'sector' => 'required',
+            'establecimiento_id' => 'required|exists:establecimientos,id',
+            'observacion' => 'nullable|string',
+        ]);
+
+        $sector = (int)$request->input('sector');
+        $estId = $request->input('establecimiento_id');
+        $obs = $request->input('observacion', 'Saneamiento manual de sector');
+
+        $est = DB::table('establecimientos')->where('id', $estId)->first();
+
+        // 1. Vincular en modalidades
+        DB::table('modalidades')
+            ->where('establecimiento_id', $estId)
+            ->update(['sector' => (string)$sector, 'observaciones' => $obs]);
+
+        // 2. Actualizar en auditoria_radio_resultados
+        DB::table('auditoria_radio_resultados')
+            ->where('sector', $sector)
+            ->update([
+                'nombre_establecimiento' => $est->nombre,
+                'cue' => $est->cue,
+                'estado_gestion' => 'CORREGIDO',
+                'notas_auditor' => 'Saneado y vinculado a CUE ' . $est->cue . ': ' . $obs
+            ]);
+
+        return response()->json([
+            'message' => 'Sector ' . $sector . ' saneado y vinculado con éxito a ' . $est->nombre,
         ]);
     }
 }
