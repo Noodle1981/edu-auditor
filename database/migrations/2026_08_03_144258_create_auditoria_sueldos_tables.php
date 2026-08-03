@@ -56,7 +56,9 @@ return new class extends Migration
             $table->decimal('a04_radio', 12, 2);
             $table->decimal('porcentaje_pagado', 8, 2);
             $table->string('escala_detectada')->default('VIEJA'); // VIEJA, DESCONOCIDA
-            $table->string('clasificacion_auditor')->default('PENDIENTE'); // PENDIENTE, ERROR_LIQUIDACION, CASO_ESPECIAL
+            $table->string('clasificacion_auditor')->default('PENDIENTE'); // PENDIENTE, JUSTIFICADO_LEGAL, ERROR_LIQUIDACION, CASO_ESPECIAL
+            $table->string('resolucion_aval')->nullable();
+            $table->text('notas_auditor')->nullable();
             $table->timestamps();
         });
     }

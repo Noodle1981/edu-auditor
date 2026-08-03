@@ -97,19 +97,32 @@ export default function AuditoriaSueldosIndex({
     }
   };
 
-  const saveClasificacionViejo = async (id, clasificacion) => {
+  const saveClasificacionViejo = async (id, clasificacion, resolucion = null, notas = null) => {
     try {
+      const payload = { clasificacion_auditor: clasificacion };
+      if (resolucion !== null) payload.resolucion_aval = resolucion;
+      if (notas !== null) payload.notas_auditor = notas;
+
       const res = await fetch(`/api/auditoria-sueldos/viejo/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
         },
-        body: JSON.stringify({ clasificacion_auditor: clasificacion })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         setViejosList((prev) =>
-          prev.map((i) => (i.id === id ? { ...i, clasificacion_auditor: clasificacion } : i))
+          prev.map((i) =>
+            i.id === id
+              ? {
+                  ...i,
+                  clasificacion_auditor: clasificacion,
+                  resolucion_aval: resolucion !== null ? resolucion : i.resolucion_aval,
+                  notas_auditor: notas !== null ? notas : i.notas_auditor,
+                }
+              : i
+          )
         );
       }
     } catch (err) {
@@ -525,7 +538,8 @@ export default function AuditoriaSueldosIndex({
                     <th className="px-3 py-2 text-right">A04 Radio</th>
                     <th className="px-3 py-2 text-center">% Pagado</th>
                     <th className="px-3 py-2">Escala</th>
-                    <th className="px-3 py-2 text-center">Clasificación Auditor</th>
+                    <th className="px-3 py-2 text-center">Dictamen / Clasificación</th>
+                    <th className="px-3 py-2">Decreto / Resolución Aval</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -546,13 +560,40 @@ export default function AuditoriaSueldosIndex({
                       <td className="px-3 py-2 text-center">
                         <select
                           value={v.clasificacion_auditor || 'PENDIENTE'}
-                          onChange={(e) => saveClasificacionViejo(v.id, e.target.value)}
-                          className="text-[11px] font-semibold bg-white border border-amber-300 rounded px-2 py-1 focus:ring-amber-500"
+                          onChange={(e) =>
+                            saveClasificacionViejo(v.id, e.target.value, v.resolucion_aval, v.notas_auditor)
+                          }
+                          className={`text-[11px] font-black rounded px-2 py-1 border focus:ring-[#FE8204] ${
+                            v.clasificacion_auditor === 'JUSTIFICADO_LEGAL'
+                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                              : v.clasificacion_auditor === 'ERROR_LIQUIDACION'
+                              ? 'bg-red-50 text-red-900 border-red-300'
+                              : v.clasificacion_auditor === 'CASO_ESPECIAL'
+                              ? 'bg-purple-50 text-purple-900 border-purple-300'
+                              : 'bg-white text-gray-800 border-amber-300'
+                          }`}
                         >
                           <option value="PENDIENTE">PENDIENTE</option>
-                          <option value="ERROR_LIQUIDACION">ERROR LIQUIDACIÓN</option>
-                          <option value="CASO_ESPECIAL">CASO ESPECIAL</option>
+                          <option value="JUSTIFICADO_LEGAL">🟢 JUSTIFICADO LEGAL (DECRETO)</option>
+                          <option value="ERROR_LIQUIDACION">🔴 ERROR LIQUIDACIÓN</option>
+                          <option value="CASO_ESPECIAL">🟣 CASO ESPECIAL</option>
                         </select>
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="text"
+                          defaultValue={v.resolucion_aval || ''}
+                          placeholder="Ej. Dec. 1420/89, Res. 405"
+                          onBlur={(e) =>
+                            saveClasificacionViejo(
+                              v.id,
+                              v.clasificacion_auditor || 'PENDIENTE',
+                              e.target.value,
+                              v.notas_auditor
+                            )
+                          }
+                          className="w-full text-[11px] font-semibold bg-white border border-gray-300 rounded px-2 py-1 focus:ring-[#FE8204] focus:border-[#FE8204]"
+                        />
                       </td>
                     </tr>
                   ))}

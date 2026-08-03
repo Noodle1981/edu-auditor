@@ -130,16 +130,20 @@ class AuditoriaSueldosController extends Controller
     public function updateClasificacionViejo(Request $request, $id)
     {
         $request->validate([
-            'clasificacion_auditor' => 'required|string|in:PENDIENTE,ERROR_LIQUIDACION,CASO_ESPECIAL',
+            'clasificacion_auditor' => 'required|string|in:PENDIENTE,JUSTIFICADO_LEGAL,ERROR_LIQUIDACION,CASO_ESPECIAL',
+            'resolucion_aval' => 'nullable|string',
+            'notas_auditor' => 'nullable|string',
         ]);
 
         $item = AuditoriaSueldoRegistroViejo::findOrFail($id);
         $item->update([
             'clasificacion_auditor' => $request->input('clasificacion_auditor'),
+            'resolucion_aval' => $request->input('resolucion_aval', $item->resolucion_aval),
+            'notas_auditor' => $request->input('notas_auditor', $item->notas_auditor),
         ]);
 
         return response()->json([
-            'message' => 'Clasificación actualizada correctamente',
+            'message' => 'Clasificación y norma legal actualizadas correctamente',
             'item' => $item,
         ]);
     }

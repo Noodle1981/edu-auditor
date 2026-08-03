@@ -20,6 +20,8 @@ class AuditoriaSueldoRegistroViejo extends Model
         'porcentaje_pagado',
         'escala_detectada',
         'clasificacion_auditor',
+        'resolucion_aval',
+        'notas_auditor',
     ];
 
     public function nomina()
