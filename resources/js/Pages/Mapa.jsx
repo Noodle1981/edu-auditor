@@ -327,7 +327,7 @@ export default function Mapa({ edificios = [] }) {
                                 }
                             }
 
-                            return matchesScope && matchesNivel && matchesAudit;
+                             return matchesScope && matchesNivel && matchesAudit;
                         });
 
                         if (filteredMods.length === 0) return null;
@@ -699,35 +699,8 @@ export default function Mapa({ edificios = [] }) {
                         </div>
                     </div>
 
-                    {/* Right Options (Layers, Stats, Reset) */}
+                    {/* Right Options (Stats, Reset) */}
                     <div className="flex items-center gap-4 shrink-0">
-                        {/* Layer Switches */}
-                        <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 p-1">
-                            <button
-                                onClick={() => setShowDeptoBorders(!showDeptoBorders)}
-                                title="Límites de Departamentos"
-                                className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold transition-all ${
-                                    showDeptoBorders
-                                        ? 'bg-white text-gray-800 shadow-sm border border-gray-150'
-                                        : 'text-gray-400 border border-transparent'
-                                }`}
-                            >
-                                <i className="fa-solid fa-map-location text-[#FE8204]/60"></i>
-                                <span className="hidden md:inline text-xs font-bold">Límites</span>
-                            </button>
-                            <button
-                                onClick={() => setShowPlazas(!showPlazas)}
-                                title="Plazas Origen Km 0"
-                                className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold transition-all ${
-                                    showPlazas
-                                        ? 'bg-white text-gray-800 shadow-sm border border-gray-150'
-                                        : 'text-gray-400 border border-transparent'
-                                }`}
-                            >
-                                <i className="fa-solid fa-star text-yellow-550"></i>
-                                <span className="hidden md:inline text-xs font-bold">Plazas Km 0</span>
-                            </button>
-                        </div>
 
                         {/* Stats Badges */}
                         <div className="hidden lg:flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-xl p-1 shrink-0">
@@ -833,6 +806,46 @@ export default function Mapa({ edificios = [] }) {
                                 <i
                                     className={`fa-solid fa-satellite transition-transform group-hover:scale-110 ${isSatellite ? 'text-white' : ''}`}
                                 ></i>
+                            </button>
+
+                            {/* Floating Button: Límites Departamentales */}
+                            <button
+                                onClick={() => setShowDeptoBorders((v) => !v)}
+                                aria-label={
+                                    showDeptoBorders
+                                        ? 'Ocultar Límites de Departamentos'
+                                        : 'Mostrar Límites de Departamentos'
+                                }
+                                title={
+                                    showDeptoBorders ? 'Ocultar Límites' : 'Mostrar Límites'
+                                }
+                                className={`group flex h-12 w-12 items-center justify-center rounded-2xl border shadow-xl transition-all ${
+                                    showDeptoBorders
+                                        ? 'border-[#FE8204]/30 bg-[#FE8204] text-white'
+                                        : 'border-gray-150 bg-white text-gray-500 hover:text-[#FE8204]'
+                                }`}
+                            >
+                                <i className="fa-solid fa-map-location transition-transform group-hover:scale-110"></i>
+                            </button>
+
+                            {/* Floating Button: Plazas Origen Km 0 */}
+                            <button
+                                onClick={() => setShowPlazas((v) => !v)}
+                                aria-label={
+                                    showPlazas
+                                        ? 'Ocultar Plazas Origen Km 0'
+                                        : 'Mostrar Plazas Origen Km 0'
+                                }
+                                title={
+                                    showPlazas ? 'Ocultar Plazas Km 0' : 'Mostrar Plazas Km 0'
+                                }
+                                className={`group flex h-12 w-12 items-center justify-center rounded-2xl border shadow-xl transition-all ${
+                                    showPlazas
+                                        ? 'border-yellow-400/40 bg-amber-500 text-white'
+                                        : 'border-gray-150 bg-white text-gray-500 hover:text-[#FE8204]'
+                                }`}
+                            >
+                                <i className="fa-solid fa-star transition-transform group-hover:scale-110"></i>
                             </button>
                         </div>
                     </div>
@@ -1051,6 +1064,27 @@ export default function Mapa({ edificios = [] }) {
                                                                         );
                                                                     }
                                                                 })()}
+                                                                
+                                                                {/* Radio Sueldo Badge */}
+                                                                {mod.radio_sueldo && (
+                                                                    <div className={`mt-1 flex items-center justify-between rounded-lg border px-2.5 py-1.5 text-[9px] font-bold ${
+                                                                        mod.estado_sueldo === 'PAGA_MAS_QUE_SIGE'
+                                                                            ? 'border-red-200 bg-red-50 text-red-800'
+                                                                            : mod.estado_sueldo === 'PAGA_MENOS_QUE_SIGE'
+                                                                            ? 'border-blue-200 bg-blue-50 text-blue-800'
+                                                                            : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                                                    }`}>
+                                                                        <span className="flex items-center gap-1">
+                                                                            <i className="fa-solid fa-file-invoice-dollar text-[10px]"></i>
+                                                                            {mod.estado_sueldo === 'PAGA_MAS_QUE_SIGE'
+                                                                                ? 'Radio Sueldo NO Coincide (Paga MÁS)'
+                                                                                : mod.estado_sueldo === 'PAGA_MENOS_QUE_SIGE'
+                                                                                ? 'Radio Sueldo NO Coincide (Paga MENOS)'
+                                                                                : 'Radio Sueldo Coincide'}
+                                                                        </span>
+                                                                        <span className="font-black">R{mod.radio_sueldo} ({mod.porc_sueldo}%)</span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         ))}
 
@@ -1137,10 +1171,19 @@ export default function Mapa({ edificios = [] }) {
                                                         </div>
                                                     )}
                                                     {selectedEdificio.dist_circunf && (
-                                                        <div className="flex justify-between items-center py-1">
+                                                        <div className="flex justify-between items-center py-1 border-b border-[#FE8204]/10">
                                                             <span className="font-bold text-gray-500">Distancia en Línea Recta</span>
                                                             <span className="font-black text-gray-950">
                                                                 {parseFloat(selectedEdificio.dist_circunf).toFixed(1)} km (Radio {selectedEdificio.radio_circ || 'S/D'})
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {selectedEdificio.establecimientos?.[0]?.modalidades?.[0]?.radio_sueldo && (
+                                                        <div className="flex justify-between items-center py-1">
+                                                            <span className="font-bold text-gray-500">Radio Sueldos (A04)</span>
+                                                            <span className="font-black text-[#FE8204]">
+                                                                Radio {selectedEdificio.establecimientos[0].modalidades[0].radio_sueldo}
+                                                                {selectedEdificio.establecimientos[0].modalidades[0].porc_sueldo && ` (${selectedEdificio.establecimientos[0].modalidades[0].porc_sueldo}%)`}
                                                             </span>
                                                         </div>
                                                     )}

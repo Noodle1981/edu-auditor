@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AuditoriaSueldosController;
 use App\Http\Controllers\Admin\EdificioController;
 use App\Http\Controllers\Admin\ModalidadController;
 use App\Http\Controllers\AgenteController;
@@ -14,10 +15,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     if (Auth::check()) {
         if (Auth::user()->role === 'admin') {
-            return redirect()->route('importar');
+            return redirect()->route('auditoria-sueldos');
         }
 
-        return redirect()->route('mapa');
+        return redirect()->route('auditoria-sueldos');
     }
 
     return redirect()->route('login');
@@ -25,6 +26,10 @@ Route::get('/', function () {
 
 // Authenticated SIAME routes
 Route::middleware(['auth', 'verified'])->group(function () {
+
+    Route::get('/auditoria-sueldos', [AuditoriaSueldosController::class, 'index'])->name('auditoria-sueldos');
+    Route::patch('/api/auditoria-sueldos/{id}/estado', [AuditoriaSueldosController::class, 'updateEstadoGestion']);
+    Route::patch('/api/auditoria-sueldos/viejo/{id}', [AuditoriaSueldosController::class, 'updateClasificacionViejo']);
 
     Route::get('/auditoria-automatizada', [AgenteController::class, 'auditoriaAutomatizadaPage'])->name('auditoria-automatizada');
     Route::get('/api/agentes', [AgenteController::class, 'search']);
@@ -40,8 +45,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/api/establecimientos/{id}/radio', [EstablecimientoController::class, 'updateRadio']);
     Route::get('/api/establecimientos/{id}', [EstablecimientoController::class, 'detail']);
 
-    // Mapa Escolar
+    // Mapa Escolar y Mapa de Sueldos
     Route::get('/mapa', [MapaController::class, 'index'])->name('mapa');
+    Route::get('/mapa-sueldos', [MapaController::class, 'indexSueldos'])->name('mapa-sueldos');
     Route::get('/api/mapa/reporte-excel', [MapaController::class, 'exportExcel'])->name('mapa.export-excel');
 
     // Profile settings

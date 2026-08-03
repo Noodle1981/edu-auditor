@@ -292,7 +292,7 @@ const HighPriorityTileLayer = createTileLayerComponent((props, context) => {
 
 // --- Main Export ---
 export default function MapView({
-    filteredEdificios,
+    filteredEdificios: filteredEdificiosProp,
     edificios = [],
     selectedEdificio,
     setSelectedEdificio,
@@ -303,7 +303,9 @@ export default function MapView({
     filterDepto = 'TODOS',
     isSatellite = false,
     showPlazas = true,
+    mode = 'default',
 }) {
+    const filteredEdificios = filteredEdificiosProp || edificios;
     const [geojsonData, setGeojsonData] = useState(null);
 
     // Tile layer URLs
@@ -574,20 +576,34 @@ export default function MapView({
                 {/* School markers */}
                 {filteredEdificios.map((edificio) => {
                     const status = getEdificioStatus(edificio);
-                    // Check if radio is justified
                     const radioJustificado = edificio.establecimientos?.some(
                         est => est.modalidades?.some(m => m.radio_justificado)
                     );
 
-                    const markerColor = radioJustificado
-                        ? '#06B6D4' // Cyan for Validated by Decree
-                        : status === 'INCONGRUENTE'
-                            ? '#F59E0B' // Yellow for incongruent
-                            : status === 'DISTINTO'
-                                ? '#EF4444' // Red for different
-                                : edificio.ambito === 'PUBLICO'
-                                    ? '#10B981' // Green for matching public
-                                    : '#3B82F6'; // Blue for private
+                    let markerColor = '#10B981';
+                    if (mode === 'sueldos') {
+                        const firstMod = edificio.establecimientos?.[0]?.modalidades?.[0];
+                        const cSueldo = firstMod?.color_sueldo;
+                        if (cSueldo === 'SOBREPAGO') {
+                            markerColor = '#9333EA'; // Purple for Sobrepago
+                        } else if (cSueldo === 'SUBPAGO') {
+                            markerColor = '#2563EB'; // Blue for Subpago
+                        } else if (cSueldo === 'SIN_SIGE') {
+                            markerColor = '#F59E0B'; // Amber for Sin SIGE
+                        } else {
+                            markerColor = '#10B981'; // Green for Coincide
+                        }
+                    } else {
+                        markerColor = radioJustificado
+                            ? '#06B6D4' // Cyan for Validated by Decree
+                            : status === 'INCONGRUENTE'
+                                ? '#F59E0B' // Yellow for incongruent
+                                : status === 'DISTINTO'
+                                    ? '#EF4444' // Red for different
+                                    : edificio.ambito === 'PUBLICO'
+                                        ? '#10B981' // Green for matching public
+                                        : '#3B82F6'; // Blue for private
+                    }
                     
                     const isHoveredOrSelected = hoveredEdificioId === edificio.id || selectedEdificio?.id === edificio.id;
                     const radioStr = getEdificioRadioString(edificio);
