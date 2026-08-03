@@ -37,7 +37,22 @@ class AuditoriaSueldosController extends Controller
             ->orderBy('sector')
             ->get();
 
-        $viejos = AuditoriaSueldoRegistroViejo::where('nomina_id', $nominaSeleccionada->id)
+        $viejos = DB::table('auditoria_sueldo_registros_viejos as v')
+            ->where('v.nomina_id', $nominaSeleccionada->id)
+            ->leftJoin('modalidades as m', function ($join) {
+                $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'v.sector');
+            })
+            ->leftJoin('establecimientos as e', 'e.id', '=', 'm.establecimiento_id')
+            ->leftJoin('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+            ->select(
+                'v.*',
+                DB::raw('COALESCE(e.nombre, "Sin Establecimiento Registrado") as nombre_establecimiento'),
+                DB::raw('e.cue as cue'),
+                DB::raw('COALESCE(ed.zona_departamento, "S/D") as departamento'),
+                DB::raw('COALESCE(m.radio_sige, m.radio) as radio_sige')
+            )
+            ->groupBy('v.id')
+            ->orderBy('v.sector', 'asc')
             ->get();
 
         // 27 sectores SIGE con conflicto interno (distintos radios en modalidades del mismo sector)

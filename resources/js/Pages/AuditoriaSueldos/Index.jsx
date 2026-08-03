@@ -533,10 +533,11 @@ export default function AuditoriaSueldosIndex({
                 <thead className="text-xs uppercase bg-amber-50 text-amber-900 border-b sticky top-0">
                   <tr>
                     <th className="px-3 py-2">Sector</th>
-                    <th className="px-3 py-2">Zona</th>
+                    <th className="px-3 py-2">Establecimiento / Escuela</th>
+                    <th className="px-3 py-2">Departamento</th>
+                    <th className="px-3 py-2 text-center">Radio SIGE</th>
                     <th className="px-3 py-2 text-right">A01 Básico</th>
-                    <th className="px-3 py-2 text-right">A04 Radio</th>
-                    <th className="px-3 py-2 text-center">% Pagado</th>
+                    <th className="px-3 py-2 text-right">A04 Radio ($ y %)</th>
                     <th className="px-3 py-2">Escala</th>
                     <th className="px-3 py-2 text-center">Dictamen / Clasificación</th>
                     <th className="px-3 py-2">Decreto / Resolución Aval</th>
@@ -546,11 +547,22 @@ export default function AuditoriaSueldosIndex({
                   {viejosList.map((v) => (
                     <tr key={v.id} className="hover:bg-amber-50/50">
                       <td className="px-3 py-2 font-bold text-gray-900">{v.sector}</td>
-                      <td className="px-3 py-2 font-bold">{v.zona}</td>
+                      <td className="px-3 py-2">
+                        <div className="font-extrabold text-gray-950 leading-tight">
+                          {v.nombre_establecimiento || 'Sin Establecimiento Registrado'}
+                        </div>
+                        {v.cue && (
+                          <div className="text-[10px] text-gray-500 font-medium">CUE: {v.cue}</div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 font-bold text-gray-700">{v.departamento || 'S/D'}</td>
+                      <td className="px-3 py-2 text-center font-black">
+                        {v.radio_sige ? `Radio ${v.radio_sige}` : 'N/A'}
+                      </td>
                       <td className="px-3 py-2 text-right font-mono">${v.a01_basico.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right font-mono">${v.a04_radio.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-center font-black text-amber-700">
-                        {v.porcentaje_pagado}%
+                      <td className="px-3 py-2 text-right font-mono">
+                        <div className="font-bold">${v.a04_radio.toLocaleString()}</div>
+                        <div className="text-[10px] font-black text-amber-700">({v.porcentaje_pagado}%)</div>
                       </td>
                       <td className="px-3 py-2">
                         <span
