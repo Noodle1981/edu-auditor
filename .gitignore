@@ -33,6 +33,7 @@ Thumbs.db
 *.xlsx
 *.xls
 .agents/
+/datos_csv/
 __pycache__/
 *.pyc
 scratch*
