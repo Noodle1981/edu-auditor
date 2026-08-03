@@ -118,10 +118,11 @@ export default function AuditoriaSueldosIndex({
   };
 
   return (
-    <SIAMELayout>
+    <SIAMELayout fullWidth>
       <Head title="Auditoría de Sueldos y Radios — EDU-Auditor" />
 
-      {/* Header Section */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 max-w-[1920px] mx-auto space-y-6">
+        {/* Header Section */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -1001,6 +1002,7 @@ export default function AuditoriaSueldosIndex({
           </div>
         </div>
       )}
+      </div>
     </SIAMELayout>
   );
 }
