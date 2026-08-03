@@ -553,8 +553,16 @@ export default function AuditoriaSueldosIndex({
                         {v.porcentaje_pagado}%
                       </td>
                       <td className="px-3 py-2">
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800">
-                          {v.escala_detectada}
+                        <span
+                          className={`px-2 py-0.5 text-[10px] font-black rounded border ${
+                            v.escala_detectada === 'LEY HISTORICA' || v.escala_detectada === 'VIEJA'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'bg-purple-100 text-purple-900 border-purple-300'
+                          }`}
+                        >
+                          {v.escala_detectada === 'LEY HISTORICA' || v.escala_detectada === 'VIEJA'
+                            ? '📜 Ley Histórica'
+                            : '⚖️ Nueva Paritaria'}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-center">
