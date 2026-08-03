@@ -30,6 +30,8 @@ Thumbs.db
 *.db
 *.sqlite
 *.csv
+*.xlsx
+*.xls
 .agents/
 __pycache__/
 *.pyc
