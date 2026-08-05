@@ -30,7 +30,7 @@ Corresponden a liquidaciones que continúan utilizando los porcentajes de la ley
   - **Sectores Vinculados a Escuela (85 registros)**.
   - **Sectores Desvinculados / Sin Escuela (24 registros)**.
 
-### B. Nueva Paritaria / Adicionales Jerárquicos (85 Registros)
+### B. Ley Paritaria / Adicionales Jerárquicos (85 Registros)
 Corresponden a porcentajes no enteros o compuestos (ejemplos: `53,97%`, `80,95%`, `104,23%`, `128,18%`).
 * **Origen:** Directivos, vicedirectores, supervisores y personal jerárquico que perciben adicionales específicos sobre la base de cálculo de zona.
 
@@ -46,7 +46,7 @@ Todas las tablas de **Escalas & Residuales** muestran de forma limpia y separada
 | **Sector** | Número del sector presupuestario. |
 | **Establecimiento** | Nombre de la escuela o repartición. |
 | **Porcentaje Pagado** | Porcentaje de bonificación pagado en haberes. |
-| **Escala Detectada** | `LEY HISTORICA` o `NUEVA PARITARIA`. |
+| **Escala Detectada** | `LEY HISTORICA` o `LEY PARITARIA`. |
 | **Dictamen Auditor** | `PENDIENTE`, `JUSTIFICADO_LEGAL`, `ERROR_LIQUIDACION`, `CASO_ESPECIAL`. |
 | **Decreto / Norma** | Número de norma respaldatoria (ej. *Decreto N° 1420/89*). |
 | **Notas del Auditor** | Justificación técnica del auditor. |

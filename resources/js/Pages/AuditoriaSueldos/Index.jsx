@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import SIAMELayout from '../../Layouts/SIAMELayout';
 import { GlassCard } from '../../Components/GlassCard';
+import { Pagination } from '../../Components/Pagination';
 
 export default function AuditoriaSueldosIndex({
   nominas = [],
@@ -23,6 +24,9 @@ export default function AuditoriaSueldosIndex({
   const [filtroDepto, setFiltroDepto] = useState('');
   const [filtroAmbito, setFiltroAmbito] = useState('');
   const [filtroRadio, setFiltroRadio] = useState('');
+  const [pageCruce, setPageCruce] = useState(1);
+  const [pageTracking, setPageTracking] = useState(1);
+  const PAGE_SIZE = 50;
 
   // Local state for management updates
   const [auditList, setAuditList] = useState(resultados);
@@ -42,31 +46,137 @@ export default function AuditoriaSueldosIndex({
   const linkedViejos = useMemo(() => viejosList.filter(v => v.nombre_establecimiento !== 'Sin Establecimiento Registrado' && v.cue), [viejosList]);
   const unlinkedViejos = useMemo(() => viejosList.filter(v => v.nombre_establecimiento === 'Sin Establecimiento Registrado' || !v.cue), [viejosList]);
 
-  // Dynamic filter options lookup
   const deptosDisponibles = useMemo(() => {
     const list = new Set();
-    auditList.forEach(i => { if (i.departamento) list.add(i.departamento); });
-    cruceEscuelas.forEach(i => { if (i.departamento) list.add(i.departamento); });
-    viejosList.forEach(v => { if (v.departamento) list.add(v.departamento); });
+    auditList.forEach(i => {
+      if (i.departamento && (!filtroNivel || i.nivel_educativo === filtroNivel)) {
+        list.add(i.departamento);
+      }
+    });
+    cruceEscuelas.forEach(i => {
+      if (i.departamento && (!filtroNivel || i.nivel_educativo === filtroNivel)) {
+        list.add(i.departamento);
+      }
+    });
+    viejosList.forEach(v => {
+      if (v.departamento && (!filtroNivel || v.nivel_educativo === filtroNivel)) {
+        list.add(v.departamento);
+      }
+    });
     return Array.from(list).sort();
-  }, [auditList, cruceEscuelas, viejosList]);
+  }, [auditList, cruceEscuelas, viejosList, filtroNivel]);
+
+  useEffect(() => {
+    if (filtroDepto && !deptosDisponibles.includes(filtroDepto)) {
+      setFiltroDepto('');
+    }
+  }, [filtroNivel, deptosDisponibles, filtroDepto]);
 
   const radiosDisponibles = useMemo(() => {
     const list = new Set();
     auditList.forEach(i => {
-      if (i.radio_sige !== null) list.add(Number(i.radio_sige));
-      if (i.radio_sueldo !== null) list.add(Number(i.radio_sueldo));
+      if ((!filtroNivel || i.nivel_educativo === filtroNivel) && (!filtroDepto || i.departamento === filtroDepto)) {
+        if (i.radio_sige !== null) list.add(Number(i.radio_sige));
+        if (i.radio_sueldo !== null) list.add(Number(i.radio_sueldo));
+      }
     });
     cruceEscuelas.forEach(i => {
-      if (i.radio_sige !== null) list.add(Number(i.radio_sige));
-      if (i.radio_sueldo !== null) list.add(Number(i.radio_sueldo));
+      if ((!filtroNivel || i.nivel_educativo === filtroNivel) && (!filtroDepto || i.departamento === filtroDepto)) {
+        if (i.radio_sige !== null) list.add(Number(i.radio_sige));
+        if (i.radio_sueldo !== null) list.add(Number(i.radio_sueldo));
+      }
     });
     viejosList.forEach(v => {
-      if (v.radio_sige !== null) list.add(Number(v.radio_sige));
-      if (v.radio_sueldo !== null) list.add(Number(v.radio_sueldo));
+      if ((!filtroNivel || v.nivel_educativo === filtroNivel) && (!filtroDepto || v.departamento === filtroDepto)) {
+        if (v.radio_sige !== null) list.add(Number(v.radio_sige));
+        if (v.radio_sueldo !== null) list.add(Number(v.radio_sueldo));
+      }
     });
     return Array.from(list).sort((a, b) => a - b);
-  }, [auditList, cruceEscuelas, viejosList]);
+  }, [auditList, cruceEscuelas, viejosList, filtroNivel, filtroDepto]);
+
+  useEffect(() => {
+    if (filtroRadio && !radiosDisponibles.includes(Number(filtroRadio))) {
+      setFiltroRadio('');
+    }
+  }, [filtroNivel, filtroDepto, radiosDisponibles, filtroRadio]);
+
+  const auditStatusLabels = {
+    COINCIDE_TOTAL: '🟢 COINCIDE TOTAL',
+    COINCIDE_SIGE: '🟢 COINCIDE SIGE',
+    COINCIDE_SIGE_Y_CAMINO: '🟢 COINCIDE SIGE Y CAMINO',
+    COINCIDE_SIGE_Y_CIRC: '🟢 COINCIDE SIGE Y CIRC',
+    PAGA_MAS_QUE_SIGE: '🔴 PAGA MÁS QUE SIGE',
+    PAGA_MENOS_QUE_SIGE: '🔵 PAGA MENOS QUE SIGE',
+    SIN_SIGE: '🟡 SIN REGISTRO SIGE'
+  };
+
+  const auditoriasDisponibles = useMemo(() => {
+    const list = new Set();
+    auditList.forEach(i => {
+      if (
+        (!filtroNivel || i.nivel_educativo === filtroNivel) &&
+        (!filtroDepto || i.departamento === filtroDepto) &&
+        (!filtroRadio || Number(i.radio_sige) === Number(filtroRadio) || Number(i.radio_sueldo) === Number(filtroRadio))
+      ) {
+        if (i.estado_auditoria) list.add(i.estado_auditoria);
+      }
+    });
+    return Array.from(list).sort();
+  }, [auditList, filtroNivel, filtroDepto, filtroRadio]);
+
+  useEffect(() => {
+    if (filtroAuditoria && !auditoriasDisponibles.includes(filtroAuditoria)) {
+      setFiltroAuditoria('');
+    }
+  }, [filtroNivel, filtroDepto, filtroRadio, auditoriasDisponibles, filtroAuditoria]);
+
+  // Helpers for clear comparison badges requested by user
+  const renderCoincideSigeSueldoBadge = (rSige, rSueldo, cue) => {
+    if (!cue || rSige === null || rSige === undefined || rSige === '') {
+      return <span className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-slate-100 text-slate-500 border border-slate-200 shrink-0">No Aplica</span>;
+    }
+    const sige = Number(rSige);
+    const sueldo = Number(rSueldo);
+    if (sige === sueldo) {
+      return <span className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">🟢 SI</span>;
+    }
+    if (sueldo > sige) {
+      const diff = sueldo - sige;
+      return <span className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-red-100 text-red-800 border border-red-300 shrink-0">🔴 MÁS (+{diff})</span>;
+    }
+    const diff = sige - sueldo;
+    return <span className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-sky-100 text-sky-800 border border-sky-300 shrink-0">🔵 MENOS (-{diff})</span>;
+  };
+
+  const renderRadioTeoricoBadge = (rSueldo, rTeorico, cue) => {
+    if (!cue || rTeorico === null || rTeorico === undefined || rTeorico === '') {
+      return <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-500 border border-slate-200">No Aplica</span>;
+    }
+    if (Number(rSueldo) === Number(rTeorico)) {
+      return <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800 border border-emerald-200">🟢 SI</span>;
+    }
+    return <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-red-100 text-red-800 border border-red-200">🔴 NO (R{rTeorico})</span>;
+  };
+
+  const renderDistanciaCamino = (distCamino, cue) => {
+    if (!cue || distCamino === null || distCamino === undefined || distCamino === '') {
+      return <span className="text-slate-400 font-medium text-[11px]">No Aplica</span>;
+    }
+    return <span className="font-extrabold text-gray-900 text-xs">📍 {Number(distCamino).toFixed(1).replace('.', ',')} km</span>;
+  };
+
+  const renderEscalaLeyBadge = (porcPagado) => {
+    if (!porcPagado) return <span className="text-gray-400">-</span>;
+    const p = Number(porcPagado);
+    if ([20, 30, 80, 100, 120, 140].includes(p)) {
+      return <span className="font-bold text-gray-700 text-[11px]">Ley Histórica</span>;
+    }
+    if ([40, 50, 60, 95, 115, 135, 155].includes(p)) {
+      return <span className="font-bold text-gray-900 text-[11px]">Ley Paritaria</span>;
+    }
+    return <span className="font-bold text-purple-900 text-[11px]">Adicional Jerárquico</span>;
+  };
 
   // Filtering
   const filteredResultados = auditList.filter((item) => {
@@ -170,6 +280,26 @@ export default function AuditoriaSueldosIndex({
     });
   }, [cruceBaseFiltered, filtroCruce]);
 
+  const totalPagesCruce = Math.ceil(filteredCruce.length / PAGE_SIZE);
+  const paginatedCruce = useMemo(() => {
+    const start = (pageCruce - 1) * PAGE_SIZE;
+    return filteredCruce.slice(start, start + PAGE_SIZE);
+  }, [filteredCruce, pageCruce]);
+
+  const totalPagesTracking = Math.ceil(linkedResultados.length / PAGE_SIZE);
+  const paginatedTracking = useMemo(() => {
+    const start = (pageTracking - 1) * PAGE_SIZE;
+    return linkedResultados.slice(start, start + PAGE_SIZE);
+  }, [linkedResultados, pageTracking]);
+
+  useEffect(() => {
+    setPageCruce(1);
+  }, [search, filtroNivel, filtroDepto, filtroAmbito, filtroRadio, filtroCruce]);
+
+  useEffect(() => {
+    setPageTracking(1);
+  }, [search, filtroNivel, filtroDepto, filtroAmbito, filtroRadio, filtroAuditoria]);
+
   const cruceStats = useMemo(() => {
     let coincide = 0;
     let noCoincide = 0;
@@ -191,9 +321,11 @@ export default function AuditoriaSueldosIndex({
     return { total: cruceBaseFiltered.length, coincide, noCoincide, sector0, sinLiq };
   }, [cruceBaseFiltered]);
 
-  const nivelesDisponibles = Array.from(
-    new Set(auditList.map((i) => i.nivel_educativo).filter(Boolean))
-  ).sort();
+  const nivelesDisponibles = useMemo(() => {
+    return Array.from(
+      new Set(cruceEscuelas.map((i) => i.nivel_educativo).filter(Boolean))
+    ).sort();
+  }, [cruceEscuelas]);
 
   const filteredConflictosSige = useMemo(() => {
     return conflictosSige.filter((c) => {
@@ -347,20 +479,8 @@ export default function AuditoriaSueldosIndex({
           </p>
         </div>
 
-        {/* Period Selector & Export Button */}
-        <div className="flex flex-wrap items-center gap-3">
-          <a
-            href={`/api/auditoria-sueldos/exportar-excel?tab=${activeTab}&periodo=${nominaSeleccionada?.periodo || ''}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition-all duration-200 flex items-center gap-2 cursor-pointer"
-            title="Descargar informe oficial Excel para autoridades de la pestaña actual"
-          >
-            <i className="fa-solid fa-file-excel text-base"></i>
-            <span>Exportar Excel</span>
-          </a>
-
-          <div className="flex items-center gap-3 bg-white p-2.5 rounded-2xl border border-gray-200 shadow-sm">
+        {/* Period Selector */}
+        <div className="flex items-center gap-3 bg-white p-2.5 rounded-2xl border border-gray-200 shadow-sm">
             <i className="fa-solid fa-calendar-days text-[#FE8204] text-lg pl-2"></i>
             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Período:</span>
             <select
@@ -376,7 +496,6 @@ export default function AuditoriaSueldosIndex({
             </select>
           </div>
         </div>
-      </div>
 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-gray-200 overflow-x-auto pb-3 mb-6 custom-scrollbar">
@@ -597,13 +716,11 @@ export default function AuditoriaSueldosIndex({
                 className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-3 py-2 focus:ring-[#FE8204] cursor-pointer"
               >
                 <option value="">Todos los Estados Auditoría</option>
-                <option value="COINCIDE_TOTAL">🟢 COINCIDE TOTAL</option>
-                <option value="COINCIDE_SIGE">🟢 COINCIDE SIGE</option>
-                <option value="COINCIDE_SIGE_Y_CAMINO">🟢 COINCIDE SIGE Y CAMINO</option>
-                <option value="COINCIDE_SIGE_Y_CIRC">🟢 COINCIDE SIGE Y CIRC</option>
-                <option value="PAGA_MAS_QUE_SIGE">🔴 PAGA MÁS QUE SIGE</option>
-                <option value="PAGA_MENOS_QUE_SIGE">🔵 PAGA MENOS QUE SIGE</option>
-                <option value="SIN_SIGE">🟡 SIN REGISTRO SIGE</option>
+                {auditoriasDisponibles.map((status) => (
+                  <option key={status} value={status}>
+                    {auditStatusLabels[status] || status}
+                  </option>
+                ))}
               </select>
             )}
           </div>
@@ -964,15 +1081,15 @@ export default function AuditoriaSueldosIndex({
                       </td>
                       <td className="px-3 py-2">
                         <span
-                          className={`px-2 py-0.5 text-[10px] font-black rounded border ${
+                          className={`font-bold text-[11px] ${
                             v.escala_detectada === 'LEY HISTORICA' || v.escala_detectada === 'VIEJA'
-                              ? 'bg-amber-100 text-amber-900 border-amber-300'
-                              : 'bg-purple-100 text-purple-900 border-purple-300'
+                              ? 'text-gray-700'
+                              : 'text-gray-900'
                           }`}
                         >
                           {v.escala_detectada === 'LEY HISTORICA' || v.escala_detectada === 'VIEJA'
-                            ? '📜 Ley Histórica'
-                            : '⚖️ Nueva Paritaria'}
+                            ? 'Ley Histórica'
+                            : 'Ley Paritaria'}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-center">
@@ -1025,13 +1142,27 @@ export default function AuditoriaSueldosIndex({
       {/* TAB 3: CONFLICTOS INTERNOS SIGE */}
       {activeTab === 'conflictos' && (
         <GlassCard className="p-6">
-          <h2 className="text-base font-black text-gray-900 mb-2 flex items-center gap-2">
-            <i className="fa-solid fa-triangle-exclamation text-amber-500"></i>
-            Sectores SIGE con Conflicto Interno ({filteredConflictosSige.length} Sectores)
-          </h2>
-          <p className="text-xs text-gray-600 mb-4">
-            Sectores que poseen múltiples radios oficiales en la base de datos `modalidades`. Haga clic en la cantidad de escuelas para ver el detalle de edificios y departamentos.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <i className="fa-solid fa-triangle-exclamation text-amber-500"></i>
+                Sectores SIGE con Conflicto Interno ({filteredConflictosSige.length} Sectores)
+              </h2>
+              <p className="text-xs text-gray-600">
+                Sectores que poseen múltiples radios oficiales en la base de datos `modalidades`. Haga clic en la cantidad de escuelas para ver el detalle de edificios y departamentos.
+              </p>
+            </div>
+            <a
+              href={`/api/auditoria-sueldos/exportar-excel?tab=conflictos&periodo=${nominaSeleccionada?.periodo || ''}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              title="Descargar conflictos de SIGE en Excel"
+            >
+              <i className="fa-solid fa-file-excel text-sm"></i>
+              <span>Descargar Excel Conflictos SIGE</span>
+            </a>
+          </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left text-gray-700 border-collapse">
@@ -1093,7 +1224,7 @@ export default function AuditoriaSueldosIndex({
       {/* TAB 4: PAGAN MÁS QUE SIGE */}
       {activeTab === 'paga_mas' && (
         <GlassCard className="p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <div>
               <h2 className="text-base font-black text-red-900 flex items-center gap-2">
                 <i className="fa-solid fa-arrow-trend-up text-red-600"></i>
@@ -1103,6 +1234,16 @@ export default function AuditoriaSueldosIndex({
                 Sectores donde la liquidación de haberes abona un porcentaje superior al fijado administrativamente.
               </p>
             </div>
+            <a
+              href={`/api/auditoria-sueldos/exportar-excel?tab=paga_mas&periodo=${nominaSeleccionada?.periodo || ''}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              title="Descargar establecimientos que pagan más en Excel"
+            >
+              <i className="fa-solid fa-file-excel text-sm"></i>
+              <span>Descargar Excel Pagan Más</span>
+            </a>
           </div>
 
           <div className="overflow-x-auto">
@@ -1111,14 +1252,15 @@ export default function AuditoriaSueldosIndex({
                 <tr>
                   <th className="px-3 py-3 text-center font-bold">Centro</th>
                   <th className="px-3 py-3 text-center font-bold">Sector</th>
-                  <th className="px-3 py-3 font-bold">Nivel</th>
-                  <th className="px-3 py-3 font-bold">Zona</th>
-                  <th className="px-3 py-3 font-bold">Establecimiento</th>
-                  <th className="px-3 py-3 font-bold">CUE</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
+                  <th className="px-3 py-3 font-bold">Establecimiento / Escuela</th>
                   <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
-                  <th className="px-3 py-3 text-center font-bold">R. Circ</th>
-                  <th className="px-3 py-3 text-center font-bold">R. Cam</th>
+                  <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
+                  <th className="px-3 py-3 text-center font-bold bg-red-100/70 border-x border-red-200">Coincide SIGE vs Sueldo</th>
+                  <th className="px-3 py-3 text-center font-bold">% Pagado</th>
+                  <th className="px-3 py-3 text-center font-bold">Ley / Escala</th>
+                  <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
+                  <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
+                  <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
                   <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                   <th className="px-3 py-3 text-center font-bold">Gestión</th>
                   <th className="px-3 py-3 text-center font-bold">Acciones</th>
@@ -1129,36 +1271,45 @@ export default function AuditoriaSueldosIndex({
                   <tr key={item.id} className="hover:bg-red-50/50">
                     <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
-                    <td className="px-3 py-3 font-semibold text-gray-700">{item.nivel_educativo || 'GENERAL'}</td>
-                    <td className="px-3 py-3 font-bold">{item.zona_sueldo}</td>
-                    <td className="px-3 py-3 font-bold text-gray-900 max-w-xs truncate">
-                      {item.nombre_establecimiento || 'No Registrado'}
-                    </td>
-                    <td className="px-3 py-3 font-mono text-gray-500">
-                      <div className="flex items-center gap-1.5">
-                        <span>{item.cue || '-'}</span>
-                        {item.cue && (
-                          <a
-                            href={`/admin/establecimientos?search=${item.cue}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Editar Establecimiento en SIGE"
-                            className="text-gray-400 hover:text-[#FE8204] transition"
-                          >
-                            <i className="fa-solid fa-pen-to-square text-[10px]"></i>
-                          </a>
+                    <td className="px-3 py-3">
+                      <div className="font-extrabold text-gray-950 max-w-xs truncate">
+                        {item.nombre_establecimiento || 'No Registrado'}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-500">
+                        {item.cue && <span>CUE: {item.cue}</span>}
+                        {item.nivel_educativo && item.nivel_educativo !== 'GENERAL' && (
+                          <span className="px-1 py-0.1 bg-gray-100 text-gray-700 rounded border font-semibold">
+                            {item.nivel_educativo}
+                          </span>
                         )}
+                        {item.departamento && <span>• {item.departamento}</span>}
                       </div>
                     </td>
+                    <td className="px-3 py-3 text-center font-black text-gray-700">R{item.radio_sige || '-'}</td>
                     <td className="px-3 py-3 text-center">
                       <span className="px-2 py-0.5 rounded text-xs font-black bg-red-100 text-red-800">
                         R{item.radio_sueldo}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-center font-bold text-gray-700">R{item.radio_sige || '-'}</td>
-                    <td className="px-3 py-3 text-center text-gray-500">{item.radio_circ || '-'}</td>
-                    <td className="px-3 py-3 text-center text-gray-500">{item.radio_camino || '-'}</td>
-                    <td className="px-3 py-3 text-right font-black text-red-700">{item.total_filas_docentes}</td>
+                    <td className="px-3 py-3 text-center bg-red-50/40 border-x border-red-100">
+                      {renderCoincideSigeSueldoBadge(item.radio_sige, item.radio_sueldo, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center font-black text-gray-900">
+                      {item.porc_pagado_mediana ? `${item.porc_pagado_mediana}%` : '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderEscalaLeyBadge(item.porc_pagado_mediana)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderRadioTeoricoBadge(item.radio_sueldo, item.radio_circ, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderRadioTeoricoBadge(item.radio_sueldo, item.radio_camino, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderDistanciaCamino(item.dist_camino, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-right font-black text-red-700">{item.total_filas_docentes} agentes</td>
                     <td className="px-3 py-3 text-center">
                       <span
                         className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
@@ -1191,7 +1342,7 @@ export default function AuditoriaSueldosIndex({
       {/* TAB 5: PAGAN MENOS QUE SIGE */}
       {activeTab === 'paga_menos' && (
         <GlassCard className="p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <div>
               <h2 className="text-base font-black text-blue-900 flex items-center gap-2">
                 <i className="fa-solid fa-arrow-trend-down text-blue-600"></i>
@@ -1201,6 +1352,16 @@ export default function AuditoriaSueldosIndex({
                 Sectores donde los docentes perciben una bonificación inferior al radio oficial asignado a la escuela.
               </p>
             </div>
+            <a
+              href={`/api/auditoria-sueldos/exportar-excel?tab=paga_menos&periodo=${nominaSeleccionada?.periodo || ''}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              title="Descargar establecimientos que pagan menos en Excel"
+            >
+              <i className="fa-solid fa-file-excel text-sm"></i>
+              <span>Descargar Excel Pagan Menos</span>
+            </a>
           </div>
 
           <div className="overflow-x-auto">
@@ -1209,14 +1370,15 @@ export default function AuditoriaSueldosIndex({
                 <tr>
                   <th className="px-3 py-3 text-center font-bold">Centro</th>
                   <th className="px-3 py-3 text-center font-bold">Sector</th>
-                  <th className="px-3 py-3 font-bold">Nivel</th>
-                  <th className="px-3 py-3 font-bold">Zona</th>
-                  <th className="px-3 py-3 font-bold">Establecimiento</th>
-                  <th className="px-3 py-3 font-bold">CUE</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
+                  <th className="px-3 py-3 font-bold">Establecimiento / Escuela</th>
                   <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
-                  <th className="px-3 py-3 text-center font-bold">R. Circ</th>
-                  <th className="px-3 py-3 text-center font-bold">R. Cam</th>
+                  <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
+                  <th className="px-3 py-3 text-center font-bold bg-blue-100/70 border-x border-blue-200">Coincide SIGE vs Sueldo</th>
+                  <th className="px-3 py-3 text-center font-bold">% Pagado</th>
+                  <th className="px-3 py-3 text-center font-bold">Ley / Escala</th>
+                  <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
+                  <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
+                  <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
                   <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                   <th className="px-3 py-3 text-center font-bold">Gestión</th>
                   <th className="px-3 py-3 text-center font-bold">Acciones</th>
@@ -1227,36 +1389,45 @@ export default function AuditoriaSueldosIndex({
                   <tr key={item.id} className="hover:bg-blue-50/50">
                     <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
-                    <td className="px-3 py-3 font-semibold text-gray-700">{item.nivel_educativo || 'GENERAL'}</td>
-                    <td className="px-3 py-3 font-bold">{item.zona_sueldo}</td>
-                    <td className="px-3 py-3 font-bold text-gray-900 max-w-xs truncate">
-                      {item.nombre_establecimiento || 'No Registrado'}
-                    </td>
-                    <td className="px-3 py-3 font-mono text-gray-500">
-                      <div className="flex items-center gap-1.5">
-                        <span>{item.cue || '-'}</span>
-                        {item.cue && (
-                          <a
-                            href={`/admin/establecimientos?search=${item.cue}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Editar Establecimiento en SIGE"
-                            className="text-gray-400 hover:text-[#FE8204] transition"
-                          >
-                            <i className="fa-solid fa-pen-to-square text-[10px]"></i>
-                          </a>
+                    <td className="px-3 py-3">
+                      <div className="font-extrabold text-gray-950 max-w-xs truncate">
+                        {item.nombre_establecimiento || 'No Registrado'}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-500">
+                        {item.cue && <span>CUE: {item.cue}</span>}
+                        {item.nivel_educativo && item.nivel_educativo !== 'GENERAL' && (
+                          <span className="px-1 py-0.1 bg-gray-100 text-gray-700 rounded border font-semibold">
+                            {item.nivel_educativo}
+                          </span>
                         )}
+                        {item.departamento && <span>• {item.departamento}</span>}
                       </div>
                     </td>
+                    <td className="px-3 py-3 text-center font-black text-gray-700">R{item.radio_sige || '-'}</td>
                     <td className="px-3 py-3 text-center">
                       <span className="px-2 py-0.5 rounded text-xs font-black bg-blue-100 text-blue-800">
                         R{item.radio_sueldo}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-center font-bold text-gray-700">R{item.radio_sige || '-'}</td>
-                    <td className="px-3 py-3 text-center text-gray-500">{item.radio_circ || '-'}</td>
-                    <td className="px-3 py-3 text-center text-gray-500">{item.radio_camino || '-'}</td>
-                    <td className="px-3 py-3 text-right font-black text-blue-700">{item.total_filas_docentes}</td>
+                    <td className="px-3 py-3 text-center bg-blue-50/40 border-x border-blue-100">
+                      {renderCoincideSigeSueldoBadge(item.radio_sige, item.radio_sueldo, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center font-black text-gray-900">
+                      {item.porc_pagado_mediana ? `${item.porc_pagado_mediana}%` : '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderEscalaLeyBadge(item.porc_pagado_mediana)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderRadioTeoricoBadge(item.radio_sueldo, item.radio_circ, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderRadioTeoricoBadge(item.radio_sueldo, item.radio_camino, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderDistanciaCamino(item.dist_camino, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-right font-black text-blue-700">{item.total_filas_docentes} agentes</td>
                     <td className="px-3 py-3 text-center">
                       <span
                         className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
@@ -1289,13 +1460,27 @@ export default function AuditoriaSueldosIndex({
       {/* TAB 6: ZONAS INCONSISTENTES */}
       {activeTab === 'zonas' && (
         <GlassCard className="p-6">
-          <h2 className="text-base font-black text-purple-900 mb-2 flex items-center gap-2">
-            <i className="fa-solid fa-location-dot text-purple-600"></i>
-            Inconsistencias de Letra de Zona ({zonasInconsistentesList.length} Sectores)
-          </h2>
-          <p className="text-xs text-gray-600 mb-4">
-            Sectores donde la letra de zona del recibo (ZONA sueldos) difiere de la letra registrada en el edificio (SIGE).
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-base font-black text-purple-900 flex items-center gap-2">
+                <i className="fa-solid fa-location-dot text-purple-600"></i>
+                Inconsistencias de Letra de Zona ({zonasInconsistentesList.length} Sectores)
+              </h2>
+              <p className="text-xs text-gray-600">
+                Sectores donde la letra de zona del recibo (ZONA sueldos) difiere de la letra registrada en el edificio (SIGE).
+              </p>
+            </div>
+            <a
+              href={`/api/auditoria-sueldos/exportar-excel?tab=zonas&periodo=${nominaSeleccionada?.periodo || ''}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              title="Descargar inconsistencias de letra de zona en Excel"
+            >
+              <i className="fa-solid fa-file-excel text-sm"></i>
+              <span>Descargar Excel Inconsistencias Zona</span>
+            </a>
+          </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left text-gray-700">
@@ -1303,11 +1488,15 @@ export default function AuditoriaSueldosIndex({
                 <tr>
                   <th className="px-3 py-3 text-center font-bold">Centro</th>
                   <th className="px-3 py-3 text-center font-bold">Sector</th>
-                  <th className="px-3 py-3">Establecimiento</th>
+                  <th className="px-3 py-3 font-bold">Establecimiento / Escuela</th>
                   <th className="px-3 py-3 text-center">Zona Sueldos</th>
-                  <th className="px-3 py-3 text-center">Zona SIGE Edificio</th>
-                  <th className="px-3 py-3 text-center">Radio Sueldo</th>
+                  <th className="px-3 py-3 text-center">Zona SIGE</th>
                   <th className="px-3 py-3 text-center">Radio SIGE</th>
+                  <th className="px-3 py-3 text-center">Radio Sueldo</th>
+                  <th className="px-3 py-3 text-center bg-purple-100/70 border-x border-purple-200">Coincide SIGE vs Sueldo</th>
+                  <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
+                  <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
+                  <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
                   <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                 </tr>
               </thead>
@@ -1316,12 +1505,30 @@ export default function AuditoriaSueldosIndex({
                   <tr key={item.id} className="hover:bg-purple-50/50">
                     <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
-                    <td className="px-3 py-3 font-bold text-gray-900">{item.nombre_establecimiento || 'No Registrado'}</td>
+                    <td className="px-3 py-3">
+                      <div className="font-extrabold text-gray-950 max-w-xs truncate">{item.nombre_establecimiento || 'No Registrado'}</div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-500">
+                        {item.cue && <span>CUE: {item.cue}</span>}
+                        {item.departamento && <span>• {item.departamento}</span>}
+                      </div>
+                    </td>
                     <td className="px-3 py-3 text-center font-bold text-red-600">{item.zona_sueldo}</td>
-                    <td className="px-3 py-3 text-center font-bold text-emerald-600">{item.zona_sige}</td>
-                    <td className="px-3 py-3 text-center font-bold">R{item.radio_sueldo}</td>
-                    <td className="px-3 py-3 text-center font-bold">R{item.radio_sige || '-'}</td>
-                    <td className="px-3 py-3 text-right font-black text-gray-700">{item.total_filas_docentes}</td>
+                    <td className="px-3 py-3 text-center font-bold text-emerald-600">{item.zona_sige || '-'}</td>
+                    <td className="px-3 py-3 text-center font-black text-gray-700">R{item.radio_sige || '-'}</td>
+                    <td className="px-3 py-3 text-center font-black text-purple-800">R{item.radio_sueldo}</td>
+                    <td className="px-3 py-3 text-center bg-purple-50/40 border-x border-purple-100">
+                      {renderCoincideSigeSueldoBadge(item.radio_sige, item.radio_sueldo, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderRadioTeoricoBadge(item.radio_sueldo, item.radio_circ, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderRadioTeoricoBadge(item.radio_sueldo, item.radio_camino, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderDistanciaCamino(item.dist_camino, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-right font-black text-gray-700">{item.total_filas_docentes} agentes</td>
                   </tr>
                 ))}
               </tbody>
@@ -1333,13 +1540,27 @@ export default function AuditoriaSueldosIndex({
       {/* TAB 7: SEGUIMIENTO & GESTION */}
       {activeTab === 'tracking' && (
         <GlassCard className="p-6">
-          <h2 className="text-base font-black text-emerald-900 mb-2 flex items-center gap-2">
-            <i className="fa-solid fa-list-check text-emerald-600"></i>
-            Panel de Seguimiento y Gestión de Auditoría
-          </h2>
-          <p className="text-xs text-gray-600 mb-4">
-            Gestión del ciclo de vida de los sectores observados. Marque progresivamente los sectores como investigados o corregidos.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-base font-black text-emerald-900 mb-2 flex items-center gap-2">
+                <i className="fa-solid fa-list-check text-emerald-600"></i>
+                Panel de Seguimiento y Gestión de Auditoría
+              </h2>
+              <p className="text-xs text-gray-600">
+                Gestión del ciclo de vida de los sectores observados. Marque progresivamente los sectores como investigados o corregidos.
+              </p>
+            </div>
+            <a
+              href={`/api/auditoria-sueldos/exportar-excel?tab=tracking&periodo=${nominaSeleccionada?.periodo || ''}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              title="Descargar panel de seguimiento y gestión en Excel"
+            >
+              <i className="fa-solid fa-file-excel text-sm"></i>
+              <span>Descargar Excel Seguimiento y Gestión</span>
+            </a>
+          </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left text-gray-700">
@@ -1347,65 +1568,63 @@ export default function AuditoriaSueldosIndex({
                 <tr>
                   <th className="px-3 py-3 text-center font-bold">Centro</th>
                   <th className="px-3 py-3 text-center font-bold">Sector</th>
-                  <th className="px-3 py-3 font-bold">Establecimiento</th>
-                  <th className="px-3 py-3 font-bold">Nivel</th>
+                  <th className="px-3 py-3 font-bold">Establecimiento / Escuela</th>
                   <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
                   <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
-                  <th className="px-3 py-3 font-bold">Estado Auditoría</th>
+                  <th className="px-3 py-3 text-center font-bold bg-emerald-100/70 border-x border-emerald-200">Coincide SIGE vs Sueldo</th>
+                  <th className="px-3 py-3 text-center font-bold">% Pagado</th>
+                  <th className="px-3 py-3 text-center font-bold">Ley / Escala</th>
+                  <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
+                  <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
+                  <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
+                  <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                   <th className="px-3 py-3 text-center font-bold">Estado Gestión</th>
-                  <th className="px-3 py-3 font-bold">Notas del Auditor</th>
-                  <th className="px-3 py-3 text-center font-bold">Acciones</th>
+                  <th className="px-3 py-3 text-center font-bold">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {linkedResultados.map((item) => (
+                {paginatedTracking.map((item) => (
                   <tr key={item.id} className="hover:bg-emerald-50/50">
                     <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3">
-                      <div className="font-bold text-gray-900 max-w-xs truncate">
+                      <div className="font-extrabold text-gray-950 max-w-xs truncate">
                         {item.nombre_establecimiento || 'No Registrado'}
                       </div>
-                      {item.cue && (
-                        <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-semibold mt-0.5">
-                          <span>CUE: {item.cue}</span>
-                          <a
-                            href={`/admin/establecimientos?search=${item.cue}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Editar Establecimiento en SIGE"
-                            className="text-gray-400 hover:text-[#FE8204] transition"
-                          >
-                            <i className="fa-solid fa-pen-to-square text-[9px]"></i>
-                          </a>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-500">
+                        {item.cue && <span>CUE: {item.cue}</span>}
+                        {item.nivel_educativo && item.nivel_educativo !== 'GENERAL' && (
+                          <span className="px-1 py-0.1 bg-gray-100 text-gray-700 rounded border font-semibold">
+                            {item.nivel_educativo}
+                          </span>
+                        )}
+                        {item.departamento && <span>• {item.departamento}</span>}
+                      </div>
                     </td>
-                    <td className="px-3 py-3 font-semibold text-gray-700">
-                      {item.nivel_educativo || 'GENERAL'}
+                    <td className="px-3 py-3 text-center font-black text-gray-700">R{item.radio_sige || '-'}</td>
+                    <td className="px-3 py-3 text-center font-black text-emerald-800">R{item.radio_sueldo || '-'}</td>
+                    <td className="px-3 py-3 text-center bg-emerald-50/40 border-x border-emerald-100">
+                      {renderCoincideSigeSueldoBadge(item.radio_sige, item.radio_sueldo, item.cue)}
                     </td>
-                    <td className="px-3 py-3 text-center font-extrabold text-emerald-700">
-                      {item.radio_sige ? `Radio ${item.radio_sige}` : '-'}
+                    <td className="px-3 py-3 text-center font-black text-gray-900">
+                      {item.porc_pagado_mediana ? `${item.porc_pagado_mediana}%` : '-'}
                     </td>
-                    <td className="px-3 py-3 text-center font-extrabold text-purple-700">
-                      {item.radio_sueldo ? `Radio ${item.radio_sueldo}` : '-'}
+                    <td className="px-3 py-3 text-center">
+                      {renderEscalaLeyBadge(item.porc_pagado_mediana)}
                     </td>
-                    <td className="px-3 py-3 font-bold">
+                    <td className="px-3 py-3 text-center">
+                      {renderRadioTeoricoBadge(item.radio_sueldo, item.radio_circ, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderRadioTeoricoBadge(item.radio_sueldo, item.radio_camino, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {renderDistanciaCamino(item.dist_camino, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-right font-black text-emerald-700">{item.total_filas_docentes} agentes</td>
+                    <td className="px-3 py-3 text-center">
                       <span
-                        className={`px-2 py-0.5 text-[10px] rounded ${
-                          item.estado_auditoria === 'PAGA_MAS_QUE_SIGE'
-                            ? 'bg-red-100 text-red-800'
-                            : item.estado_auditoria === 'PAGA_MENOS_QUE_SIGE'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-emerald-100 text-emerald-800'
-                        }`}
-                      >
-                        {item.estado_auditoria}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-center font-bold">
-                      <span
-                        className={`px-2 py-0.5 text-[10px] rounded-full ${
+                        className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
                           item.estado_gestion === 'CORREGIDO'
                             ? 'bg-emerald-100 text-emerald-800'
                             : item.estado_gestion === 'JUSTIFICADO'
@@ -1418,15 +1637,12 @@ export default function AuditoriaSueldosIndex({
                         {item.estado_gestion}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-gray-600 max-w-xs truncate">
-                      {item.notas_auditor || <span className="italic text-gray-400">Sin notas</span>}
-                    </td>
                     <td className="px-3 py-3 text-center">
                       <button
                         onClick={() => openEditModal(item)}
                         className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
                       >
-                        Editar Nota
+                        Gestionar
                       </button>
                     </td>
                   </tr>
@@ -1434,6 +1650,14 @@ export default function AuditoriaSueldosIndex({
               </tbody>
             </table>
           </div>
+
+          <Pagination
+            currentPage={pageTracking}
+            totalPages={totalPagesTracking}
+            onPageChange={setPageTracking}
+            totalItems={linkedResultados.length}
+            itemsName="sectores"
+          />
         </GlassCard>
       )}
 
@@ -1500,70 +1724,61 @@ export default function AuditoriaSueldosIndex({
           </div>
 
           <GlassCard className="p-6">
-            <h2 className="text-base font-black text-gray-900 mb-2 flex items-center gap-2">
-              <i className="fa-solid fa-building-columns text-[#0284c7]"></i>
-              Matriz de Relación de Escuelas y Sectores Presupuestarios ({filteredCruce.length} registros)
-            </h2>
-            <p className="text-xs text-gray-600 mb-4">
-              Cruce detallado de establecimientos cargados en el SIGE con las liquidaciones correspondientes.
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <i className="fa-solid fa-building-columns text-[#0284c7]"></i>
+                  Matriz de Relación de Escuelas y Sectores Presupuestarios ({filteredCruce.length} registros)
+                </h2>
+                <p className="text-xs text-gray-600">
+                  Cruce detallado de establecimientos cargados en el SIGE con las liquidaciones correspondientes.
+                </p>
+              </div>
+              <a
+                href={`/api/auditoria-sueldos/exportar-excel?tab=cruce&periodo=${nominaSeleccionada?.periodo || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                title="Descargar matriz completa de Escuelas y Sectores en Excel"
+              >
+                <i className="fa-solid fa-file-excel text-sm"></i>
+                <span>Descargar Excel Escuelas y Sectores</span>
+              </a>
+            </div>
 
             <div className="overflow-x-auto max-h-[500px] custom-scrollbar">
               <table className="w-full text-xs text-left text-gray-700 border-collapse">
                 <thead className="text-xs uppercase bg-gray-100 text-gray-700 border-b sticky top-0">
                   <tr>
-                    <th className="px-3 py-3 font-bold">CUE</th>
-                    <th className="px-3 py-3 font-bold">Escuela / Establecimiento</th>
-                    <th className="px-3 py-3 font-bold">Nivel / Dirección</th>
+                    <th className="px-3 py-3 font-bold">CUE / Escuela</th>
                     <th className="px-3 py-3 text-center font-bold">Centro</th>
                     <th className="px-3 py-3 text-center font-bold">Sector SIGE</th>
                     <th className="px-3 py-3 text-center font-bold">Sector Sueldos</th>
                     <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
-                    <th className="px-3 py-3 text-center font-bold">Radio Sueldo (A04)</th>
-                    <th className="px-3 py-3 text-center font-bold">Estado</th>
+                    <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
+                    <th className="px-3 py-3 text-center font-bold bg-amber-100/70 border-x border-amber-200">Coincide SIGE vs Sueldo</th>
+                    <th className="px-3 py-3 text-center font-bold">% Pagado</th>
+                    <th className="px-3 py-3 text-center font-bold">Ley / Escala</th>
+                    <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
+                    <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
+                    <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
                     <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredCruce.map((c, idx) => {
+                  {paginatedCruce.map((c, idx) => {
                     const isSector0 = c.sector_sige === '0' || c.sector_sige === 0 || !c.sector_sige;
-                    const isSinLiq = c.radio_sueldo === null && !isSector0;
-                    const matches = !isSector0 && !isSinLiq && Number(c.radio_sige) === Number(c.radio_sueldo);
-
-                    let badge = null;
-                    if (isSector0) {
-                      badge = <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">SECTOR 0</span>;
-                    } else if (isSinLiq) {
-                      badge = <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-200">SIN LIQUIDACIÓN</span>;
-                    } else if (matches) {
-                      badge = <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">COINCIDE</span>;
-                    } else {
-                      badge = <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">DIFERENCIA</span>;
-                    }
+                    const hasCue = !isSector0 && c.cue;
 
                     return (
                       <tr key={idx} className="hover:bg-gray-50/50">
-                        <td className="px-3 py-3 font-mono font-bold text-gray-500">
-                          <div className="flex items-center gap-1.5">
-                            <span>{c.cue}</span>
-                            <a
-                              href={`/admin/establecimientos?search=${c.cue}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Editar Establecimiento en SIGE"
-                              className="text-gray-400 hover:text-[#FE8204] transition"
-                            >
-                              <i className="fa-solid fa-pen-to-square text-[10px]"></i>
-                            </a>
+                        <td className="px-3 py-3">
+                          <div className="font-extrabold text-gray-950 leading-tight">{c.nombre_establecimiento}</div>
+                          <div className="flex items-center gap-2 text-[10px] text-gray-500 font-semibold mt-0.5">
+                            {c.cue && <span>CUE: {c.cue}</span>}
+                            {c.nivel_educativo && <span className="px-1 py-0.1 bg-gray-100 text-gray-700 rounded border">{c.nivel_educativo}</span>}
+                            {c.departamento && <span>• {c.departamento}</span>}
                           </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="font-extrabold text-gray-900 leading-tight">{c.nombre_establecimiento}</div>
-                          <div className="text-[10px] text-gray-400 font-semibold">{c.departamento}</div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="font-semibold text-gray-700">{c.nivel_educativo}</div>
-                          <div className="text-[10px] text-gray-400 font-semibold">{c.direccion_area}</div>
                         </td>
                         <td className="px-3 py-3 text-center font-black">
                           <span className="text-amber-950 font-bold bg-amber-100/60 px-2 py-0.5 rounded-lg border border-amber-200">{c.centro ?? 'S/D'}</span>
@@ -1582,13 +1797,30 @@ export default function AuditoriaSueldosIndex({
                             <span className="text-gray-400 italic">-</span>
                           )}
                         </td>
-                        <td className="px-3 py-3 text-center font-bold text-emerald-700">Radio {c.radio_sige}</td>
+                        <td className="px-3 py-3 text-center font-bold text-emerald-700">R{c.radio_sige || '-'}</td>
                         <td className="px-3 py-3 text-center font-black text-purple-700">
-                          {c.radio_sueldo !== null ? `Radio ${c.radio_sueldo}` : '-'}
+                          {c.radio_sueldo !== null ? `R${c.radio_sueldo}` : '-'}
                         </td>
-                        <td className="px-3 py-3 text-center">{badge}</td>
-                        <td className="px-3 py-3 text-right font-bold text-gray-600">
-                          {c.total_filas_docentes !== null ? `${c.total_filas_docentes} docentes` : '0'}
+                        <td className="px-3 py-3 text-center bg-amber-50/40 border-x border-amber-100">
+                          {renderCoincideSigeSueldoBadge(c.radio_sige, c.radio_sueldo, hasCue)}
+                        </td>
+                        <td className="px-3 py-3 text-center font-black text-gray-900">
+                          {c.porc_pagado_mediana ? `${c.porc_pagado_mediana}%` : '-'}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          {renderEscalaLeyBadge(c.porc_pagado_mediana)}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          {renderRadioTeoricoBadge(c.radio_sueldo, c.radio_circ, hasCue)}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          {renderRadioTeoricoBadge(c.radio_sueldo, c.radio_camino, hasCue)}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          {renderDistanciaCamino(c.dist_camino, hasCue)}
+                        </td>
+                        <td className="px-3 py-3 text-right font-bold text-gray-700">
+                          {c.total_filas_docentes !== null ? `${c.total_filas_docentes} agentes` : '0 agentes'}
                         </td>
                       </tr>
                     );
@@ -1596,6 +1828,14 @@ export default function AuditoriaSueldosIndex({
                 </tbody>
               </table>
             </div>
+
+            <Pagination
+              currentPage={pageCruce}
+              totalPages={totalPagesCruce}
+              onPageChange={setPageCruce}
+              totalItems={filteredCruce.length}
+              itemsName="establecimientos"
+            />
           </GlassCard>
         </div>
       )}
@@ -1614,6 +1854,16 @@ export default function AuditoriaSueldosIndex({
                   Sectores que registran liquidaciones docentes pero no poseen un establecimiento u oficina identificada en la base de datos oficial.
                 </p>
               </div>
+              <a
+                href={`/api/auditoria-sueldos/exportar-excel?tab=sin_escuela&periodo=${nominaSeleccionada?.periodo || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                title="Descargar sectores sin escuela en Excel"
+              >
+                <i className="fa-solid fa-file-excel text-sm"></i>
+                <span>Descargar Excel Sectores sin Escuela</span>
+              </a>
             </div>
 
             <div className="overflow-x-auto max-h-96 custom-scrollbar">

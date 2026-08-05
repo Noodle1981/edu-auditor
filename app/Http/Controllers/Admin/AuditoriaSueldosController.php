@@ -45,8 +45,11 @@ class AuditoriaSueldosController extends Controller
             ->leftJoin('edificios as ed', 'ed.id', '=', 'e.edificio_id')
             ->select(
                 'r.*',
+                'm.nivel_educativo as nivel_educativo',
                 DB::raw('COALESCE(ed.zona_departamento, "S/D") as departamento'),
-                DB::raw('COALESCE(m.ambito, "PUBLICO") as ambito')
+                DB::raw('COALESCE(m.ambito, "PUBLICO") as ambito'),
+                'ed.distancia_camino as dist_camino',
+                'ed.dist_circunf'
             )
             ->groupBy('r.id')
             ->orderBy('r.sector')
@@ -66,7 +69,7 @@ class AuditoriaSueldosController extends Controller
                 DB::raw('COALESCE(ed.zona_departamento, "S/D") as departamento'),
                 DB::raw('COALESCE(m.ambito, "PUBLICO") as ambito'),
                 DB::raw('COALESCE(m.radio_sige, m.radio) as radio_sige'),
-                DB::raw('COALESCE(m.direccion_area, "S/N") as nivel_educativo')
+                DB::raw('COALESCE(m.nivel_educativo, "S/N") as nivel_educativo')
             )
             ->groupBy('v.id')
             ->orderBy('v.sector', 'asc')
@@ -151,9 +154,15 @@ class AuditoriaSueldosController extends Controller
                 'r.centro as centro',
                 'r.sector as sector_sueldos',
                 'r.radio_sueldo',
+                'r.radio_circ',
+                'r.radio_camino',
+                'r.porc_pagado_mediana',
+                'r.escala_usada',
                 'r.total_filas_docentes',
                 'r.estado_auditoria',
-                'r.id as auditoria_id'
+                'r.id as auditoria_id',
+                'ed.distancia_camino as dist_camino',
+                'ed.dist_circunf'
             )
             ->orderBy('e.nombre')
             ->get();
@@ -395,8 +404,26 @@ class AuditoriaSueldosController extends Controller
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
+        // Determine column count and last column letter dynamically
+        $lastColLetter = 'K';
+        if ($tab === 'kpi') {
+            $lastColLetter = 'I';
+        } elseif ($tab === 'escala') {
+            $lastColLetter = 'I';
+        } elseif ($tab === 'cruce') {
+            $lastColLetter = 'Q';
+        } elseif ($tab === 'conflictos') {
+            $lastColLetter = 'L';
+        } elseif ($tab === 'paga_mas' || $tab === 'paga_menos' || $tab === 'tracking' || $tab === 'gestion') {
+            $lastColLetter = 'O';
+        } elseif ($tab === 'zonas') {
+            $lastColLetter = 'M';
+        } elseif ($tab === 'sin_escuela') {
+            $lastColLetter = 'G';
+        }
+
         // Banner superior oficial para autoridades
-        $sheet->mergeCells('A1:K1');
+        $sheet->mergeCells("A1:{$lastColLetter}1");
         $sheet->setCellValue('A1', 'MINISTERIO DE EDUCACIÓN — PROVINCIA DE SAN JUAN');
         $sheet->getStyle('A1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 13, 'color' => ['argb' => 'FFFFFFFF']],
@@ -414,12 +441,13 @@ class AuditoriaSueldosController extends Controller
             'zonas' => 'INCONSISTENCIA DE ZONAS GEOGRÁFICAS',
             'conflictos' => 'SECTORES SIGE CON CONFLICTO INTERNO',
             'sin_escuela' => 'SECTORES DE NÓMINA DESVINCULADOS DE ESTABLECIMIENTOS',
+            'tracking' => 'SEGUIMIENTO Y GESTIÓN ADMINISTRATIVA',
             'gestion' => 'SEGUIMIENTO Y GESTIÓN ADMINISTRATIVA',
         ];
 
         $nombrePestana = $tabNombres[$tab] ?? 'REPORTE DE AUDITORÍA SALARIAL';
 
-        $sheet->mergeCells('A2:K2');
+        $sheet->mergeCells("A2:{$lastColLetter}2");
         $sheet->setCellValue('A2', $nombrePestana.' | Nómina: '.$nominaSeleccionada->periodo.' | Emisión: '.date('d/m/Y H:i'));
         $sheet->getStyle('A2')->applyFromArray([
             'font' => ['bold' => true, 'size' => 10, 'color' => ['argb' => 'FFFE8204']],
@@ -502,11 +530,12 @@ class AuditoriaSueldosController extends Controller
                 $sheet->setCellValue('B'.$r, $v->sector ?? 'S/D');
                 $sheet->setCellValue('C'.$r, $v->cue ?? 'S/D');
                 $sheet->setCellValue('D'.$r, $v->nombre_establecimiento ?? 'Sin Registro');
-                $sheet->setCellValue('E'.$r, $v->porcentaje_pagado.'%');
-                $sheet->setCellValue('F'.$r, $v->escala_detectada);
+                $sheet->setCellValue('E'.$r, $v->porcentaje_pagado ? $v->porcentaje_pagado.'%' : '-');
+                $escalaText = ($v->escala_detectada === 'LEY HISTORICA' || $v->escala_detectada === 'VIEJA') ? 'Ley Histórica' : 'Ley Paritaria';
+                $sheet->setCellValue('F'.$r, $escalaText);
                 $sheet->setCellValue('G'.$r, $v->clasificacion_auditor);
                 $sheet->setCellValue('H'.$r, $v->resolucion_aval ?? '-');
-                $sheet->setCellValue('I'.$r, $v->notas_auditor ?? '-');
+                $sheet->setCellValue('I'.$r, $v->notes_auditor ?? $v->notas_auditor ?? '-');
 
                 $sheet->getStyle('A'.$r.':I'.$r)->applyFromArray([
                     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE2E8F0']]],
@@ -516,59 +545,417 @@ class AuditoriaSueldosController extends Controller
                 $sheet->getStyle('E'.$r.':H'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 $r++;
             }
-        } else {
-            $query = AuditoriaRadioResultado::where('nomina_id', $nominaId);
+        } elseif ($tab === 'cruce') {
+            $headers = [
+                'CUE', 'Establecimiento / Escuela', 'Departamento', 'Nivel Educativo', 'Dirección de Área',
+                'Centro', 'Sector SIGE', 'Sector Sueldos', 'Radio SIGE', 'Radio Sueldo',
+                'Coincide SIGE vs Sueldo', 'Porcentaje Pagado', 'Escala / Ley Aplicada',
+                'Radio Circunferencia', 'Radio Camino', 'Distancia Camino', 'Personal Afectado',
+            ];
+            $sheet->fromArray($headers, null, 'A'.$startRow);
+            $sheet->getStyle('A4:Q4')->applyFromArray($headerStyle);
+            $sheet->getRowDimension(4)->setRowHeight(24);
+
+            $cruceEscuelas = DB::table('establecimientos as e')
+                ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+                ->join('modalidades as m', 'm.establecimiento_id', '=', 'e.id')
+                ->leftJoin('auditoria_radio_resultados as r', function ($join) use ($nominaId) {
+                    $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector')
+                        ->where('r.nomina_id', '=', $nominaId);
+                })
+                ->whereNull('e.deleted_at')
+                ->whereNull('m.deleted_at')
+                ->select(
+                    'e.cue',
+                    'e.nombre as nombre_establecimiento',
+                    'ed.zona_departamento as departamento',
+                    'm.nivel_educativo',
+                    'm.direccion_area',
+                    'm.sector as sector_sige',
+                    'm.radio as radio_sige',
+                    'r.centro as centro',
+                    'r.sector as sector_sueldos',
+                    'r.radio_sueldo',
+                    'r.radio_circ',
+                    'r.radio_camino',
+                    'r.porc_pagado_mediana',
+                    'r.total_filas_docentes',
+                    'ed.distancia_camino as dist_camino'
+                )
+                ->orderBy('e.nombre')
+                ->get();
+
+            $r = 5;
+            foreach ($cruceEscuelas as $c) {
+                $hasCue = ! empty($c->cue);
+                $rSige = $c->radio_sige;
+                $rSueldo = $c->radio_sueldo;
+                $rCirc = $c->radio_circ;
+                $rCamino = $c->radio_camino;
+                $distCamino = $c->dist_camino;
+
+                if (! $hasCue || ! $rSige || $rSueldo === null) {
+                    $coincideSige = '⚪ No Aplica';
+                } elseif ($rSige == $rSueldo) {
+                    $coincideSige = '🟢 SI';
+                } elseif ($rSueldo > $rSige) {
+                    $coincideSige = '🔴 MÁS (+'.($rSueldo - $rSige).')';
+                } else {
+                    $coincideSige = '🔵 MENOS (-'.($rSige - $rSueldo).')';
+                }
+
+                $escala = '-';
+                if ($c->porc_pagado_mediana) {
+                    $escala = 'Ley Paritaria';
+                    if (in_array((float) $c->porc_pagado_mediana, [20, 30, 80, 100, 120, 140])) {
+                        $escala = 'Ley Histórica';
+                    } elseif (! in_array((float) $c->porc_pagado_mediana, [40, 50, 60, 95, 115, 135, 155])) {
+                        $escala = 'Adicional Jerárquico';
+                    }
+                }
+
+                $coincideCirc = (! $hasCue || ! $rCirc) ? '⚪ No Aplica' : (($rSueldo == $rCirc) ? '🟢 SI' : '🔴 NO (R'.$rCirc.')');
+                $coincideCamino = (! $hasCue || ! $rCamino) ? '⚪ No Aplica' : (($rSueldo == $rCamino) ? '🟢 SI' : '🔴 NO (R'.$rCamino.')');
+                $distText = ($hasCue && $distCamino !== null) ? '📍 '.number_format((float) $distCamino, 1, ',', '.').' km' : 'No Aplica';
+
+                $sheet->setCellValue('A'.$r, $c->cue ?? 'S/D');
+                $sheet->setCellValue('B'.$r, $c->nombre_establecimiento);
+                $sheet->setCellValue('C'.$r, $c->departamento ?? 'S/D');
+                $sheet->setCellValue('D'.$r, $c->nivel_educativo ?? '-');
+                $sheet->setCellValue('E'.$r, $c->direccion_area ?? '-');
+                $sheet->setCellValue('F'.$r, $c->centro ?? 'S/D');
+                $sheet->setCellValue('G'.$r, $c->sector_sige ?? '0');
+                $sheet->setCellValue('H'.$r, $c->sector_sueldos ?? '-');
+                $sheet->setCellValue('I'.$r, $rSige ? 'Radio '.$rSige : '-');
+                $sheet->setCellValue('J'.$r, $rSueldo !== null ? 'Radio '.$rSueldo : '-');
+                $sheet->setCellValue('K'.$r, $coincideSige);
+                $sheet->setCellValue('L'.$r, $c->porc_pagado_mediana ? $c->porc_pagado_mediana.'%' : '-');
+                $sheet->setCellValue('M'.$r, $escala);
+                $sheet->setCellValue('N'.$r, $coincideCirc);
+                $sheet->setCellValue('O'.$r, $coincideCamino);
+                $sheet->setCellValue('P'.$r, $distText);
+                $sheet->setCellValue('Q'.$r, $c->total_filas_docentes ?? 0);
+
+                $sheet->getStyle('A'.$r.':Q'.$r)->applyFromArray([
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE2E8F0']]],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $sheet->getStyle('A'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('F'.$r.':L'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('N'.$r.':P'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('Q'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $r++;
+            }
+        } elseif ($tab === 'conflictos') {
+            $headers = [
+                'Sector SIGE', 'Radios Distintos SIGE', 'Niveles Afectados',
+                'CUE Escuela', 'Establecimiento', 'CUI Edificio', 'Departamento',
+                'Radio Modalidad (SIGE)', 'Ámbito', 'Centro Salarial', 'Radio Sueldo (A04)', 'Cant. Modalidades',
+            ];
+            $sheet->fromArray($headers, null, 'A'.$startRow);
+            $sheet->getStyle('A4:L4')->applyFromArray($headerStyle);
+            $sheet->getRowDimension(4)->setRowHeight(24);
+
+            $conflictosSige = DB::table('modalidades as m')
+                ->join('establecimientos as e', 'e.id', '=', 'm.establecimiento_id')
+                ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+                ->leftJoin('auditoria_radio_resultados as r', function ($join) use ($nominaId) {
+                    $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector')
+                        ->where('r.nomina_id', '=', $nominaId);
+                })
+                ->whereNull('m.deleted_at')
+                ->whereNull('e.deleted_at')
+                ->select(
+                    DB::raw('CAST(m.sector AS INTEGER) as sector'),
+                    DB::raw('GROUP_CONCAT(DISTINCT m.radio) as radios_distintos'),
+                    DB::raw('GROUP_CONCAT(DISTINCT m.direccion_area) as niveles'),
+                    DB::raw("GROUP_CONCAT(e.nombre || '||' || e.cue || '||' || ed.cui || '||' || COALESCE(ed.zona_departamento, 'S/D') || '||' || m.radio || '||' || m.ambito || '||' || COALESCE(r.centro, '') || '||' || COALESCE(r.sector, '') || '||' || COALESCE(r.radio_sueldo, ''), '###') as establecimientos_detallados"),
+                    DB::raw('COUNT(m.id) as cant_modalidades')
+                )
+                ->groupBy(DB::raw('CAST(m.sector AS INTEGER)'))
+                ->havingRaw('COUNT(DISTINCT m.radio) > 1')
+                ->orderBy(DB::raw('CAST(m.sector AS INTEGER)'))
+                ->get();
+
+            $r = 5;
+            foreach ($conflictosSige as $c) {
+                $parsedRaw = [];
+                if ($c->establecimientos_detallados) {
+                    $items = explode('###', $c->establecimientos_detallados);
+                    foreach ($items as $item) {
+                        $parts = explode('||', $item);
+                        $parsedRaw[] = [
+                            'nombre' => $parts[0] ?? '',
+                            'cue' => $parts[1] ?? '',
+                            'cui' => $parts[2] ?? '',
+                            'departamento' => $parts[3] ?? 'S/D',
+                            'radio' => $parts[4] ?? '',
+                            'ambito' => $parts[5] ?? '',
+                            'centro' => $parts[6] ?? '',
+                            'sector_sueldos' => $parts[7] ?? '',
+                            'radio_sueldo' => $parts[8] ?? '',
+                        ];
+                    }
+                }
+
+                $uniqueEsts = [];
+                foreach ($parsedRaw as $est) {
+                    $key = $est['cue'].'-'.$est['radio'].'-'.$est['ambito'].'-'.$est['centro'];
+                    $uniqueEsts[$key] = $est;
+                }
+
+                foreach ($uniqueEsts as $est) {
+                    $sheet->setCellValue('A'.$r, $c->sector);
+                    $sheet->setCellValue('B'.$r, '['.$c->radios_distintos.']');
+                    $sheet->setCellValue('C'.$r, $c->niveles);
+                    $sheet->setCellValue('D'.$r, $est['cue']);
+                    $sheet->setCellValue('E'.$r, $est['nombre']);
+                    $sheet->setCellValue('F'.$r, $est['cui']);
+                    $sheet->setCellValue('G'.$r, $est['departamento']);
+                    $sheet->setCellValue('H'.$r, $est['radio'] ? 'Radio '.$est['radio'] : '-');
+                    $sheet->setCellValue('I'.$r, $est['ambito']);
+                    $sheet->setCellValue('J'.$r, $est['centro'] ?: '-');
+                    $sheet->setCellValue('K'.$r, $est['radio_sueldo'] !== '' ? 'Radio '.$est['radio_sueldo'] : '-');
+                    $sheet->setCellValue('L'.$r, $c->cant_modalidades);
+
+                    $sheet->getStyle('A'.$r.':L'.$r)->applyFromArray([
+                        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE2E8F0']]],
+                        'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                    ]);
+                    $sheet->getStyle('A'.$r.':D'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                    $sheet->getStyle('F'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                    $sheet->getStyle('H'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                    $sheet->getStyle('K'.$r.':L'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                    $r++;
+                }
+            }
+        } elseif ($tab === 'paga_mas' || $tab === 'paga_menos' || $tab === 'tracking' || $tab === 'gestion') {
+            $headers = [
+                'Centro', 'Sector', 'CUE', 'Establecimiento / Escuela',
+                'Radio SIGE', 'Radio Sueldo', 'Coincide SIGE vs Sueldo',
+                'Porcentaje Pagado', 'Ley / Escala Aplicada',
+                'Radio Circunferencia', 'Radio Camino', 'Distancia Camino',
+                'Personal Afectado', 'Estado Gestión', 'Notas / Observaciones',
+            ];
+            $sheet->fromArray($headers, null, 'A'.$startRow);
+            $sheet->getStyle('A4:O4')->applyFromArray($headerStyle);
+            $sheet->getRowDimension(4)->setRowHeight(24);
+
+            $query = DB::table('auditoria_radio_resultados as r')
+                ->where('r.nomina_id', $nominaId)
+                ->leftJoin('establecimientos as e', 'e.cue', '=', 'r.cue')
+                ->leftJoin('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+                ->select(
+                    'r.*',
+                    'ed.distancia_camino as dist_camino',
+                    'ed.dist_circunf'
+                );
 
             if ($tab === 'paga_mas') {
-                $query->where('estado_auditoria', 'PAGA_MAS_QUE_SIGE');
+                $query->whereNotNull('r.cue')->where('r.cue', '!=', '')->where('r.estado_auditoria', 'PAGA_MAS_QUE_SIGE');
             } elseif ($tab === 'paga_menos') {
-                $query->where('estado_auditoria', 'PAGA_MENOS_QUE_SIGE');
-            } elseif ($tab === 'zonas') {
-                $query->where('coincide_zona', false)->whereNotNull('zona_sige');
-            } elseif ($tab === 'sin_escuela') {
-                $query->where('estado_auditoria', 'SIN_SIGE');
+                $query->whereNotNull('r.cue')->where('r.cue', '!=', '')->where('r.estado_auditoria', 'PAGA_MENOS_QUE_SIGE');
+            } else {
+                // tracking / gestion
+                $query->whereNotNull('r.cue')->where('r.cue', '!=', '');
             }
 
-            $rows = $query->orderBy('sector', 'asc')->get();
+            $rows = $query->orderBy('r.sector', 'asc')->get();
 
-            $headers = ['Centro', 'Sector', 'CUE', 'Establecimiento / Escuela', 'Nivel Educativo', 'Radio SIGE', 'Radio Sueldo', 'Personal Afectado', 'Estado Auditoría', 'Estado Gestión', 'Notas / Observaciones'];
+            $r = 5;
+            foreach ($rows as $item) {
+                $hasCue = ! empty($item->cue);
+                $rSige = $item->radio_sige;
+                $rSueldo = $item->radio_sueldo;
+                $rCirc = $item->radio_circ;
+                $rCamino = $item->radio_camino;
+                $distCamino = $item->dist_camino;
+
+                if (! $hasCue || ! $rSige || $rSueldo === null) {
+                    $coincideSige = '⚪ No Aplica';
+                } elseif ($rSige == $rSueldo) {
+                    $coincideSige = '🟢 SI';
+                } elseif ($rSueldo > $rSige) {
+                    $coincideSige = '🔴 MÁS (+'.($rSueldo - $rSige).')';
+                } else {
+                    $coincideSige = '🔵 MENOS (-'.($rSige - $rSueldo).')';
+                }
+
+                $escala = '-';
+                if ($item->porc_pagado_mediana) {
+                    $escala = 'Ley Paritaria';
+                    if (in_array((float) $item->porc_pagado_mediana, [20, 30, 80, 100, 120, 140])) {
+                        $escala = 'Ley Histórica';
+                    } elseif (! in_array((float) $item->porc_pagado_mediana, [40, 50, 60, 95, 115, 135, 155])) {
+                        $escala = 'Adicional Jerárquico';
+                    }
+                }
+
+                $coincideCirc = (! $hasCue || ! $rCirc) ? '⚪ No Aplica' : (($rSueldo == $rCirc) ? '🟢 SI' : '🔴 NO (R'.$rCirc.')');
+                $coincideCamino = (! $hasCue || ! $rCamino) ? '⚪ No Aplica' : (($rSueldo == $rCamino) ? '🟢 SI' : '🔴 NO (R'.$rCamino.')');
+                $distText = ($hasCue && $distCamino !== null) ? '📍 '.number_format((float) $distCamino, 1, ',', '.').' km' : 'No Aplica';
+
+                $sheet->setCellValue('A'.$r, $item->centro ?? 'S/D');
+                $sheet->setCellValue('B'.$r, $item->sector);
+                $sheet->setCellValue('C'.$r, $item->cue ?? 'S/D');
+                $sheet->setCellValue('D'.$r, $item->nombre_establecimiento ?? 'Sin Registro en SIGE');
+                $sheet->setCellValue('E'.$r, $rSige ? 'Radio '.$rSige : '-');
+                $sheet->setCellValue('F'.$r, $rSueldo ? 'Radio '.$rSueldo : '-');
+                $sheet->setCellValue('G'.$r, $coincideSige);
+                $sheet->setCellValue('H'.$r, $item->porc_pagado_mediana ? $item->porc_pagado_mediana.'%' : '-');
+                $sheet->setCellValue('I'.$r, $escala);
+                $sheet->setCellValue('J'.$r, $coincideCirc);
+                $sheet->setCellValue('K'.$r, $coincideCamino);
+                $sheet->setCellValue('L'.$r, $distText);
+                $sheet->setCellValue('M'.$r, $item->total_filas_docentes ?? 0);
+                $sheet->setCellValue('N'.$r, $item->estado_gestion);
+                $sheet->setCellValue('O'.$r, $item->notes_auditor ?? $item->notas_auditor ?? '');
+
+                $sheet->getStyle('A'.$r.':O'.$r)->applyFromArray([
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE2E8F0']]],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $sheet->getStyle('A'.$r.':C'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('E'.$r.':L'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('M'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle('N'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $r++;
+            }
+        } elseif ($tab === 'zonas') {
+            $headers = [
+                'Centro', 'Sector', 'CUE', 'Establecimiento / Escuela',
+                'Zona Sueldos', 'Zona SIGE', 'Radio SIGE', 'Radio Sueldo', 'Coincide SIGE vs Sueldo',
+                'Radio Circunferencia', 'Radio Camino', 'Distancia Camino', 'Personal Afectado',
+            ];
             $sheet->fromArray($headers, null, 'A'.$startRow);
-            $sheet->getStyle('A4:K4')->applyFromArray($headerStyle);
+            $sheet->getStyle('A4:M4')->applyFromArray($headerStyle);
             $sheet->getRowDimension(4)->setRowHeight(24);
+
+            $rows = DB::table('auditoria_radio_resultados as r')
+                ->where('r.nomina_id', $nominaId)
+                ->leftJoin('establecimientos as e', 'e.cue', '=', 'r.cue')
+                ->leftJoin('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+                ->select(
+                    'r.*',
+                    'ed.distancia_camino as dist_camino',
+                    'ed.dist_circunf'
+                )
+                ->whereNotNull('r.cue')
+                ->where('r.cue', '!=', '')
+                ->where('r.coincide_zona', false)
+                ->whereNotNull('r.zona_sige')
+                ->orderBy('r.sector', 'asc')
+                ->get();
+
+            $r = 5;
+            foreach ($rows as $item) {
+                $hasCue = ! empty($item->cue);
+                $rSige = $item->radio_sige;
+                $rSueldo = $item->radio_sueldo;
+                $rCirc = $item->radio_circ;
+                $rCamino = $item->radio_camino;
+                $distCamino = $item->dist_camino;
+
+                if (! $hasCue || ! $rSige || $rSueldo === null) {
+                    $coincideSige = '⚪ No Aplica';
+                } elseif ($rSige == $rSueldo) {
+                    $coincideSige = '🟢 SI';
+                } elseif ($rSueldo > $rSige) {
+                    $coincideSige = '🔴 MÁS (+'.($rSueldo - $rSige).')';
+                } else {
+                    $coincideSige = '🔵 MENOS (-'.($rSige - $rSueldo).')';
+                }
+
+                $coincideCirc = (! $hasCue || ! $rCirc) ? '⚪ No Aplica' : (($rSueldo == $rCirc) ? '🟢 SI' : '🔴 NO (R'.$rCirc.')');
+                $coincideCamino = (! $hasCue || ! $rCamino) ? '⚪ No Aplica' : (($rSueldo == $rCamino) ? '🟢 SI' : '🔴 NO (R'.$rCamino.')');
+                $distText = ($hasCue && $distCamino !== null) ? '📍 '.number_format((float) $distCamino, 1, ',', '.').' km' : 'No Aplica';
+
+                $sheet->setCellValue('A'.$r, $item->centro ?? 'S/D');
+                $sheet->setCellValue('B'.$r, $item->sector);
+                $sheet->setCellValue('C'.$r, $item->cue ?? 'S/D');
+                $sheet->setCellValue('D'.$r, $item->nombre_establecimiento ?? 'Sin Registro en SIGE');
+                $sheet->setCellValue('E'.$r, $item->zona_sueldo ?? '-');
+                $sheet->setCellValue('F'.$r, $item->zona_sige ?? '-');
+                $sheet->setCellValue('G'.$r, $rSige ? 'Radio '.$rSige : '-');
+                $sheet->setCellValue('H'.$r, $rSueldo ? 'Radio '.$rSueldo : '-');
+                $sheet->setCellValue('I'.$r, $coincideSige);
+                $sheet->setCellValue('J'.$r, $coincideCirc);
+                $sheet->setCellValue('K'.$r, $coincideCamino);
+                $sheet->setCellValue('L'.$r, $distText);
+                $sheet->setCellValue('M'.$r, $item->total_filas_docentes ?? 0);
+
+                $sheet->getStyle('A'.$r.':M'.$r)->applyFromArray([
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE2E8F0']]],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $sheet->getStyle('A'.$r.':C'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('E'.$r.':L'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('M'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $r++;
+            }
+        } elseif ($tab === 'sin_escuela') {
+            $headers = [
+                'Centro', 'Sector', 'Estado Auditoría', 'Radio Sueldo (A04)', 'Porcentaje Pagado (%)', 'Docentes Afectados', 'Detalle / Notas',
+            ];
+            $sheet->fromArray($headers, null, 'A'.$startRow);
+            $sheet->getStyle('A4:G4')->applyFromArray($headerStyle);
+            $sheet->getRowDimension(4)->setRowHeight(24);
+
+            $rows = DB::table('auditoria_radio_resultados as r')
+                ->where('r.nomina_id', $nominaId)
+                ->where(function ($q) {
+                    $q->whereNull('r.cue')->orWhere('r.cue', '');
+                })
+                ->orderBy('r.sector', 'asc')
+                ->get();
 
             $r = 5;
             foreach ($rows as $item) {
                 $sheet->setCellValue('A'.$r, $item->centro ?? 'S/D');
                 $sheet->setCellValue('B'.$r, $item->sector);
-                $sheet->setCellValue('C'.$r, $item->cue ?? 'S/D');
-                $sheet->setCellValue('D'.$r, $item->nombre_establecimiento ?? 'Sin Registro en SIGE');
-                $sheet->setCellValue('E'.$r, $item->nivel_educativo ?? '-');
-                $sheet->setCellValue('F'.$r, $item->radio_sige ? 'Radio '.$item->radio_sige : '-');
-                $sheet->setCellValue('G'.$r, $item->radio_sueldo ? 'Radio '.$item->radio_sueldo.' ('.$item->porc_pagado_mediana.'%)' : '-');
-                $sheet->setCellValue('H'.$r, $item->total_filas_docentes ?? 0);
-                $sheet->setCellValue('I'.$r, $item->estado_auditoria);
-                $sheet->setCellValue('J'.$r, $item->estado_gestion);
-                $sheet->setCellValue('K'.$r, $item->notas_auditor ?? '');
+                $sheet->setCellValue('C'.$r, $item->estado_auditoria);
+                $sheet->setCellValue('D'.$r, $item->radio_sueldo ? 'Radio '.$item->radio_sueldo : '-');
+                $sheet->setCellValue('E'.$r, $item->porc_pagado_mediana ? $item->porc_pagado_mediana.'%' : '-');
+                $sheet->setCellValue('F'.$r, $item->total_filas_docentes ?? 0);
+                $sheet->setCellValue('G'.$r, $item->notas_auditor ?? '');
 
-                $sheet->getStyle('A'.$r.':K'.$r)->applyFromArray([
+                $sheet->getStyle('A'.$r.':G'.$r)->applyFromArray([
                     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE2E8F0']]],
                     'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
                 ]);
-                $sheet->getStyle('A'.$r.':C'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('F'.$r.':G'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('H'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                $sheet->getStyle('I'.$r.':J'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('A'.$r.':E'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('F'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
                 $r++;
             }
+        } else {
+            $sheet->setCellValue('A4', 'Pestaña no válida o sin datos para exportar.');
         }
 
-        foreach (range('A', 'K') as $col) {
+        foreach (range('A', $lastColLetter) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
         $sheet->freezePane('A5');
 
-        $filename = 'informe_auditoria_'.$tab.'_'.date('Y-m-d').'.xlsx';
+        if ($tab === 'kpi') {
+            $filename = 'auditoria_centros_'.$nominaSeleccionada->periodo.'.xlsx';
+        } elseif ($tab === 'cruce') {
+            $filename = 'Auditoria_Escuelas_Sectores_'.$nominaSeleccionada->periodo.'.xlsx';
+        } elseif ($tab === 'paga_mas') {
+            $filename = 'Auditoria_Pagan_Mas_'.$nominaSeleccionada->periodo.'.xlsx';
+        } elseif ($tab === 'paga_menos') {
+            $filename = 'Auditoria_Pagan_Menos_'.$nominaSeleccionada->periodo.'.xlsx';
+        } elseif ($tab === 'conflictos') {
+            $filename = 'Auditoria_Conflictos_SIGE_'.$nominaSeleccionada->periodo.'.xlsx';
+        } elseif ($tab === 'zonas') {
+            $filename = 'Auditoria_Inconsistencia_Zona_'.$nominaSeleccionada->periodo.'.xlsx';
+        } elseif ($tab === 'tracking' || $tab === 'gestion') {
+            $filename = 'Auditoria_Seguimiento_Gestion_'.$nominaSeleccionada->periodo.'.xlsx';
+        } elseif ($tab === 'sin_escuela') {
+            $filename = 'Auditoria_Sectores_Sin_Escuela_'.$nominaSeleccionada->periodo.'.xlsx';
+        } else {
+            $filename = 'auditoria_'.$tab.'_'.$nominaSeleccionada->periodo.'.xlsx';
+        }
 
         $writer = new Xlsx($spreadsheet);
         ob_start();
