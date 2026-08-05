@@ -1,4 +1,4 @@
-import React, {
+import {
     lazy,
     Suspense,
     useCallback,
@@ -31,7 +31,6 @@ export default function Mapa({ edificios = [] }) {
         return Array.isArray(edificiosList) ? edificiosList : Object.values(edificiosList);
     }, [edificiosList]);
 
-    const [sidebarOpen, setSidebarOpen] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilters, setActiveFilters] = useState({
         publico: true,
@@ -1500,28 +1499,5 @@ export default function Mapa({ edificios = [] }) {
                 }
             `}</style>
         </SIAMELayout>
-    );
-}
-
-function FilterBtn({ active, onClick, label, color }) {
-    const activeClass =
-        color === 'orange'
-            ? 'bg-orange-50 text-[#FE8204] border-[#FE8204]/30 shadow-sm font-bold'
-            : 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm font-bold';
-    return (
-        <button
-            onClick={onClick}
-            aria-pressed={active}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg border py-2 text-xs font-bold transition-all cursor-pointer ${
-                active
-                    ? activeClass
-                    : 'border-gray-100 bg-gray-50 text-gray-400 grayscale'
-            }`}
-        >
-            <div
-                className={`h-2 w-2 rounded-full ${color === 'orange' ? 'bg-[#FE8204] shadow-orange-500/50' : 'bg-blue-500 shadow-blue-500/50'} shadow-sm`}
-            ></div>
-            <span>{label}</span>
-        </button>
     );
 }

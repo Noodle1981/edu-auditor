@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import SIAMELayout from '../Layouts/SIAMELayout';
 import { getTheoreticalRadio } from './MapView';
-import Modal from '../Components/Modal';
 
 const MapView = lazy(() => import('./MapView'));
 
@@ -25,16 +24,6 @@ export default function MapaSueldos({ edificios = [] }) {
   const [isSatellite, setIsSatellite] = useState(false);
   const [showPlazas, setShowPlazas] = useState(true);
   const [hoveredEdificioId, setHoveredEdificioId] = useState(null);
-
-  // Form states for report modal
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [reportForm, setReportForm] = useState({
-    tipo: 'ERROR_DATOS',
-    descripcion: '',
-    nombre_remitente: '',
-    email_remitente: '',
-  });
-  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [toast, setToast] = useState(null);
 
   const showToast = (message, type = 'success') => {

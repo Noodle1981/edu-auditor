@@ -1,4 +1,3 @@
-import React from 'react';
 
 export const PremiumTable = ({ headers, children }) => {
   return (

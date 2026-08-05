@@ -10,7 +10,7 @@ import {
 } from '@react-leaflet/core';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { memo, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     GeoJSON,
     MapContainer,
@@ -464,7 +464,7 @@ export default function MapView({
                     });
 
                     // 3. Render reference labels
-                    activePlaza.radios.forEach((r, idx) => {
+                    activePlaza.radios.forEach((r) => {
                         const isSelectedRadio = selectedRadios.has(r.radio);
                         const offsetLat = r.limit / offsetLatDegree;
                         const offsetLng = r.limit / offsetLngDegree;

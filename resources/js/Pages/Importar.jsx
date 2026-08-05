@@ -1,11 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import SIAMELayout from '../Layouts/SIAMELayout';
 import { GlassCard } from '../Components/GlassCard';
-import { useGlobal } from '../Context/GlobalContext';
 
 const Importar = () => {
-  const { activeYear } = useGlobal();
   const [csvFiles, setCsvFiles] = useState([]);
   const [loadingCsv, setLoadingCsv] = useState(true);
   const [apiEndpoints, setApiEndpoints] = useState([]);
@@ -139,21 +137,7 @@ const Importar = () => {
     }
   };
 
-  const getYearsList = () => {
-    if (!stats) return [];
-    const years = new Set();
-    stats.cargos_by_year.forEach(item => years.add(item.anio));
-    stats.designaciones_by_year.forEach(item => years.add(item.anio));
-    stats.licencias_by_year.forEach(item => years.add(item.anio));
-    return Array.from(years).sort((a, b) => b - a);
-  };
 
-  const getCountsForYear = (y) => {
-    const cargo = stats.cargos_by_year.find(item => item.anio === y)?.count || 0;
-    const desig = stats.designaciones_by_year.find(item => item.anio === y)?.count || 0;
-    const lic = stats.licencias_by_year.find(item => item.anio === y)?.count || 0;
-    return { cargo, desig, lic };
-  };
 
   return (
     <SIAMELayout>

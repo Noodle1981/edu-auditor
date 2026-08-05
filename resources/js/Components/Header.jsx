@@ -1,12 +1,8 @@
-import React from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { useGlobal } from '../Context/GlobalContext';
 
 export const Header = () => {
   const { url, props } = usePage();
   const user = props.auth?.user;
-  
-  const { activeYear, setActiveYear } = useGlobal();
 
   const getPageMeta = () => {
     if (url === '/dashboard' || url === '/') {

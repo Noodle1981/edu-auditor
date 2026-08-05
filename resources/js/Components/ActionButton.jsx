@@ -1,4 +1,3 @@
-import React from 'react';
 
 export const ActionButton = ({ onClick, icon, label, variant = 'primary' }) => {
   const getVariantStyles = () => {

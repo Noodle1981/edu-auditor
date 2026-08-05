@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import SIAMELayout from '@/Layouts/SIAMELayout';
 import { Head } from '@inertiajs/react';
 import { useGlobal } from '../Context/GlobalContext';

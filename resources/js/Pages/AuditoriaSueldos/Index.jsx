@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Head, router } from '@inertiajs/react';
 import SIAMELayout from '../../Layouts/SIAMELayout';
 import { GlassCard } from '../../Components/GlassCard';
@@ -9,7 +9,6 @@ export default function AuditoriaSueldosIndex({
   resultados = [],
   viejos = [],
   conflictosSige = [],
-  sectoresSinSige = [],
   establecimientosList = [],
   cruceEscuelas = [],
   kpis = {},
@@ -42,9 +41,6 @@ export default function AuditoriaSueldosIndex({
 
   const linkedViejos = useMemo(() => viejosList.filter(v => v.nombre_establecimiento !== 'Sin Establecimiento Registrado' && v.cue), [viejosList]);
   const unlinkedViejos = useMemo(() => viejosList.filter(v => v.nombre_establecimiento === 'Sin Establecimiento Registrado' || !v.cue), [viejosList]);
-  
-  const linkedAuditList = useMemo(() => auditList.filter(item => item.cue !== null), [auditList]);
-  const unlinkedAuditList = useMemo(() => auditList.filter(item => item.cue === null), [auditList]);
 
   // Dynamic filter options lookup
   const deptosDisponibles = useMemo(() => {
