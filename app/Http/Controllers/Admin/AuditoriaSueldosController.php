@@ -85,13 +85,17 @@ class AuditoriaSueldosController extends Controller
         $conflictosSige = DB::table('modalidades as m')
             ->join('establecimientos as e', 'e.id', '=', 'm.establecimiento_id')
             ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+            ->leftJoin('auditoria_radio_resultados as r', function ($join) use ($nominaSeleccionada) {
+                $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector')
+                     ->where('r.nomina_id', '=', $nominaSeleccionada->id);
+            })
             ->whereNull('m.deleted_at')
             ->whereNull('e.deleted_at')
             ->select(
                 DB::raw('CAST(m.sector AS INTEGER) as sector'),
                 DB::raw('GROUP_CONCAT(DISTINCT m.radio) as radios_distintos'),
                 DB::raw('GROUP_CONCAT(DISTINCT m.direccion_area) as niveles'),
-                DB::raw("GROUP_CONCAT(e.nombre || '||' || e.cue || '||' || ed.cui || '||' || COALESCE(ed.zona_departamento, 'S/D') || '||' || m.radio || '||' || m.ambito, '###') as establecimientos_detallados"),
+                DB::raw("GROUP_CONCAT(e.nombre || '||' || e.cue || '||' || ed.cui || '||' || COALESCE(ed.zona_departamento, 'S/D') || '||' || m.radio || '||' || m.ambito || '||' || COALESCE(r.centro, '') || '||' || COALESCE(r.sector, '') || '||' || COALESCE(r.radio_sueldo, ''), '###') as establecimientos_detallados"),
                 DB::raw('COUNT(m.id) as cant_modalidades')
             )
             ->groupBy(DB::raw('CAST(m.sector AS INTEGER)'))
@@ -130,6 +134,8 @@ class AuditoriaSueldosController extends Controller
                 'm.sector as sector_sige',
                 'm.radio as radio_sige',
                 'm.ambito as ambito',
+                'r.centro as centro',
+                'r.sector as sector_sueldos',
                 'r.radio_sueldo',
                 'r.total_filas_docentes',
                 'r.estado_auditoria',
@@ -160,7 +166,62 @@ class AuditoriaSueldosController extends Controller
 
         $zonasInconsistentesCount = $linkedResultados->where('coincide_zona', false)->whereNotNull('zona_sige')->pluck('sector')->filter()->unique()->count();
 
+        $totalCentros = $resultados->pluck('centro')->filter()->unique()->count();
+
+        $nombresCentros = [
+            98 => 'Docentes Titulares e Interinos en Cargos',
+            19 => 'Docentes Suplentes en Cargos (Reemplazantes)',
+            80 => 'Personal Transferido (Cargos y HC Nivel Medio)',
+            85 => 'Docentes Titulares e Interinos de Nivel Superior',
+            63 => 'Agentes de Enseñanza Privada (Nivel Medio / Superior)',
+            64 => 'Agentes de Enseñanza Privada (Nivel Primario / Inicial)',
+            69 => 'Personal Administrativo y de Servicios',
+            53 => 'Personal Político / Subsecretaría / Planeamiento',
+            20 => 'Suplentes Cargos y HC Nivel Medio',
+            24 => 'Suplentes Nivel Medio / EGB III',
+            29 => 'Enseñanza Privada - Suplentes en Cargos',
+            51 => 'Interinos',
+            57 => 'Docentes Suplentes',
+            65 => 'Agentes de Enseñanza Privada',
+            67 => 'Agentes de Enseñanza Privada (Cargos y HC)',
+            75 => 'Suplentes Cargos y HC Nivel Medio',
+            76 => 'Interinos y Titulares Nivel Medio / EGB III',
+            77 => 'Interinos y Titulares en Cargos',
+            79 => 'Suplentes Cargos y HC Nivel Medio',
+            81 => 'Interinos y Titulares en Cargos',
+            82 => 'Suplentes Cargos y HC Nivel Medio',
+            86 => 'Suplentes Cargos y HC Nivel Medio',
+            88 => 'Suplentes Cargos y HC Nivel Medio',
+            94 => 'Interinos y Titulares HC Nivel Medio',
+        ];
+
+        $centrosBreakdown = $resultados->groupBy('centro')->map(function ($group, $centroKey) use ($nombresCentros) {
+            $totalSectores = $group->count();
+            $personal = $group->sum('total_filas_docentes');
+            $coinciden = $group->whereIn('estado_auditoria', ['COINCIDE_TOTAL', 'COINCIDE_SIGE', 'COINCIDE_SIGE_Y_CAMINO', 'COINCIDE_SIGE_Y_CIRC'])->count();
+            $pagaMas = $group->where('estado_auditoria', 'PAGA_MAS_QUE_SIGE')->count();
+            $pagaMenos = $group->where('estado_auditoria', 'PAGA_MENOS_QUE_SIGE')->count();
+            $sinSige = $group->where('estado_auditoria', 'SIN_SIGE')->count();
+
+            $nombre = isset($nombresCentros[(int)$centroKey]) 
+                ? $nombresCentros[(int)$centroKey] 
+                : 'Repartición Salarial / Liquidaciones';
+
+            return [
+                'centro' => $centroKey ?: 'S/D',
+                'nombre_centro' => $nombre,
+                'sectores' => $totalSectores,
+                'personal' => $personal,
+                'coinciden' => $coinciden,
+                'paga_mas' => $pagaMas,
+                'paga_menos' => $pagaMenos,
+                'sin_sige' => $sinSige,
+                'tasa_coincidencia' => $totalSectores > 0 ? round(($coinciden / $totalSectores) * 100, 1) : 0,
+            ];
+        })->values()->sortByDesc('personal')->values();
+
         $kpis = [
+            'total_centros' => $totalCentros,
             'total_sectores' => $totalSectores,
             'total_filas_docentes' => $totalFilasDocentes,
             'porcentaje_coincidencia' => $totalFilasDocentes > 0 ? round(($coincidenSige / $totalFilasDocentes) * 100, 1) : 0,
@@ -185,6 +246,7 @@ class AuditoriaSueldosController extends Controller
             'establecimientosList' => $establecimientosList,
             'cruceEscuelas' => $cruceEscuelas,
             'kpis' => $kpis,
+            'centrosBreakdown' => $centrosBreakdown,
         ]);
     }
 

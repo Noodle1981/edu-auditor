@@ -25,17 +25,21 @@ class MapaController extends Controller
         $result = collect();
 
         // Cargar auditoria de sueldos por sector y por cue
+        $ultimaNominaId = DB::table('nominas_sueldos')->orderBy('periodo', 'desc')->value('id');
+
         $auditoriaBySector = DB::table('auditoria_radio_resultados')
+            ->where('nomina_id', $ultimaNominaId)
             ->whereNotNull('sector')
-            ->select('sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
+            ->select('centro', 'sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
             ->get()
             ->keyBy(function ($item) {
                 return (int)$item->sector;
             });
 
         $auditoriaByCue = DB::table('auditoria_radio_resultados')
+            ->where('nomina_id', $ultimaNominaId)
             ->whereNotNull('cue')
-            ->select('sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
+            ->select('centro', 'sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
             ->get()
             ->keyBy(function ($item) {
                 return (int)$item->cue;
@@ -62,7 +66,7 @@ class MapaController extends Controller
             foreach ($edificio->establecimientos as $est) {
                 $mappedModalidades = [];
                 foreach ($est->modalidades as $mod) {
-                    $esPriv = stripos($mod->ambito, 'privado') !== false || $mod->sector == 2;
+                    $esPriv = stripos($mod->ambito ?? '', 'privado') !== false;
                     if ($esPriv) {
                         $esPrivado = true;
                     }
@@ -136,18 +140,22 @@ class MapaController extends Controller
     {
         $result = collect();
 
+        $ultimaNominaId = DB::table('nominas_sueldos')->orderBy('periodo', 'desc')->value('id');
+
         // Cargar auditoria de sueldos por sector y por cue
         $auditoriaBySector = DB::table('auditoria_radio_resultados')
+            ->where('nomina_id', $ultimaNominaId)
             ->whereNotNull('sector')
-            ->select('sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
+            ->select('centro', 'sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
             ->get()
             ->keyBy(function ($item) {
                 return (int)$item->sector;
             });
 
         $auditoriaByCue = DB::table('auditoria_radio_resultados')
+            ->where('nomina_id', $ultimaNominaId)
             ->whereNotNull('cue')
-            ->select('sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
+            ->select('centro', 'sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
             ->get()
             ->keyBy(function ($item) {
                 return (int)$item->cue;
@@ -174,7 +182,7 @@ class MapaController extends Controller
             foreach ($edificio->establecimientos as $est) {
                 $mappedModalidades = [];
                 foreach ($est->modalidades as $mod) {
-                    $esPriv = stripos($mod->ambito, 'privado') !== false || $mod->sector == 2;
+                    $esPriv = stripos($mod->ambito ?? '', 'privado') !== false;
                     if ($esPriv) {
                         $esPrivado = true;
                     }

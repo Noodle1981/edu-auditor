@@ -13,6 +13,7 @@ class AuditoriaSueldoRegistroViejo extends Model
 
     protected $fillable = [
         'nomina_id',
+        'centro',
         'sector',
         'zona',
         'a01_basico',

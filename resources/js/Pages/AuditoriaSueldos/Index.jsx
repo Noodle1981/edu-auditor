@@ -12,7 +12,8 @@ export default function AuditoriaSueldosIndex({
   sectoresSinSige = [],
   establecimientosList = [],
   cruceEscuelas = [],
-  kpis = {}
+  kpis = {},
+  centrosBreakdown = []
 }) {
   const [activeTab, setActiveTab] = useState('kpi');
   const [search, setSearch] = useState('');
@@ -609,13 +610,13 @@ export default function AuditoriaSueldosIndex({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Sectores Auditados
+                    Centros & Sectores Auditados
                   </span>
                   <div className="text-2xl font-black text-gray-900 mt-1">
-                    {kpis.total_sectores || 0}
+                    {kpis.total_centros || 0} <span className="text-sm font-bold text-gray-500">Centros</span> / {kpis.total_sectores || 0} <span className="text-sm font-bold text-gray-500">Sectores</span>
                   </div>
                   <span className="text-xs text-gray-500 font-medium">
-                    {(kpis.total_filas_docentes || 0).toLocaleString()} liquidaciones A04
+                    {(kpis.total_filas_docentes || 0).toLocaleString()} liquidaciones registradas
                   </span>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-[#FE8204]/10 text-[#FE8204] flex items-center justify-center text-xl">
@@ -634,7 +635,7 @@ export default function AuditoriaSueldosIndex({
                     {kpis.porcentaje_coincidencia || 0}%
                   </div>
                   <span className="text-xs text-gray-500 font-medium">
-                    Sueldo = SIGE (88,9% ajustado)
+                    Sueldo = SIGE (cruce unívoco)
                   </span>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
@@ -653,7 +654,7 @@ export default function AuditoriaSueldosIndex({
                     {kpis.paga_mas_sectores || 0} sectores
                   </div>
                   <span className="text-xs text-red-600 font-semibold">
-                    {(kpis.paga_mas_docentes || 0).toLocaleString()} docentes afectados
+                    {(kpis.paga_mas_docentes || 0).toLocaleString()} personal afectado
                   </span>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center text-xl">
@@ -672,7 +673,7 @@ export default function AuditoriaSueldosIndex({
                     {kpis.paga_menos_sectores || 0} sectores
                   </div>
                   <span className="text-xs text-blue-600 font-semibold">
-                    {(kpis.paga_menos_docentes || 0).toLocaleString()} docentes afectados
+                    {(kpis.paga_menos_docentes || 0).toLocaleString()} personal afectado
                   </span>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
@@ -681,6 +682,77 @@ export default function AuditoriaSueldosIndex({
               </div>
             </GlassCard>
           </div>
+
+          {/* Table Breakdown by Centro Salarial */}
+          <GlassCard className="p-6">
+            <h2 className="text-base font-black text-gray-900 mb-2 flex items-center gap-2">
+              <i className="fa-solid fa-[#FE8204] fa-building-circle-check text-[#FE8204]"></i>
+              Desglose de Auditoría por Centro Salarial ({centrosBreakdown.length} Centros)
+            </h2>
+            <p className="text-xs text-gray-600 mb-4">
+              Resumen ejecutivo consolidado por cada uno de los centros de liquidación salarial de la nómina.
+            </p>
+
+            <div className="overflow-x-auto max-h-96 custom-scrollbar">
+              <table className="w-full text-xs text-left text-gray-700">
+                <thead className="text-xs uppercase bg-gray-100 text-gray-700 border-b sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3 font-bold">Centro Salarial</th>
+                    <th className="px-4 py-3 text-center font-bold">Sectores</th>
+                    <th className="px-4 py-3 text-center font-bold">Coinciden</th>
+                    <th className="px-4 py-3 text-center font-bold text-red-700">Pagan Más</th>
+                    <th className="px-4 py-3 text-center font-bold text-blue-700">Pagan Menos</th>
+                    <th className="px-4 py-3 text-center font-bold text-slate-600">Sin SIGE</th>
+                    <th className="px-4 py-3 text-right font-bold">Personal Afectado</th>
+                    <th className="px-4 py-3 text-center font-bold">Coincidencia</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {centrosBreakdown.map((cb, idx) => (
+                    <tr key={idx} className="hover:bg-amber-50/50">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-1 text-xs font-black rounded-lg bg-amber-100 text-amber-950 border border-amber-300 shrink-0">
+                            Centro {cb.centro}
+                          </span>
+                          <span className="font-bold text-gray-900 text-xs">
+                            {cb.nombre_centro}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center font-bold text-gray-900">{cb.sectores}</td>
+                      <td className="px-4 py-3 text-center font-bold text-emerald-700">{cb.coinciden}</td>
+                      <td className="px-4 py-3 text-center font-bold text-red-600">
+                        {cb.paga_mas > 0 ? (
+                          <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-black">{cb.paga_mas}</span>
+                        ) : '0'}
+                      </td>
+                      <td className="px-4 py-3 text-center font-bold text-blue-600">
+                        {cb.paga_menos > 0 ? (
+                          <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-black">{cb.paga_menos}</span>
+                        ) : '0'}
+                      </td>
+                      <td className="px-4 py-3 text-center font-bold text-slate-600">{cb.sin_sige}</td>
+                      <td className="px-4 py-3 text-right font-black text-gray-900">
+                        {cb.personal.toLocaleString()} agentes
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-0.5 text-[11px] font-black rounded-full ${
+                          cb.tasa_coincidencia >= 80 
+                            ? 'bg-emerald-100 text-emerald-800' 
+                            : cb.tasa_coincidencia >= 50 
+                            ? 'bg-amber-100 text-amber-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {cb.tasa_coincidencia}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </GlassCard>
 
           {/* Detailed Status Breakdown */}
           <div className="grid grid-cols-1 gap-6">
@@ -823,7 +895,8 @@ export default function AuditoriaSueldosIndex({
               <table className="w-full text-xs text-left text-gray-700">
                 <thead className="text-xs uppercase bg-amber-50 text-amber-900 border-b sticky top-0">
                   <tr>
-                    <th className="px-3 py-2">Sector</th>
+                    <th className="px-3 py-2 text-center font-bold">Centro</th>
+                    <th className="px-3 py-2 text-center font-bold">Sector</th>
                     <th className="px-3 py-2">Establecimiento / Escuela</th>
                     <th className="px-3 py-2">Departamento</th>
                     <th className="px-3 py-2 text-center">Radio SIGE</th>
@@ -838,7 +911,8 @@ export default function AuditoriaSueldosIndex({
                 <tbody className="divide-y divide-gray-200">
                   {filteredLinkedViejos.map((v) => (
                     <tr key={v.id} className="hover:bg-amber-50/50">
-                      <td className="px-3 py-2 font-bold text-gray-900">{v.sector}</td>
+                      <td className="px-3 py-2 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{v.centro ?? 'S/D'}</td>
+                      <td className="px-3 py-2 text-center font-black text-gray-900">{v.sector}</td>
                       <td className="px-3 py-2">
                         <div className="font-extrabold text-gray-950 leading-tight">
                           {v.nombre_establecimiento || 'Sin Establecimiento Registrado'}
@@ -957,10 +1031,13 @@ export default function AuditoriaSueldosIndex({
                       cui: parts[2] || '',
                       departamento: parts[3] || 'S/D',
                       radio: parts[4] || '',
-                      ambito: parts[5] || ''
+                      ambito: parts[5] || '',
+                      centro: parts[6] || '',
+                      sector_sueldos: parts[7] || '',
+                      radio_sueldo: parts[8] || ''
                     };
                   }) : [];
-                  const parsedEsts = Array.from(new Map(parsedRaw.map(est => [`${est.cue}-${est.radio}-${est.ambito}`, est])).values());
+                  const parsedEsts = Array.from(new Map(parsedRaw.map(est => [`${est.cue}-${est.radio}-${est.ambito}-${est.centro}`, est])).values());
 
                   return (
                     <tr key={c.sector} className="hover:bg-amber-50/50">
@@ -1000,7 +1077,7 @@ export default function AuditoriaSueldosIndex({
                 Establecimientos que PAGAN MÁS que su Radio SIGE ({pagaMasList.length})
               </h2>
               <p className="text-xs text-gray-600">
-                Sectores donde la liquidación de haberes ($A04) abona un porcentaje superior al fijado administrativamente.
+                Sectores donde la liquidación de haberes abona un porcentaje superior al fijado administrativamente.
               </p>
             </div>
           </div>
@@ -1009,7 +1086,8 @@ export default function AuditoriaSueldosIndex({
             <table className="w-full text-xs text-left text-gray-700">
               <thead className="text-xs uppercase bg-red-50 text-red-900 border-b">
                 <tr>
-                  <th className="px-3 py-3 font-bold">Sector</th>
+                  <th className="px-3 py-3 text-center font-bold">Centro</th>
+                  <th className="px-3 py-3 text-center font-bold">Sector</th>
                   <th className="px-3 py-3 font-bold">Nivel</th>
                   <th className="px-3 py-3 font-bold">Zona</th>
                   <th className="px-3 py-3 font-bold">Establecimiento</th>
@@ -1018,7 +1096,7 @@ export default function AuditoriaSueldosIndex({
                   <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
                   <th className="px-3 py-3 text-center font-bold">R. Circ</th>
                   <th className="px-3 py-3 text-center font-bold">R. Cam</th>
-                  <th className="px-3 py-3 text-right font-bold">Docentes</th>
+                  <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                   <th className="px-3 py-3 text-center font-bold">Gestión</th>
                   <th className="px-3 py-3 text-center font-bold">Acciones</th>
                 </tr>
@@ -1026,7 +1104,8 @@ export default function AuditoriaSueldosIndex({
               <tbody className="divide-y divide-gray-200">
                 {pagaMasList.map((item) => (
                   <tr key={item.id} className="hover:bg-red-50/50">
-                    <td className="px-3 py-3 font-black text-gray-900">{item.sector}</td>
+                    <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
+                    <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3 font-semibold text-gray-700">{item.nivel_educativo || 'GENERAL'}</td>
                     <td className="px-3 py-3 font-bold">{item.zona_sueldo}</td>
                     <td className="px-3 py-3 font-bold text-gray-900 max-w-xs truncate">
@@ -1105,7 +1184,8 @@ export default function AuditoriaSueldosIndex({
             <table className="w-full text-xs text-left text-gray-700">
               <thead className="text-xs uppercase bg-blue-50 text-blue-900 border-b">
                 <tr>
-                  <th className="px-3 py-3 font-bold">Sector</th>
+                  <th className="px-3 py-3 text-center font-bold">Centro</th>
+                  <th className="px-3 py-3 text-center font-bold">Sector</th>
                   <th className="px-3 py-3 font-bold">Nivel</th>
                   <th className="px-3 py-3 font-bold">Zona</th>
                   <th className="px-3 py-3 font-bold">Establecimiento</th>
@@ -1114,7 +1194,7 @@ export default function AuditoriaSueldosIndex({
                   <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
                   <th className="px-3 py-3 text-center font-bold">R. Circ</th>
                   <th className="px-3 py-3 text-center font-bold">R. Cam</th>
-                  <th className="px-3 py-3 text-right font-bold">Docentes</th>
+                  <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                   <th className="px-3 py-3 text-center font-bold">Gestión</th>
                   <th className="px-3 py-3 text-center font-bold">Acciones</th>
                 </tr>
@@ -1122,7 +1202,8 @@ export default function AuditoriaSueldosIndex({
               <tbody className="divide-y divide-gray-200">
                 {pagaMenosList.map((item) => (
                   <tr key={item.id} className="hover:bg-blue-50/50">
-                    <td className="px-3 py-3 font-black text-gray-900">{item.sector}</td>
+                    <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
+                    <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3 font-semibold text-gray-700">{item.nivel_educativo || 'GENERAL'}</td>
                     <td className="px-3 py-3 font-bold">{item.zona_sueldo}</td>
                     <td className="px-3 py-3 font-bold text-gray-900 max-w-xs truncate">
@@ -1197,19 +1278,21 @@ export default function AuditoriaSueldosIndex({
             <table className="w-full text-xs text-left text-gray-700">
               <thead className="text-xs uppercase bg-purple-50 text-purple-900 border-b">
                 <tr>
-                  <th className="px-3 py-3">Sector</th>
+                  <th className="px-3 py-3 text-center font-bold">Centro</th>
+                  <th className="px-3 py-3 text-center font-bold">Sector</th>
                   <th className="px-3 py-3">Establecimiento</th>
                   <th className="px-3 py-3 text-center">Zona Sueldos</th>
                   <th className="px-3 py-3 text-center">Zona SIGE Edificio</th>
                   <th className="px-3 py-3 text-center">Radio Sueldo</th>
                   <th className="px-3 py-3 text-center">Radio SIGE</th>
-                  <th className="px-3 py-3 text-right">Docentes</th>
+                  <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {zonasInconsistentesList.map((item) => (
                   <tr key={item.id} className="hover:bg-purple-50/50">
-                    <td className="px-3 py-3 font-black text-gray-900">{item.sector}</td>
+                    <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
+                    <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3 font-bold text-gray-900">{item.nombre_establecimiento || 'No Registrado'}</td>
                     <td className="px-3 py-3 text-center font-bold text-red-600">{item.zona_sueldo}</td>
                     <td className="px-3 py-3 text-center font-bold text-emerald-600">{item.zona_sige}</td>
@@ -1239,11 +1322,12 @@ export default function AuditoriaSueldosIndex({
             <table className="w-full text-xs text-left text-gray-700">
               <thead className="text-xs uppercase bg-emerald-50 text-emerald-900 border-b">
                 <tr>
-                  <th className="px-3 py-3 font-bold">Sector</th>
+                  <th className="px-3 py-3 text-center font-bold">Centro</th>
+                  <th className="px-3 py-3 text-center font-bold">Sector</th>
                   <th className="px-3 py-3 font-bold">Establecimiento</th>
                   <th className="px-3 py-3 font-bold">Nivel</th>
                   <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Sueldo (A04)</th>
+                  <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
                   <th className="px-3 py-3 font-bold">Estado Auditoría</th>
                   <th className="px-3 py-3 text-center font-bold">Estado Gestión</th>
                   <th className="px-3 py-3 font-bold">Notas del Auditor</th>
@@ -1253,7 +1337,8 @@ export default function AuditoriaSueldosIndex({
               <tbody className="divide-y divide-gray-200">
                 {linkedResultados.map((item) => (
                   <tr key={item.id} className="hover:bg-emerald-50/50">
-                    <td className="px-3 py-3 font-black text-gray-900">{item.sector}</td>
+                    <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
+                    <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3">
                       <div className="font-bold text-gray-900 max-w-xs truncate">
                         {item.nombre_establecimiento || 'No Registrado'}
@@ -1407,11 +1492,13 @@ export default function AuditoriaSueldosIndex({
                     <th className="px-3 py-3 font-bold">CUE</th>
                     <th className="px-3 py-3 font-bold">Escuela / Establecimiento</th>
                     <th className="px-3 py-3 font-bold">Nivel / Dirección</th>
+                    <th className="px-3 py-3 text-center font-bold">Centro</th>
                     <th className="px-3 py-3 text-center font-bold">Sector SIGE</th>
+                    <th className="px-3 py-3 text-center font-bold">Sector Sueldos</th>
                     <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
                     <th className="px-3 py-3 text-center font-bold">Radio Sueldo (A04)</th>
                     <th className="px-3 py-3 text-center font-bold">Estado</th>
-                    <th className="px-3 py-3 text-right font-bold">Docentes</th>
+                    <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -1455,11 +1542,21 @@ export default function AuditoriaSueldosIndex({
                           <div className="font-semibold text-gray-700">{c.nivel_educativo}</div>
                           <div className="text-[10px] text-gray-400 font-semibold">{c.direccion_area}</div>
                         </td>
+                        <td className="px-3 py-3 text-center font-black">
+                          <span className="text-amber-950 font-bold bg-amber-100/60 px-2 py-0.5 rounded-lg border border-amber-200">{c.centro ?? 'S/D'}</span>
+                        </td>
                         <td className="px-3 py-3 text-center font-black text-sm">
                           {isSector0 ? (
                             <span className="text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">0</span>
                           ) : (
                             <span className="text-gray-950 font-bold">{c.sector_sige}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-center font-black text-sm">
+                          {c.sector_sueldos !== null && c.sector_sueldos !== undefined ? (
+                            <span className="text-purple-950 font-bold bg-purple-100/60 px-2 py-0.5 rounded-lg border border-purple-200">{c.sector_sueldos}</span>
+                          ) : (
+                            <span className="text-gray-400 italic">-</span>
                           )}
                         </td>
                         <td className="px-3 py-3 text-center font-bold text-emerald-700">Radio {c.radio_sige}</td>
@@ -1491,7 +1588,7 @@ export default function AuditoriaSueldosIndex({
                   Sectores de Nómina Desvinculados de Establecimientos ({unlinkedResultados.length})
                 </h2>
                 <p className="text-xs text-gray-600">
-                  Sectores salariales (A04) que registran liquidaciones docentes pero que no se corresponden con ningún CUE en la base de datos de escuelas.
+                  Sectores que registran liquidaciones docentes pero no poseen un establecimiento u oficina identificada en la base de datos oficial.
                 </p>
               </div>
             </div>
@@ -1500,9 +1597,10 @@ export default function AuditoriaSueldosIndex({
               <table className="w-full text-xs text-left text-gray-700">
                 <thead className="text-xs uppercase bg-slate-100 text-slate-900 border-b">
                   <tr>
-                    <th className="px-3 py-3 font-bold">Sector</th>
+                    <th className="px-3 py-3 text-center font-bold">Centro</th>
+                    <th className="px-3 py-3 text-center font-bold">Sector</th>
                     <th className="px-3 py-3 font-bold">Estado Auditoría</th>
-                    <th className="px-3 py-3 text-center font-bold">Radio Sueldo (A04)</th>
+                    <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
                     <th className="px-3 py-3 text-right font-bold">Docentes Afectados</th>
                     <th className="px-3 py-3 font-bold">Detalle / Notas</th>
                     <th className="px-3 py-3 text-center font-bold">Acción Saneamiento</th>
@@ -1511,7 +1609,8 @@ export default function AuditoriaSueldosIndex({
                 <tbody className="divide-y divide-gray-200">
                   {unlinkedResultados.map((s) => (
                     <tr key={s.id} className="hover:bg-slate-50/50">
-                      <td className="px-3 py-3 font-black text-gray-900 text-sm">{s.sector}</td>
+                      <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{s.centro ?? 'S/D'}</td>
+                      <td className="px-3 py-3 text-center font-black text-gray-900 text-sm">{s.sector}</td>
                       <td className="px-3 py-3">
                         <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-orange-100 text-orange-900 border border-orange-200">
                           {s.estado_auditoria}
@@ -1567,7 +1666,8 @@ export default function AuditoriaSueldosIndex({
               <table className="w-full text-xs text-left text-gray-700">
                 <thead className="text-xs uppercase bg-amber-50 text-amber-900 border-b">
                   <tr>
-                    <th className="px-3 py-2 font-bold">Sector</th>
+                    <th className="px-3 py-2 text-center font-bold">Centro</th>
+                    <th className="px-3 py-2 text-center font-bold">Sector</th>
                     <th className="px-3 py-2 text-center font-bold">Radio Sueldo</th>
                     <th className="px-3 py-2 text-right font-bold">Básico A01</th>
                     <th className="px-3 py-2 text-right font-bold">Monto A04</th>
@@ -1578,7 +1678,8 @@ export default function AuditoriaSueldosIndex({
                 <tbody className="divide-y divide-gray-200">
                   {filteredUnlinkedViejos.map((v) => (
                     <tr key={v.id} className="hover:bg-amber-50/50">
-                      <td className="px-3 py-2 font-bold text-gray-900">{v.sector}</td>
+                      <td className="px-3 py-2 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{v.centro ?? 'S/D'}</td>
+                      <td className="px-3 py-2 text-center font-black text-gray-900">{v.sector}</td>
                       <td className="px-3 py-2 text-center">
                         <span className="px-2 py-0.5 text-[10px] font-black rounded bg-amber-100 text-amber-800 border border-amber-300">
                           Radio {v.radio_sueldo} ({v.porcentaje_pagado}%)
@@ -1655,7 +1756,7 @@ export default function AuditoriaSueldosIndex({
             <div className="space-y-4">
               <div className="p-3 bg-orange-50 border border-orange-200 rounded-2xl text-xs space-y-1">
                 <div><b className="text-orange-950">Sector a Sanear:</b> Sector {saneamientoModalSector.sector}</div>
-                <div><b className="text-orange-950">Radio Liquidado (A04):</b> Radio {saneamientoModalSector.radio_sueldo} ({saneamientoModalSector.porc_pagado_mediana}%)</div>
+                <div><b className="text-orange-950">Radio Liquidado:</b> Radio {saneamientoModalSector.radio_sueldo} ({saneamientoModalSector.porc_pagado_mediana}%)</div>
                 <div><b className="text-orange-950">Docentes liquidados:</b> {saneamientoModalSector.total_filas_docentes}</div>
               </div>
 
@@ -1774,42 +1875,46 @@ export default function AuditoriaSueldosIndex({
       {/* CONFLICTOS SIGE DETAIL MODAL */}
       {conflictosModalData && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl border border-gray-100">
-            <div className="flex items-center justify-between border-b pb-3 mb-4">
-              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+          <div className="bg-white rounded-3xl p-6 max-w-6xl w-full shadow-2xl border border-gray-100 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b pb-3 mb-4 shrink-0">
+              <h3 className="text-lg font-black text-gray-900 flex items-center gap-2">
                 <i className="fa-solid fa-triangle-exclamation text-amber-500"></i>
-                Establecimientos en Conflicto Interno - Sector {conflictosModalData.sector}
+                Establecimientos en Conflicto Interno — Sector SIGE {conflictosModalData.sector}
               </h3>
               <button
                 onClick={() => setConflictosModalData(null)}
-                className="text-gray-400 hover:text-gray-600 font-bold cursor-pointer"
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg cursor-pointer px-2"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs space-y-1">
+            <div className="space-y-4 overflow-hidden flex flex-col flex-1">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs space-y-1 shrink-0">
                 <div><b className="text-amber-950">Radios detectados en SIGE:</b> [{conflictosModalData.radios}]</div>
                 <div><b className="text-amber-950">Niveles educativos afectados:</b> {conflictosModalData.niveles}</div>
               </div>
 
-              <div className="overflow-y-auto max-h-64 border border-gray-200 rounded-2xl custom-scrollbar">
+              <div className="overflow-y-auto border border-gray-200 rounded-2xl custom-scrollbar flex-1">
                 <table className="w-full text-xs text-left text-gray-700">
-                  <thead className="text-[10px] uppercase bg-gray-50 text-gray-500 border-b sticky top-0">
+                  <thead className="text-[10px] uppercase bg-gray-100 text-gray-700 border-b sticky top-0">
                     <tr>
-                      <th className="px-3 py-2 font-bold">CUE</th>
-                      <th className="px-3 py-2 font-bold">Establecimiento / Escuela</th>
-                      <th className="px-3 py-2 font-bold">Ámbito</th>
-                      <th className="px-3 py-2 font-bold">Radio SIGE</th>
-                      <th className="px-3 py-2 font-bold">CUI Edificio</th>
-                      <th className="px-3 py-2 font-bold">Departamento</th>
+                      <th className="px-3 py-2.5 font-bold">CUE</th>
+                      <th className="px-3 py-2.5 font-bold">Establecimiento / Escuela</th>
+                      <th className="px-3 py-2.5 font-bold">Ámbito</th>
+                      <th className="px-3 py-2.5 text-center font-bold">Centro</th>
+                      <th className="px-3 py-2.5 text-center font-bold">Sector SIGE</th>
+                      <th className="px-3 py-2.5 text-center font-bold">Sector Sueldos</th>
+                      <th className="px-3 py-2.5 text-center font-bold">Radio SIGE</th>
+                      <th className="px-3 py-2.5 text-center font-bold">Radio Sueldo</th>
+                      <th className="px-3 py-2.5 font-bold">CUI Edificio</th>
+                      <th className="px-3 py-2.5 font-bold">Departamento</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {conflictosModalData.escuelas.map((e, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 font-mono text-gray-500">
+                      <tr key={idx} className="hover:bg-gray-50/70">
+                        <td className="px-3 py-2.5 font-mono text-gray-500">
                           <div className="flex items-center gap-1.5">
                             <span>{e.cue}</span>
                             <a
@@ -1823,8 +1928,8 @@ export default function AuditoriaSueldosIndex({
                             </a>
                           </div>
                         </td>
-                        <td className="px-3 py-2 font-bold text-gray-900">{e.nombre}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2.5 font-bold text-gray-900">{e.nombre}</td>
+                        <td className="px-3 py-2.5">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                             e.ambito === 'PRIVADO' 
                               ? 'bg-purple-50 text-purple-700 border-purple-200' 
@@ -1833,8 +1938,26 @@ export default function AuditoriaSueldosIndex({
                             {e.ambito === 'PRIVADO' ? 'PRIVADO' : 'PÚBLICO'}
                           </span>
                         </td>
-                        <td className="px-3 py-2 font-bold text-gray-700">Radio {e.radio}</td>
-                        <td className="px-3 py-2 font-mono text-gray-500">
+                        <td className="px-3 py-2.5 text-center font-black">
+                          <span className="text-amber-950 font-bold bg-amber-100/60 px-2 py-0.5 rounded-lg border border-amber-200">
+                            {e.centro ? e.centro : 'S/D'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-center font-black text-gray-900">
+                          {conflictosModalData.sector}
+                        </td>
+                        <td className="px-3 py-2.5 text-center font-black">
+                          {e.sector_sueldos ? (
+                            <span className="text-purple-950 font-bold bg-purple-100/60 px-2 py-0.5 rounded-lg border border-purple-200">{e.sector_sueldos}</span>
+                          ) : (
+                            <span className="text-gray-400 italic">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-center font-bold text-emerald-700">Radio {e.radio}</td>
+                        <td className="px-3 py-2.5 text-center font-black text-purple-700">
+                          {e.radio_sueldo ? `Radio ${e.radio_sueldo}` : '-'}
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-gray-500">
                           <div className="flex items-center gap-1.5">
                             <span>{e.cui}</span>
                             <a
@@ -1848,7 +1971,7 @@ export default function AuditoriaSueldosIndex({
                             </a>
                           </div>
                         </td>
-                        <td className="px-3 py-2 text-gray-700 font-semibold">{e.departamento}</td>
+                        <td className="px-3 py-2.5 text-gray-700 font-semibold">{e.departamento}</td>
                       </tr>
                     ))}
                   </tbody>

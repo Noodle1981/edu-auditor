@@ -24,6 +24,7 @@ return new class extends Migration
         Schema::create('auditoria_radio_resultados', function (Blueprint $table) {
             $table->id();
             $table->foreignId('nomina_id')->constrained('nominas_sueldos')->onDelete('cascade');
+            $table->integer('centro')->nullable()->index();
             $table->integer('sector')->nullable()->index();
             $table->string('zona_sueldo')->nullable();
             $table->string('zona_sige')->nullable();
@@ -50,6 +51,7 @@ return new class extends Migration
         Schema::create('auditoria_sueldo_registros_viejos', function (Blueprint $table) {
             $table->id();
             $table->foreignId('nomina_id')->constrained('nominas_sueldos')->onDelete('cascade');
+            $table->integer('centro')->nullable()->index();
             $table->integer('sector')->nullable();
             $table->string('zona')->nullable();
             $table->decimal('a01_basico', 12, 2);

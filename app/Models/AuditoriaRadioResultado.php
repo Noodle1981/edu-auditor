@@ -13,6 +13,7 @@ class AuditoriaRadioResultado extends Model
 
     protected $fillable = [
         'nomina_id',
+        'centro',
         'sector',
         'zona_sueldo',
         'zona_sige',
