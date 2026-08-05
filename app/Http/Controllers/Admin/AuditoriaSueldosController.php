@@ -9,6 +9,11 @@ use App\Models\NominaSueldo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class AuditoriaSueldosController extends Controller
 {
@@ -339,6 +344,241 @@ class AuditoriaSueldosController extends Controller
 
         return response()->json([
             'message' => 'Sector '.$sector.' saneado y vinculado con éxito a '.$est->nombre,
+        ]);
+    }
+
+    /**
+     * Export audit data to Excel (.xlsx) per active tab for authorities.
+     */
+    public function exportExcel(Request $request)
+    {
+        $tab = $request->input('tab', 'kpi');
+        $periodo = $request->input('periodo');
+
+        $nominaSeleccionada = $periodo
+            ? NominaSueldo::where('periodo', $periodo)->first()
+            : NominaSueldo::orderBy('periodo', 'desc')->first();
+
+        if (! $nominaSeleccionada) {
+            return response()->json(['error' => 'No hay nómina cargada'], 404);
+        }
+
+        $nominaId = $nominaSeleccionada->id;
+
+        $nombresCentros = [
+            98 => 'Docentes Titulares e Interinos en Cargos',
+            19 => 'Docentes Suplentes en Cargos (Reemplazantes)',
+            80 => 'Personal Transferido (Cargos y HC Nivel Medio)',
+            85 => 'Docentes Titulares e Interinos de Nivel Superior',
+            63 => 'Agentes de Enseñanza Privada (Nivel Medio / Superior)',
+            64 => 'Agentes de Enseñanza Privada (Nivel Primario / Inicial)',
+            69 => 'Personal Administrativo y de Servicios',
+            53 => 'Personal Político / Subsecretaría / Planeamiento',
+            20 => 'Suplentes Cargos y HC Nivel Medio',
+            24 => 'Suplentes Nivel Medio / EGB III',
+            29 => 'Enseñanza Privada - Suplentes en Cargos',
+            51 => 'Interinos',
+            57 => 'Docentes Suplentes',
+            65 => 'Agentes de Enseñanza Privada',
+            67 => 'Agentes de Enseñanza Privada (Cargos y HC)',
+            75 => 'Suplentes Cargos y HC Nivel Medio',
+            76 => 'Interinos y Titulares Nivel Medio / EGB III',
+            77 => 'Interinos y Titulares en Cargos',
+            79 => 'Suplentes Cargos y HC Nivel Medio',
+            81 => 'Interinos y Titulares en Cargos',
+            82 => 'Suplentes Cargos y HC Nivel Medio',
+            86 => 'Suplentes Cargos y HC Nivel Medio',
+            88 => 'Suplentes Cargos y HC Nivel Medio',
+            94 => 'Interinos y Titulares HC Nivel Medio',
+        ];
+
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Banner superior oficial para autoridades
+        $sheet->mergeCells('A1:K1');
+        $sheet->setCellValue('A1', 'MINISTERIO DE EDUCACIÓN — PROVINCIA DE SAN JUAN');
+        $sheet->getStyle('A1')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF1E293B']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        $tabNombres = [
+            'kpi' => 'RESUMEN EJECUTIVO Y AUDITORÍA POR CENTRO SALARIAL',
+            'escala' => 'ESCALAS RESIDUALES Y TRANSICIÓN SALARIAL',
+            'cruce' => 'MATRIZ DE RELACIÓN DE ESCUELAS Y SECTORES PRESUPUESTARIOS',
+            'paga_mas' => 'ESTABLECIMIENTOS QUE PAGAN MÁS QUE SU RADIO SIGE',
+            'paga_menos' => 'ESTABLECIMIENTOS QUE PAGAN MENOS QUE SU RADIO SIGE',
+            'zonas' => 'INCONSISTENCIA DE ZONAS GEOGRÁFICAS',
+            'conflictos' => 'SECTORES SIGE CON CONFLICTO INTERNO',
+            'sin_escuela' => 'SECTORES DE NÓMINA DESVINCULADOS DE ESTABLECIMIENTOS',
+            'gestion' => 'SEGUIMIENTO Y GESTIÓN ADMINISTRATIVA',
+        ];
+
+        $nombrePestana = $tabNombres[$tab] ?? 'REPORTE DE AUDITORÍA SALARIAL';
+
+        $sheet->mergeCells('A2:K2');
+        $sheet->setCellValue('A2', $nombrePestana.' | Nómina: '.$nominaSeleccionada->periodo.' | Emisión: '.date('d/m/Y H:i'));
+        $sheet->getStyle('A2')->applyFromArray([
+            'font' => ['bold' => true, 'size' => 10, 'color' => ['argb' => 'FFFE8204']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF8FAFC']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ]);
+        $sheet->getRowDimension(2)->setRowHeight(22);
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'size' => 10, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFE8204']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFFFFFFF']]],
+        ];
+
+        $startRow = 4;
+
+        if ($tab === 'kpi') {
+            $headers = ['Centro', 'Tipo de Agente / Repartición Liquidadora', 'Sectores Auditados', 'Coinciden', 'Pagan Más', 'Pagan Menos', 'Sin SIGE', 'Personal Afectado', 'Coincidencia (%)'];
+            $sheet->fromArray($headers, null, 'A'.$startRow);
+            $sheet->getStyle('A4:I4')->applyFromArray($headerStyle);
+            $sheet->getRowDimension(4)->setRowHeight(24);
+
+            $resultados = AuditoriaRadioResultado::where('nomina_id', $nominaId)->get();
+            $centrosBreakdown = $resultados->groupBy('centro')->map(function ($group, $centroKey) use ($nombresCentros) {
+                $totalSectores = $group->count();
+                $personal = $group->sum('total_filas_docentes');
+                $coinciden = $group->whereIn('estado_auditoria', ['COINCIDE_TOTAL', 'COINCIDE_SIGE', 'COINCIDE_SIGE_Y_CAMINO', 'COINCIDE_SIGE_Y_CIRC'])->count();
+                $pagaMas = $group->where('estado_auditoria', 'PAGA_MAS_QUE_SIGE')->count();
+                $pagaMenos = $group->where('estado_auditoria', 'PAGA_MENOS_QUE_SIGE')->count();
+                $sinSige = $group->where('estado_auditoria', 'SIN_SIGE')->count();
+
+                $nombre = isset($nombresCentros[(int) $centroKey]) ? $nombresCentros[(int) $centroKey] : 'Repartición Salarial';
+
+                return [
+                    'centro' => $centroKey ?: 'S/D',
+                    'nombre_centro' => $nombre,
+                    'sectores' => $totalSectores,
+                    'coinciden' => $coinciden,
+                    'paga_mas' => $pagaMas,
+                    'paga_menos' => $pagaMenos,
+                    'sin_sige' => $sinSige,
+                    'personal' => $personal,
+                    'tasa' => $totalSectores > 0 ? round(($coinciden / $totalSectores) * 100, 1) : 0,
+                ];
+            })->values()->sortByDesc('personal')->values();
+
+            $r = 5;
+            foreach ($centrosBreakdown as $cb) {
+                $sheet->setCellValue('A'.$r, $cb['centro']);
+                $sheet->setCellValue('B'.$r, $cb['nombre_centro']);
+                $sheet->setCellValue('C'.$r, $cb['sectores']);
+                $sheet->setCellValue('D'.$r, $cb['coinciden']);
+                $sheet->setCellValue('E'.$r, $cb['paga_mas']);
+                $sheet->setCellValue('F'.$r, $cb['paga_menos']);
+                $sheet->setCellValue('G'.$r, $cb['sin_sige']);
+                $sheet->setCellValue('H'.$r, $cb['personal']);
+                $sheet->setCellValue('I'.$r, $cb['tasa'].'%');
+
+                $sheet->getStyle('A'.$r.':I'.$r)->applyFromArray([
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE2E8F0']]],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $sheet->getStyle('A'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('C'.$r.':I'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('H'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $r++;
+            }
+        } elseif ($tab === 'escala') {
+            $headers = ['Centro', 'Sector', 'CUE', 'Establecimiento / Escuela', 'Porcentaje Pagado (%)', 'Escala Detectada', 'Dictamen Auditor', 'Decreto / Norma Aval', 'Notas Auditor'];
+            $sheet->fromArray($headers, null, 'A'.$startRow);
+            $sheet->getStyle('A4:I4')->applyFromArray($headerStyle);
+            $sheet->getRowDimension(4)->setRowHeight(24);
+
+            $rows = AuditoriaSueldoRegistroViejo::where('nomina_id', $nominaId)->get();
+
+            $r = 5;
+            foreach ($rows as $v) {
+                $sheet->setCellValue('A'.$r, $v->centro ?? 'S/D');
+                $sheet->setCellValue('B'.$r, $v->sector ?? 'S/D');
+                $sheet->setCellValue('C'.$r, $v->cue ?? 'S/D');
+                $sheet->setCellValue('D'.$r, $v->nombre_establecimiento ?? 'Sin Registro');
+                $sheet->setCellValue('E'.$r, $v->porcentaje_pagado.'%');
+                $sheet->setCellValue('F'.$r, $v->escala_detectada);
+                $sheet->setCellValue('G'.$r, $v->clasificacion_auditor);
+                $sheet->setCellValue('H'.$r, $v->resolucion_aval ?? '-');
+                $sheet->setCellValue('I'.$r, $v->notas_auditor ?? '-');
+
+                $sheet->getStyle('A'.$r.':I'.$r)->applyFromArray([
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE2E8F0']]],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $sheet->getStyle('A'.$r.':C'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('E'.$r.':H'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $r++;
+            }
+        } else {
+            $query = AuditoriaRadioResultado::where('nomina_id', $nominaId);
+
+            if ($tab === 'paga_mas') {
+                $query->where('estado_auditoria', 'PAGA_MAS_QUE_SIGE');
+            } elseif ($tab === 'paga_menos') {
+                $query->where('estado_auditoria', 'PAGA_MENOS_QUE_SIGE');
+            } elseif ($tab === 'zonas') {
+                $query->where('coincide_zona', false)->whereNotNull('zona_sige');
+            } elseif ($tab === 'sin_escuela') {
+                $query->where('estado_auditoria', 'SIN_SIGE');
+            }
+
+            $rows = $query->orderBy('sector', 'asc')->get();
+
+            $headers = ['Centro', 'Sector', 'CUE', 'Establecimiento / Escuela', 'Nivel Educativo', 'Radio SIGE', 'Radio Sueldo', 'Personal Afectado', 'Estado Auditoría', 'Estado Gestión', 'Notas / Observaciones'];
+            $sheet->fromArray($headers, null, 'A'.$startRow);
+            $sheet->getStyle('A4:K4')->applyFromArray($headerStyle);
+            $sheet->getRowDimension(4)->setRowHeight(24);
+
+            $r = 5;
+            foreach ($rows as $item) {
+                $sheet->setCellValue('A'.$r, $item->centro ?? 'S/D');
+                $sheet->setCellValue('B'.$r, $item->sector);
+                $sheet->setCellValue('C'.$r, $item->cue ?? 'S/D');
+                $sheet->setCellValue('D'.$r, $item->nombre_establecimiento ?? 'Sin Registro en SIGE');
+                $sheet->setCellValue('E'.$r, $item->nivel_educativo ?? '-');
+                $sheet->setCellValue('F'.$r, $item->radio_sige ? 'Radio '.$item->radio_sige : '-');
+                $sheet->setCellValue('G'.$r, $item->radio_sueldo ? 'Radio '.$item->radio_sueldo.' ('.$item->porc_pagado_mediana.'%)' : '-');
+                $sheet->setCellValue('H'.$r, $item->total_filas_docentes ?? 0);
+                $sheet->setCellValue('I'.$r, $item->estado_auditoria);
+                $sheet->setCellValue('J'.$r, $item->estado_gestion);
+                $sheet->setCellValue('K'.$r, $item->notas_auditor ?? '');
+
+                $sheet->getStyle('A'.$r.':K'.$r)->applyFromArray([
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE2E8F0']]],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $sheet->getStyle('A'.$r.':C'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('F'.$r.':G'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('H'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle('I'.$r.':J'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $r++;
+            }
+        }
+
+        foreach (range('A', 'K') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $sheet->freezePane('A5');
+
+        $filename = 'informe_auditoria_'.$tab.'_'.date('Y-m-d').'.xlsx';
+
+        $writer = new Xlsx($spreadsheet);
+        ob_start();
+        $writer->save('php://output');
+        $content = ob_get_clean();
+
+        return response($content, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'max-age=0',
         ]);
     }
 }

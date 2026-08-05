@@ -347,21 +347,34 @@ export default function AuditoriaSueldosIndex({
           </p>
         </div>
 
-        {/* Period Selector */}
-        <div className="flex items-center gap-3 bg-white p-2.5 rounded-2xl border border-gray-200 shadow-sm">
-          <i className="fa-solid fa-calendar-days text-[#FE8204] text-lg pl-2"></i>
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Período:</span>
-          <select
-            value={nominaSeleccionada?.periodo || ''}
-            onChange={handlePeriodoChange}
-            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm font-semibold rounded-xl focus:ring-[#FE8204] focus:border-[#FE8204] block px-3 py-1.5 cursor-pointer"
+        {/* Period Selector & Export Button */}
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href={`/api/auditoria-sueldos/exportar-excel?tab=${activeTab}&periodo=${nominaSeleccionada?.periodo || ''}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition-all duration-200 flex items-center gap-2 cursor-pointer"
+            title="Descargar informe oficial Excel para autoridades de la pestaña actual"
           >
-            {nominas.map((n) => (
-              <option key={n.id} value={n.periodo}>
-                Mayo {n.periodo.split('-')[0]} ({n.archivo_nombre})
-              </option>
-            ))}
-          </select>
+            <i className="fa-solid fa-file-excel text-base"></i>
+            <span>Exportar Excel</span>
+          </a>
+
+          <div className="flex items-center gap-3 bg-white p-2.5 rounded-2xl border border-gray-200 shadow-sm">
+            <i className="fa-solid fa-calendar-days text-[#FE8204] text-lg pl-2"></i>
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Período:</span>
+            <select
+              value={nominaSeleccionada?.periodo || ''}
+              onChange={handlePeriodoChange}
+              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm font-semibold rounded-xl focus:ring-[#FE8204] focus:border-[#FE8204] block px-3 py-1.5 cursor-pointer"
+            >
+              {nominas.map((n) => (
+                <option key={n.id} value={n.periodo}>
+                  Mayo {n.periodo.split('-')[0]} ({n.archivo_nombre})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -681,13 +694,27 @@ export default function AuditoriaSueldosIndex({
 
           {/* Table Breakdown by Centro Salarial */}
           <GlassCard className="p-6">
-            <h2 className="text-base font-black text-gray-900 mb-2 flex items-center gap-2">
-              <i className="fa-solid fa-[#FE8204] fa-building-circle-check text-[#FE8204]"></i>
-              Desglose de Auditoría por Centro Salarial ({centrosBreakdown.length} Centros)
-            </h2>
-            <p className="text-xs text-gray-600 mb-4">
-              Resumen ejecutivo consolidado por cada uno de los centros de liquidación salarial de la nómina.
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <i className="fa-solid fa-building-circle-check text-[#FE8204]"></i>
+                  Desglose de Auditoría por Centro Salarial ({centrosBreakdown.length} Centros)
+                </h2>
+                <p className="text-xs text-gray-600">
+                  Resumen ejecutivo consolidado por cada uno de los centros de liquidación salarial de la nómina.
+                </p>
+              </div>
+              <a
+                href={`/api/auditoria-sueldos/exportar-excel?tab=kpi&periodo=${nominaSeleccionada?.periodo || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                title="Descargar tabla de Centros en Excel"
+              >
+                <i className="fa-solid fa-file-excel text-sm"></i>
+                <span>Descargar Excel Centros</span>
+              </a>
+            </div>
 
             <div className="overflow-x-auto max-h-96 custom-scrollbar">
               <table className="w-full text-xs text-left text-gray-700">
