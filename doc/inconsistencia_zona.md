@@ -1,44 +1,37 @@
-# Módulo de Inconsistencias de Zona Geográfica vs Letra de Zona SIGE
+# Módulo de Auditoría de Inconsistencia de Zonas Geográficas
 
 **Sistema:** EDU-Auditor — Sistema de Auditoría de Compensación Geográfica y Haberes Docentes  
-**Documento:** Especificación Técnica y Funcional del Módulo de Inconsistencia de Zona  
+**Documento:** Especificación Técnica y Funcional del Módulo de Inconsistencia de Zonas  
 **Ubicación:** `doc/inconsistencia_zona.md`  
 
 ---
 
-## 1. Definición del Módulo
+## 1. Definición del Problema
 
-El módulo de **Inconsistencia de Zona** audita la correspondencia entre la **Letra de Zona de Inhospitalidad** asignada al edificio escolar (Zonas A, B, C, D, E, F, G, L, M, R, V) y los datos de liquidación y ubicación departamental.
+Una **Inconsistencia de Zona Geográfica** ocurre cuando la denominación textual del departamento o departamento/zona registrada en la nómina de sueldos no coincide con la zona geográfica del edificio escolar registrada en el SIGE.
 
----
-
-## 2. Matriz Oficial de Zonas de San Juan
-
-En la Provincia de San Juan, la clasificación por zona de inhospitalidad responde a franjas territoriales y de acceso:
-
-| Letra Zona | Denominación / Ámbito | Departamentos / Zonas Típicas |
-| :---: | :--- | :--- |
-| **A / C** | Urbana Central | Capital, Santa Lucía, Chimbas, Rawson, Rivadavia. |
-| **D / E** | Suburbana / Semi-Rural | Pocito, Albardón, Caucete, Angaco, 9 de Julio. |
-| **F / G** | Rural Próxima | San Martín, Zonda, Ullum, 25 de Mayo, Sarmiento. |
-| **L / M** | Rural Alejada | Jáchal, Iglesia, Calingasta. |
-| **R / V** | Inhóspita / De Alta Montaña | Valle Fértil, Albergues de Iglesia/Jáchal, Pedernal. |
+$$\text{Condición: } \text{UPPER}(\text{zona\_sueldo}) \neq \text{UPPER}(\text{zona\_sige})$$
 
 ---
 
-## 3. Detección de Inconsistencias
+## 2. Propósito de la Auditoría
 
-El sistema genera una alerta de **Inconsistencia de Zona** en los siguientes casos:
-
-1. **Discrepancia entre Código A04 y Letra del Edificio:**
-   Cuando la nómina salarial liquida una zona que difiere de la letra registrada en la tabla `edificios`.
-2. **Ubicación Geográfica Imposible:**
-   Por ejemplo, un establecimiento radicado en el departamento *Capital* o *Rivadavia* con asignación de *Zona R (Inhóspita)*, o una escuela de *Valle Fértil* o *Iglesia* con *Zona A (Urbana)*.
+1. **Detección de Traslados Edilicios no Declarados:**
+   Permite detectar escuelas que cambiaron de edificio o departamento sin que se haya actualizado el código de zona presupuestaria en la nómina.
+2. **Homologación de Criterios Territorial:**
+   Garantiza que la nomenclatura geográfica del Ministerio de Educación coincida exactamente con la división política provincial de San Juan (ej. *Calingasta*, *Jáchal*, *Iglesia*, *Valle Fértil*).
 
 ---
 
-## 4. Objetivos y Utilidad Operativa
+## 3. Estructura de la Tabla en la Aplicación
 
-1. **Ordenamiento de la Matriz Geográfica:** Garantizar la coherencia entre el catastro escolar, el mapa y la liquidación.
-2. **Cálculo de Distancias Viales (Radio Camino):** Integrar los radios de circunferencia y camino en kilómetros desde la Plaza 25 de Mayo para validar la letra de zona asignada.
-3. **Auditoría Preventiva:** Identificar escuelas que hayan cambiado de edificio físico sin actualización de la letra de zona.
+| Columna | Descripción |
+|---|---|
+| **Centro** | Código del Centro Salarial (`Centro 98`, `Centro 19`, `Centro 80`, etc.). |
+| **Sector** | Número del sector presupuestario auditado. |
+| **Establecimiento** | Nombre de la escuela o dependencia. |
+| **Zona Sueldo** | Nombre o código de zona registrado en la nómina salarial. |
+| **Zona SIGE Edificio** | Departamento o zona geográfica oficial del edificio escolar. |
+| **Radio Sueldo** | Radio abonado en haberes. |
+| **Radio SIGE** | Radio legal asignado en SIGE. |
+| **Personal Afectado** | Cantidad de agentes impactados por la inconsistencia. |

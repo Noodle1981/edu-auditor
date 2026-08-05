@@ -8,27 +8,25 @@
 
 ## 1. Definición y Objetivo del Módulo
 
-El módulo de **Pagan MÁS que SIGE** tiene como objetivo prioritario detectar, cuantificar e investigar los sectores presupuestarios donde la alícuota abonada por concepto de adicional por zona (Código **A04 - Radio Docente**) **supera al radio oficial registrado en la base administrativa SIGE y a la realidad geográfica del camino**.
+El módulo de **Pagan MÁS que SIGE** tiene como objetivo prioritario detectar, cuantificar e investigar los sectores presupuestarios donde la alícuota abonada por concepto de adicional por zona (**Radio Sueldo**) **supera al radio oficial registrado en la base administrativa SIGE**.
 
-$$\text{Condición de Alerta: } \text{Radio Sueldo (A04)} > \text{Radio SIGE Oficial}$$
+$$\text{Condición de Alerta: } \text{Radio Sueldo} > \text{Radio SIGE Oficial}$$
 
 ---
 
 ## 2. Fundamento Financiero y Legal
 
 1. **Riesgo Fiscal y Sobrepago del Estado:**
-   La liquidación de un radio superior al asignado oficialmente representa un erogamiento presupuestario en exceso sin sustento normativo, lo que genera un impacto financiero acumulativo mes a mes en la nómina provincial.
+   La liquidación de un radio superior al asignado oficialmente representa un erogamiento presupuestario en exceso sin sustento normativo, generando un impacto financiero acumulativo en la nómina provincial.
 2. **Desequilibrio de Paridad Salarial:**
    Causa inequidad entre establecimientos ubicados en la misma zona geográfica donde uno percibe la bonificación correcta y otro recibe una bonificación inflada.
 3. **Casos Críticos Detectados (Mayo 2026):**
-   * En la liquidación auditada de Mayo 2026 se identificaron **30 sectores** en esta condición (afectando a **1.694 liquidaciones docentes**).
-   * **Ejemplo Emblemático (Sector 726 - Zonda):** La *Escuela Comercio Nocturna Dr. Santiago Cortánez* en Zonda abona **Radio 6 (135%)**, cuando en el SIGE y en la medición geográfica figura en **Radio 1 (40%)**. Representa un desvío extremo de $+5$ radios (+95% de sobreprecio sobre el sueldo básico).
+   * En la liquidación auditada de Mayo 2026 se identificaron **61 sectores** en esta condición (afectando a **2.327 agentes**).
+   * En todos los casos se analiza la combinación unívoca **`CENTRO + SECTOR`** para evitar confundir establecimientos públicos con colegios privados.
 
 ---
 
 ## 3. Matriz de Clasificación de Desvíos
-
-El módulo categoriza los sectores con sobrepago según el grado de desviación:
 
 | Nivel de Desvío | Diferencia | Acción Requerida |
 | :--- | :--- | :--- |
@@ -38,19 +36,27 @@ El módulo categoriza los sectores con sobrepago según el grado de desviación:
 
 ---
 
-## 4. Funcionalidades del Módulo en la Aplicación
+## 4. Estructura de la Tabla de Control en la Aplicación
 
-1. **Tabla de Control Interactiva:**
-   Filtra y muestra exclusivamente los sectores donde $\text{Radio Sueldo} > \text{Radio SIGE}$, detallando el porcentaje pagado vs el porcentaje oficial.
-2. **Cálculo de Docentes Afectados:**
-   Muestra el número exacto de filas docentes de la nómina A04 impactadas en cada sector.
-3. **Pase a Gestión y Expediente:**
-   Permite cambiar el estado de gestión (`PENDIENTE` $\rightarrow$ `EN_INVESTIGACION` $\rightarrow$ `JUSTIFICADO` / `CORREGIDO`) y adjuntar el número de actuación administrativa.
+La tabla de **Pagan MÁS que SIGE** se organiza en columnas independientes para máxima claridad:
+
+| Columna | Descripción |
+|---|---|
+| **Centro** | Código del Centro Salarial (`Centro 98`, `Centro 19`, `Centro 80`, etc.). |
+| **Sector** | Número del sector presupuestario auditado. |
+| **Establecimiento** | Nombre oficial de la escuela u organización. |
+| **Ámbito** | Badge de gestión (`PÚBLICO` o `PRIVADO`). |
+| **Nivel** | Nivel educativo (Primaria, Secundaria, Superior, etc.). |
+| **Radio SIGE** | Radio asignado administrativamente en SIGE. |
+| **Radio Sueldo** | Radio determinado a partir de la mediana de liquidación en haberes. |
+| **R. Circ / R. Cam** | Radios teóricos calculados por distancia a la Plaza 25 de Mayo y caminos. |
+| **Personal Afectado** | Cantidad total de agentes impactados por el sobrepago. |
+| **Gestión y Acciones** | Estado de gestión (`PENDIENTE`, `EN_INVESTIGACION`, `CORREGIDO`) y notas del auditor. |
 
 ---
 
 ## 5. Procedimiento de Saneamiento Sugerido
 
 1. **Paso 1:** Verificar si existe algún Decreto o Resolución de traslado edilicio no volcado en el SIGE.
-2. **Paso 2:** Si no existe norma respaldatoria, emitir la notificación al área de Liquidación de Haberes para ajustar la alícuota A04 al valor SIGE legal en la siguiente nómina.
+2. **Paso 2:** Si no existe norma respaldatoria, emitir la notificación al área de Liquidación de Haberes para ajustar el radio al valor SIGE legal en la siguiente nómina.
 3. **Paso 3:** Marcar el sector en el sistema como **`CORREGIDO EN LIQUIDACIÓN`**.
