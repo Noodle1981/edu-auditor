@@ -211,7 +211,7 @@ class ModalidadController extends Controller
 
         app(ActivityLogService::class)->logUpdate(
             $modalidad,
-            "Actualizó radio de modalidad a " . ($request->input('radio') ?? 'N/A') . " (anterior: " . ($oldRadio ?? 'N/A') . ")"
+            'Actualizó radio de modalidad a '.($request->input('radio') ?? 'N/A').' (anterior: '.($oldRadio ?? 'N/A').')'
         );
 
         return response()->json([
@@ -235,7 +235,7 @@ class ModalidadController extends Controller
 
         app(ActivityLogService::class)->logUpdate(
             $modalidad,
-            "Actualizó observaciones de modalidad a: " . ($request->input('observaciones') ?? 'N/A') . " (anterior: " . ($oldObs ?? 'N/A') . ")"
+            'Actualizó observaciones de modalidad a: '.($request->input('observaciones') ?? 'N/A').' (anterior: '.($oldObs ?? 'N/A').')'
         );
 
         return response()->json([
@@ -259,7 +259,7 @@ class ModalidadController extends Controller
 
         app(ActivityLogService::class)->logUpdate(
             $modalidad,
-            "Actualizó estado observado de modalidad a: " . ($request->input('radio_observado') ? 'OBSERVADO' : 'NORMAL') . " (anterior: " . ($oldFlag ? 'OBSERVADO' : 'NORMAL') . ")"
+            'Actualizó estado observado de modalidad a: '.($request->input('radio_observado') ? 'OBSERVADO' : 'NORMAL').' (anterior: '.($oldFlag ? 'OBSERVADO' : 'NORMAL').')'
         );
 
         return response()->json([

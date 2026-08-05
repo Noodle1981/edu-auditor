@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Modalidad;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -246,14 +247,14 @@ class EstablecimientoTest extends TestCase
     public function test_admin_can_delete_modalidad(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
-        $modalidad = \App\Models\Modalidad::first();
+        $modalidad = Modalidad::first();
 
         $response = $this
             ->actingAs($user)
             ->delete("/admin/establecimientos/{$modalidad->id}");
 
         $response->assertRedirect();
-        
+
         // Assert that the validation state was updated to ELIMINADO
         $modalidad->refresh();
         $this->assertEquals('ELIMINADO', $modalidad->estado_validacion);
@@ -263,7 +264,7 @@ class EstablecimientoTest extends TestCase
     public function test_admin_can_update_modality_radio_value(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
-        $modalidad = \App\Models\Modalidad::first();
+        $modalidad = Modalidad::first();
 
         $response = $this
             ->actingAs($user)
@@ -284,7 +285,7 @@ class EstablecimientoTest extends TestCase
     public function test_admin_can_update_modality_observaciones_value(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
-        $modalidad = \App\Models\Modalidad::first();
+        $modalidad = Modalidad::first();
 
         $response = $this
             ->actingAs($user)

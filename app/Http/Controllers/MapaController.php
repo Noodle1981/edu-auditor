@@ -33,7 +33,7 @@ class MapaController extends Controller
             ->select('centro', 'sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
             ->get()
             ->keyBy(function ($item) {
-                return (int)$item->sector;
+                return (int) $item->sector;
             });
 
         $auditoriaByCue = DB::table('auditoria_radio_resultados')
@@ -42,7 +42,7 @@ class MapaController extends Controller
             ->select('centro', 'sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
             ->get()
             ->keyBy(function ($item) {
-                return (int)$item->cue;
+                return (int) $item->cue;
             });
 
         $edificios = Edificio::select(
@@ -70,10 +70,10 @@ class MapaController extends Controller
                     if ($esPriv) {
                         $esPrivado = true;
                     }
-                    
+
                     // Buscar auditoria sueldo por sector o por cue
-                    $sec = $mod->sector ? (int)$mod->sector : null;
-                    $cue = $est->cue ? (int)$est->cue : null;
+                    $sec = $mod->sector ? (int) $mod->sector : null;
+                    $cue = $est->cue ? (int) $est->cue : null;
 
                     $audData = ($sec && isset($auditoriaBySector[$sec]))
                         ? $auditoriaBySector[$sec]
@@ -92,7 +92,7 @@ class MapaController extends Controller
                         'categoria' => $mod->categoria ?? 'N/A',
                         'ambito' => $esPriv ? 'PRIVADO' : 'PUBLICO',
                         'observaciones' => $mod->observaciones ?? '',
-                        'radio_observado' => !empty($mod->radio_observado),
+                        'radio_observado' => ! empty($mod->radio_observado),
                     ];
                 }
 
@@ -149,7 +149,7 @@ class MapaController extends Controller
             ->select('centro', 'sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
             ->get()
             ->keyBy(function ($item) {
-                return (int)$item->sector;
+                return (int) $item->sector;
             });
 
         $auditoriaByCue = DB::table('auditoria_radio_resultados')
@@ -158,7 +158,7 @@ class MapaController extends Controller
             ->select('centro', 'sector', 'cue', 'radio_sueldo', 'porc_pagado_mediana', 'estado_auditoria')
             ->get()
             ->keyBy(function ($item) {
-                return (int)$item->cue;
+                return (int) $item->cue;
             });
 
         $edificios = Edificio::select(
@@ -186,9 +186,9 @@ class MapaController extends Controller
                     if ($esPriv) {
                         $esPrivado = true;
                     }
-                    
-                    $sec = $mod->sector ? (int)$mod->sector : null;
-                    $cue = $est->cue ? (int)$est->cue : null;
+
+                    $sec = $mod->sector ? (int) $mod->sector : null;
+                    $cue = $est->cue ? (int) $est->cue : null;
 
                     $audData = ($sec && isset($auditoriaBySector[$sec]))
                         ? $auditoriaBySector[$sec]
@@ -224,7 +224,7 @@ class MapaController extends Controller
                         'categoria' => $mod->categoria ?? 'N/A',
                         'ambito' => $esPriv ? 'PRIVADO' : 'PUBLICO',
                         'observaciones' => $mod->observaciones ?? '',
-                        'radio_observado' => !empty($mod->radio_observado),
+                        'radio_observado' => ! empty($mod->radio_observado),
                     ];
                 }
 
@@ -320,23 +320,23 @@ class MapaController extends Controller
         // Header style: bold, orange background, white text, centered
         $headerRange = 'A1:S1';
         $sheet->getStyle($headerRange)->applyFromArray([
-            'font'      => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF'], 'size' => 10],
-            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFE8204']],
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF'], 'size' => 10],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFE8204']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
-            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE5E7EB']]],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE5E7EB']]],
         ]);
         $sheet->getRowDimension(1)->setRowHeight(20);
 
         // ── Data rows ────────────────────────────────────────────────────────
         $row = 2;
         foreach ($edificios as $edificio) {
-            $radioCirc  = ($edificio->radio_circ   !== null && $edificio->radio_circ   !== '') ? (int) $edificio->radio_circ   : null;
+            $radioCirc = ($edificio->radio_circ !== null && $edificio->radio_circ !== '') ? (int) $edificio->radio_circ : null;
             $radioCamino = ($edificio->radio_camino !== null && $edificio->radio_camino !== '') ? (int) $edificio->radio_camino : null;
 
             foreach ($edificio->establecimientos as $est) {
                 $cabeceraObj = $est->cabecera;
-                $cabeceraCue    = $cabeceraObj?->cue    ?? $est->cue_edificio_principal ?? '';
-                $cabeceraName   = $cabeceraObj?->nombre ?? '';
+                $cabeceraCue = $cabeceraObj?->cue ?? $est->cue_edificio_principal ?? '';
+                $cabeceraName = $cabeceraObj?->nombre ?? '';
 
                 foreach ($est->modalidades as $mod) {
                     // Determine radio value (modal radio first, fallback to radio_sige)
@@ -351,7 +351,7 @@ class MapaController extends Controller
                     // Calculate audit status — mirrors frontend logic exactly
                     $estado = 'COINCIDE';
                     if (! $mod->radio_justificado && $s !== null) {
-                        $hasCirc   = $radioCirc   !== null;
+                        $hasCirc = $radioCirc !== null;
                         $hasCamino = $radioCamino !== null;
 
                         if ($hasCirc && $hasCamino) {
@@ -393,22 +393,22 @@ class MapaController extends Controller
 
                     // Row background color by estado
                     $rowBgColor = match ($estado) {
-                        'DISTINTO'     => 'FFFEF2F2', // red-50
+                        'DISTINTO' => 'FFFEF2F2', // red-50
                         'INCONGRUENTE' => 'FFFEFCE8', // yellow-50
-                        default        => 'FFF0FDF4', // green-50
+                        default => 'FFF0FDF4', // green-50
                     };
                     $sheet->getStyle('A'.$row.':S'.$row)->applyFromArray([
-                        'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => $rowBgColor]],
-                        'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE5E7EB']]],
-                        'font'      => ['size' => 9],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => $rowBgColor]],
+                        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE5E7EB']]],
+                        'font' => ['size' => 9],
                         'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
                     ]);
 
                     // Estado cell: bold colored text
                     $estadoColor = match ($estado) {
-                        'DISTINTO'     => 'FFB91C1C', // red-700
+                        'DISTINTO' => 'FFB91C1C', // red-700
                         'INCONGRUENTE' => 'FFB45309', // amber-700
-                        default        => 'FF065F46', // emerald-800
+                        default => 'FF065F46', // emerald-800
                     };
                     $sheet->getStyle('S'.$row)->getFont()->setBold(true)->getColor()->setARGB($estadoColor);
                     $sheet->getStyle('S'.$row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -442,9 +442,9 @@ class MapaController extends Controller
         $content = ob_get_clean();
 
         return response($content, 200, [
-            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-            'Cache-Control'       => 'max-age=0',
+            'Cache-Control' => 'max-age=0',
         ]);
     }
 }

@@ -22,7 +22,7 @@ class AuditoriaSueldosController extends Controller
             ? NominaSueldo::where('periodo', $request->input('periodo'))->first()
             : $nominas->first();
 
-        if (!$nominaSeleccionada) {
+        if (! $nominaSeleccionada) {
             return Inertia::render('AuditoriaSueldos/Index', [
                 'nominas' => [],
                 'nominaSeleccionada' => null,
@@ -69,15 +69,24 @@ class AuditoriaSueldosController extends Controller
 
         // Deducir radio sueldo (A04) para cada registro viejo
         $viejos = $viejos->map(function ($v) {
-            $p = (float)$v->porcentaje_pagado;
-            if ($p <= 45) $r = 1;
-            else if ($p <= 55) $r = 2;
-            else if ($p <= 85) $r = 3;
-            else if ($p <= 105) $r = 4;
-            else if ($p <= 125) $r = 5;
-            else if ($p <= 145) $r = 6;
-            else $r = 7;
+            $p = (float) $v->porcentaje_pagado;
+            if ($p <= 45) {
+                $r = 1;
+            } elseif ($p <= 55) {
+                $r = 2;
+            } elseif ($p <= 85) {
+                $r = 3;
+            } elseif ($p <= 105) {
+                $r = 4;
+            } elseif ($p <= 125) {
+                $r = 5;
+            } elseif ($p <= 145) {
+                $r = 6;
+            } else {
+                $r = 7;
+            }
             $v->radio_sueldo = $r;
+
             return $v;
         });
 
@@ -87,7 +96,7 @@ class AuditoriaSueldosController extends Controller
             ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
             ->leftJoin('auditoria_radio_resultados as r', function ($join) use ($nominaSeleccionada) {
                 $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector')
-                     ->where('r.nomina_id', '=', $nominaSeleccionada->id);
+                    ->where('r.nomina_id', '=', $nominaSeleccionada->id);
             })
             ->whereNull('m.deleted_at')
             ->whereNull('e.deleted_at')
@@ -120,7 +129,7 @@ class AuditoriaSueldosController extends Controller
             ->join('modalidades as m', 'm.establecimiento_id', '=', 'e.id')
             ->leftJoin('auditoria_radio_resultados as r', function ($join) use ($nominaSeleccionada) {
                 $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector')
-                     ->where('r.nomina_id', '=', $nominaSeleccionada->id);
+                    ->where('r.nomina_id', '=', $nominaSeleccionada->id);
             })
             ->whereNull('e.deleted_at')
             ->whereNull('m.deleted_at')
@@ -145,8 +154,8 @@ class AuditoriaSueldosController extends Controller
             ->get();
 
         // Filter results and old records to those linked to a school/CUE
-        $linkedResultados = $resultados->filter(fn($r) => !empty($r->cue));
-        $linkedViejos = $viejos->filter(fn($v) => !empty($v->cue) && $v->nombre_establecimiento !== 'Sin Establecimiento Registrado');
+        $linkedResultados = $resultados->filter(fn ($r) => ! empty($r->cue));
+        $linkedViejos = $viejos->filter(fn ($v) => ! empty($v->cue) && $v->nombre_establecimiento !== 'Sin Establecimiento Registrado');
 
         // Métricas KPIs (enfocadas en establecimientos)
         $totalSectores = $linkedResultados->pluck('sector')->filter()->unique()->count();
@@ -154,7 +163,7 @@ class AuditoriaSueldosController extends Controller
 
         $coincidenTotal = $linkedResultados->where('estado_auditoria', 'COINCIDE_TOTAL')->sum('total_filas_docentes');
         $coincidenSige = $linkedResultados->whereIn('estado_auditoria', ['COINCIDE_TOTAL', 'COINCIDE_SIGE', 'COINCIDE_SIGE_Y_CAMINO', 'COINCIDE_SIGE_Y_CIRC'])->sum('total_filas_docentes');
-        
+
         $pagaMasCount = $linkedResultados->where('estado_auditoria', 'PAGA_MAS_QUE_SIGE')->count();
         $pagaMasDocentes = $linkedResultados->where('estado_auditoria', 'PAGA_MAS_QUE_SIGE')->sum('total_filas_docentes');
 
@@ -203,8 +212,8 @@ class AuditoriaSueldosController extends Controller
             $pagaMenos = $group->where('estado_auditoria', 'PAGA_MENOS_QUE_SIGE')->count();
             $sinSige = $group->where('estado_auditoria', 'SIN_SIGE')->count();
 
-            $nombre = isset($nombresCentros[(int)$centroKey]) 
-                ? $nombresCentros[(int)$centroKey] 
+            $nombre = isset($nombresCentros[(int) $centroKey])
+                ? $nombresCentros[(int) $centroKey]
                 : 'Repartición Salarial / Liquidaciones';
 
             return [
@@ -307,7 +316,7 @@ class AuditoriaSueldosController extends Controller
             'observacion' => 'nullable|string',
         ]);
 
-        $sector = (int)$request->input('sector');
+        $sector = (int) $request->input('sector');
         $estId = $request->input('establecimiento_id');
         $obs = $request->input('observacion', 'Saneamiento manual de sector');
 
@@ -316,7 +325,7 @@ class AuditoriaSueldosController extends Controller
         // 1. Vincular en modalidades
         DB::table('modalidades')
             ->where('establecimiento_id', $estId)
-            ->update(['sector' => (string)$sector, 'observaciones' => $obs]);
+            ->update(['sector' => (string) $sector, 'observaciones' => $obs]);
 
         // 2. Actualizar en auditoria_radio_resultados
         DB::table('auditoria_radio_resultados')
@@ -325,11 +334,11 @@ class AuditoriaSueldosController extends Controller
                 'nombre_establecimiento' => $est->nombre,
                 'cue' => $est->cue,
                 'estado_gestion' => 'CORREGIDO',
-                'notas_auditor' => 'Saneado y vinculado a CUE ' . $est->cue . ': ' . $obs
+                'notas_auditor' => 'Saneado y vinculado a CUE '.$est->cue.': '.$obs,
             ]);
 
         return response()->json([
-            'message' => 'Sector ' . $sector . ' saneado y vinculado con éxito a ' . $est->nombre,
+            'message' => 'Sector '.$sector.' saneado y vinculado con éxito a '.$est->nombre,
         ]);
     }
 }
