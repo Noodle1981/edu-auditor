@@ -467,7 +467,6 @@ export default function AuditoriaSueldosIndex({
       });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message || 'Sector registrado en auditoría con éxito');
         setSaneamientoModalSector(null);
         setSaneamientoEstId('');
         setSaneamientoSearchTerm('');
