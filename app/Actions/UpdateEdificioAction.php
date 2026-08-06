@@ -23,7 +23,13 @@ class UpdateEdificioAction
             if ($cabecera) {
                 $cabeceraAnterior = $edificio->cabecera_cue;
 
-                // Actualizar todas las escuelas de este edificio con el nuevo CUE principal/cabecera
+                // 1. Vincular la escuela cabecera al edificio si no lo estaba y asignarle su propio CUE como principal
+                $cabecera->update([
+                    'edificio_id' => $edificio->id,
+                    'cue_edificio_principal' => $cabecera->cue,
+                ]);
+
+                // 2. Actualizar todas las escuelas de este edificio con el nuevo CUE principal/cabecera
                 $edificio->establecimientos()->update(['cue_edificio_principal' => $cabecera->cue]);
 
                 $this->activityLogger->logUpdate($edificio, 'Actualización de Cabecera', [

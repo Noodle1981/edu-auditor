@@ -45,7 +45,8 @@ class AuditoriaSueldosController extends Controller
             ->leftJoin('edificios as ed', 'ed.id', '=', 'e.edificio_id')
             ->select(
                 'r.*',
-                'm.nivel_educativo as nivel_educativo',
+                DB::raw('COALESCE(m.nivel_educativo, r.nivel_educativo) as nivel_educativo'),
+                DB::raw('COALESCE(e.nombre, r.nombre_establecimiento) as nombre_establecimiento'),
                 DB::raw('COALESCE(ed.zona_departamento, "S/D") as departamento'),
                 DB::raw('COALESCE(m.ambito, "PUBLICO") as ambito'),
                 'ed.distancia_camino as dist_camino',
@@ -108,6 +109,10 @@ class AuditoriaSueldosController extends Controller
             })
             ->whereNull('m.deleted_at')
             ->whereNull('e.deleted_at')
+            ->where(function ($q) {
+                $q->whereNull('m.direccion_area')
+                  ->orWhere('m.direccion_area', '!=', 'ADMINISTRACIÓN');
+            })
             ->select(
                 DB::raw('CAST(m.sector AS INTEGER) as sector'),
                 DB::raw('GROUP_CONCAT(DISTINCT m.radio) as radios_distintos'),
@@ -128,7 +133,16 @@ class AuditoriaSueldosController extends Controller
 
         $establecimientosList = DB::table('establecimientos as e')
             ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
-            ->select('e.id', 'e.cue', 'e.nombre', 'ed.zona_departamento as departamento', 'ed.localidad')
+            ->leftJoin('modalidades as m', 'm.establecimiento_id', '=', 'e.id')
+            ->select(
+                'e.id',
+                'e.cue',
+                'e.nombre',
+                'ed.zona_departamento as departamento',
+                'ed.localidad',
+                DB::raw('MAX(m.radio) as radio')
+            )
+            ->groupBy('e.id')
             ->orderBy('e.nombre')
             ->get();
 
@@ -141,6 +155,10 @@ class AuditoriaSueldosController extends Controller
             })
             ->whereNull('e.deleted_at')
             ->whereNull('m.deleted_at')
+            ->where(function ($q) {
+                $q->whereNull('m.direccion_area')
+                  ->orWhere('m.direccion_area', '!=', 'ADMINISTRACIÓN');
+            })
             ->select(
                 'e.id as establecimiento_id',
                 'e.cue',
@@ -325,34 +343,63 @@ class AuditoriaSueldosController extends Controller
     public function sanearSector(Request $request)
     {
         $request->validate([
+            'id' => 'nullable|integer',
             'sector' => 'required',
+            'centro' => 'nullable',
             'establecimiento_id' => 'required|exists:establecimientos,id',
             'observacion' => 'nullable|string',
+            'estado_gestion' => 'nullable|string',
         ]);
 
+        $recordId = $request->input('id');
         $sector = (int) $request->input('sector');
+        $centro = $request->input('centro');
         $estId = $request->input('establecimiento_id');
-        $obs = $request->input('observacion', 'Saneamiento manual de sector');
+        $obs = $request->input('observacion', 'Investigación y saneamiento manual de sector');
+        $estadoGestion = $request->input('estado_gestion', 'EN_INVESTIGACION');
 
         $est = DB::table('establecimientos')->where('id', $estId)->first();
+        $estRadio = DB::table('modalidades')->where('establecimiento_id', $estId)->value('radio');
 
-        // 1. Vincular en modalidades
-        DB::table('modalidades')
-            ->where('establecimiento_id', $estId)
-            ->update(['sector' => (string) $sector, 'observaciones' => $obs]);
+        $query = DB::table('auditoria_radio_resultados');
+        if ($recordId) {
+            $query->where('id', $recordId);
+        } else {
+            $query->where('sector', $sector);
+            if ($centro !== null) {
+                $query->where('centro', $centro);
+            }
+        }
 
-        // 2. Actualizar en auditoria_radio_resultados
-        DB::table('auditoria_radio_resultados')
-            ->where('sector', $sector)
-            ->update([
-                'nombre_establecimiento' => $est->nombre,
-                'cue' => $est->cue,
-                'estado_gestion' => 'CORREGIDO',
-                'notas_auditor' => 'Saneado y vinculado a CUE '.$est->cue.': '.$obs,
-            ]);
+        $auditRecord = (clone $query)->first();
+
+        $estadoAuditoria = 'COINCIDE_SIGE';
+        if ($auditRecord && $auditRecord->radio_sueldo !== null && $estRadio !== null) {
+            $radioSueldo = (float) $auditRecord->radio_sueldo;
+            $radioSige = (float) $estRadio;
+            if ($radioSueldo > $radioSige) {
+                $estadoAuditoria = 'PAGA_MÁS_QUE_SIGE';
+            } elseif ($radioSueldo < $radioSige) {
+                $estadoAuditoria = 'PAGA_MENOS_QUE_SIGE';
+            } else {
+                $estadoAuditoria = 'COINCIDE_SIGE';
+            }
+        }
+
+        // Registrar vínculo ÚNICAMENTE en el historial de auditoría (preservando padrón oficial SIGE)
+        $query->update([
+            'nombre_establecimiento' => $est->nombre,
+            'cue' => $est->cue,
+            'radio_sige' => $estRadio,
+            'estado_auditoria' => $estadoAuditoria,
+            'estado_gestion' => $estadoGestion,
+            'notas_auditor' => 'Asociado en auditoría a CUE '.$est->cue.': '.$obs,
+        ]);
 
         return response()->json([
-            'message' => 'Sector '.$sector.' saneado y vinculado con éxito a '.$est->nombre,
+            'message' => 'Sector '.$sector.' registrado en historial de auditoría asociado a CUE '.$est->cue.' ('.$est->nombre.')',
+            'estado_auditoria' => $estadoAuditoria,
+            'estado_gestion' => $estadoGestion,
         ]);
     }
 

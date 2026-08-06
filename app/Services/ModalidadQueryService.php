@@ -70,9 +70,9 @@ class ModalidadQueryService
      */
     public function getFilterOptions(): array
     {
-        $niveles = Modalidad::select('nivel_educativo')->distinct()->whereNotNull('nivel_educativo')->orderBy('nivel_educativo')->pluck('nivel_educativo')->toArray();
+        $niveles = Modalidad::select('nivel_educativo')->distinct()->whereNotNull('nivel_educativo')->where('direccion_area', '<>', 'ADMINISTRACIÓN')->orderBy('nivel_educativo')->pluck('nivel_educativo')->toArray();
         $ambitos = Modalidad::select('ambito')->distinct()->whereNotNull('ambito')->pluck('ambito')->toArray();
-        $areas = Modalidad::select('direccion_area')->distinct()->whereNotNull('direccion_area')->orderBy('direccion_area')->pluck('direccion_area')->toArray();
+        $areas = Modalidad::select('direccion_area')->distinct()->whereNotNull('direccion_area')->where('direccion_area', '<>', 'ADMINISTRACIÓN')->orderBy('direccion_area')->pluck('direccion_area')->toArray();
         $zonas = Edificio::select('zona_departamento')->distinct()->whereNotNull('zona_departamento')->orderBy('zona_departamento')->pluck('zona_departamento')->toArray();
         $radios = Modalidad::select('radio')->distinct()->whereNotNull('radio')->orderBy('radio')->pluck('radio')->toArray();
         $sectores = Modalidad::select('sector')->distinct()->whereNotNull('sector')->orderBy('sector')->pluck('sector')->toArray();

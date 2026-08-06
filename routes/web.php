@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdministrativoController;
 use App\Http\Controllers\Admin\AuditoriaSueldosController;
 use App\Http\Controllers\Admin\EdificioController;
 use App\Http\Controllers\Admin\ModalidadController;
@@ -74,12 +75,18 @@ Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::delete('/admin/edificios/{id}', [EdificioController::class, 'destroy'])->name('admin.edificios.destroy');
     Route::get('/admin/edificios/export', [EdificioController::class, 'export'])->name('admin.edificios.export');
 
-    // Gestión de Establecimientos (Modalidades - Admin)
     Route::get('/admin/establecimientos', [ModalidadController::class, 'index'])->name('admin.establecimientos.index');
     Route::post('/admin/establecimientos', [ModalidadController::class, 'store'])->name('admin.establecimientos.store');
     Route::patch('/admin/establecimientos/{id}', [ModalidadController::class, 'update'])->name('admin.establecimientos.update');
     Route::delete('/admin/establecimientos/{id}', [ModalidadController::class, 'destroy'])->name('admin.establecimientos.destroy');
     Route::get('/admin/establecimientos/export', [ModalidadController::class, 'export'])->name('admin.establecimientos.export');
+
+    // Gestión de Oficinas Centrales / Reparticiones (Admin)
+    Route::get('/admin/oficinas-centrales', [AdministrativoController::class, 'index'])->name('admin.oficinas.index');
+    Route::post('/admin/oficinas-centrales', [AdministrativoController::class, 'store'])->name('admin.oficinas.store');
+    Route::patch('/admin/oficinas-centrales/{id}', [AdministrativoController::class, 'update'])->name('admin.oficinas.update');
+    Route::delete('/admin/oficinas-centrales/{id}', [AdministrativoController::class, 'destroy'])->name('admin.oficinas.destroy');
+    Route::get('/admin/oficinas-centrales/export', [AdministrativoController::class, 'export'])->name('admin.oficinas.export');
 
     // API Lookups
     Route::get('/api/lookup-edificio/{cui}', [ModalidadController::class, 'lookupEdificio'])->name('api.lookup-edificio');

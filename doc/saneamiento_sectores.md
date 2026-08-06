@@ -1,44 +1,28 @@
-# Módulo de Saneamiento y Registro de Sectores Desvinculados
+# Módulo de Saneamiento y Registro de Otros Sectores (Desvinculados)
 
 **Sistema:** EDU-Auditor — Sistema de Auditoría de Compensación Geográfica y Haberes Docentes  
-**Documento:** Especificación Técnica y Funcional del Módulo de Saneamiento de Sectores  
+**Documento:** Especificación Técnica y Funcional del Módulo de Saneamiento e Investigación de Otros Sectores  
 **Ubicación:** `doc/saneamiento_sectores.md`  
 
 ---
 
 ## 1. Definición y Propósito
 
-El módulo de **Saneamiento de Sectores** es una herramienta administrativa diseñada para identificar, nombrar y vincular aquellos **241 sectores presupuestarios** que en las cargas iniciales figuraban en la nómina salarial como **`SIN_SIGE`** o sin vínculo a un CUE de la base de datos oficial.
+El módulo de **Otros Sectores** (anteriormente *Sectores sin Escuela* / *Sectores sin Identificarse*) es una herramienta administrativa diseñada para investigar, nombrar y vincular aquellos sectores presupuestarios de la nómina salarial que inicialmente no registraban un CUE asociado en la base oficial.
 
 ---
 
-## 2. Radiografía y Clasificación de los 241 Sectores Desvinculados
+## 2. Principio Fundamental: Aislamiento del Padrón Oficial SIGE
 
-Gracias al cruce inteligente entre el **Diccionario Maestro Refactorizado (`CENTROS Y SECTORES EDUCACION REFACTORIZADO (3).XLSX`)** y el padrón de agentes (`agentes.csv`), los 241 sectores desvinculados quedan desglosados en **3 tipologías operativas**:
-
-### A. 🏛️ Oficinas Centrales, Juntas, Supervisores y Comisiones (46 Sectores)
-* **Naturaleza:** Sectores salariales pertenecientes a agentes que **no laboran en un edificio escolar físico con alumnos**.
-* **Ejemplos Reales:**
-  - `Junta de Clasificación DESMYT` (Centro 94 - Sector 658)
-  - `Supervisor Semi Residente` (Centro 94 - Sector 408)
-  - `Gabinete Psicopedagógico Dr. Veronelli` (Centro 98 - Sector 224)
-  - `Personal en Comisión de Servicio` (Centro 98 - Sector 227 / 570)
-  - `Biblioteca del Magisterio` (Centro 98 - Sector 172)
-* **Estrategia de Vinculación:** Se enlazan a la entidad administrativa central (**CUE `70000000` - Centro Cívico / Administración Central** o **CUE `70000001` - Cuerpo de Supervisores**), validando formalmente su liquidación bajo **Radio 1 (0% bonificación)**.
-
-### B. 🏢 Colegios Privados no vinculados en SIGE (71 Sectores)
-* **Naturaleza:** Sectores salariales de la educación privada o transferida (Centros `29`, `63`, `64`, `65`, `67`).
-* **Ejemplos Reales:** `Colegio Merceditas de San Martín`, `Colegio San Pablo`, etc.
-* **Estrategia de Vinculación:** Asignación directa del CUE de la institución privada registrada en la base de datos.
-
-### C. 🏫 Escuelas Públicas, CENS, EPETs y Anexos (124 Sectores)
-* **Naturaleza:** Establecimientos escolares reales cuyo campo `sector` en la tabla `modalidades` de SIGE no estaba cargado o figuraba como `0`.
-* **Ejemplos Reales:** `C.E.N.S. Valle Fértil` (Centro 24/76 - Sector 602), `PROPAA Zona Sur Anexo 6` (Centro 80 - Sector 279), `Escuela Formación para Gestión Educativa` (Centro 85 - Sector 969).
-* **Estrategia de Vinculación:** Selección del CUE correspondiente desde la herramienta interactiva de saneamiento.
+> [!IMPORTANT]
+> **Preservación de la Base Oficial de SIGE:**
+> * Al presionar **"Vincular a CUE"**, la acción **NO altera la tabla `modalidades`** ni modifica el sector oficial registrado para la escuela en la base administrativa de SIGE.
+> * La vista oficial de establecimientos (`/admin/establecimientos`) permanece 100% protegida e inalterada, evitando duplicados o deformaciones en la estructura física del padrón.
+> * La relación se asienta exclusivamente en el **Historial de Auditoría de Sueldos** (`auditoria_radio_resultados`), asociando el CUE destino, el radio oficial, la nota del auditor y la evaluación de discrepancia de radio.
 
 ---
 
-## 3. Instructivo del Flujo de Vinculación Directa
+## 3. Instructivo del Flujo de Vinculación y Traslado Automático
 
 ```mermaid
 sequenceDiagram
@@ -48,29 +32,33 @@ sequenceDiagram
     participant API as Controlador Laravel (AuditoriaSueldosController)
     participant DB as Base de Datos SQLite
 
-    Auditor->>UI: Selecciona sector en pestaña 'Sectores Desvinculados'
-    UI->>Auditor: Despliega Modal de Vinculación con Buscador de Escuelas / CUEs / CUE Central 70000000
-    Auditor->>UI: Elige la Escuela o Entidad Administrativa destino e ingresa Norma / Observación
-    Auditor->>UI: Presiona 'Vincular y Sanear Sector'
+    Auditor->>UI: Selecciona sector en pestaña 'Otros Sectores'
+    UI->>Auditor: Despliega Modal de Vinculación con Buscador Autocompletado (CUE o Nombre)
+    Auditor->>UI: Escribe CUE o Nombre de la Escuela y la selecciona de la lista flotante
+    UI->>Auditor: Muestra comparación de radios (Radio Liquidado vs Radio Oficial CUE) y alerta de discrepancia
+    Auditor->>UI: Elige Estado de Gestión (CONFORME, EN_INVESTIGACION, JUSTIFICADO, CORREGIDO) e ingresa expediente
+    Auditor->>UI: Presiona 'Registrar en Auditoría'
     UI->>API: POST /api/auditoria-sueldos/sanear-sector
-    API->>DB: UPDATE modalidades SET sector = X WHERE establecimiento_id = Y
-    API->>DB: UPDATE auditoria_radio_resultados SET cue = CUE, estado = 'CORREGIDO'
+    API->>DB: UPDATE auditoria_radio_resultados SET cue = CUE, radio_sige = R_SIGE, estado_auditoria = X, estado_gestion = Y
     API-->>UI: Respuesta Exitosa (OK)
-    UI->>Auditor: Actualización automática de Tablas, Mapas e Indicadores
+    UI->>Auditor: Traslado automático del registro a la pestaña 'Seguimiento & Gestión'
 ```
 
 ---
 
-## 4. Estructura de la Tabla en la Interfaz
+## 4. Características de la Interfaz
 
-La tabla de **Sectores Desvinculados** presenta una estructura limpia enfocada en radios e identificación física:
-
-| Columna | Descripción |
-|---|---|
-| **Centro** | Código de Centro Salarial (`Centro 98`, `Centro 19`, `Centro 80`, etc.). |
-| **Sector** | Número de sector presupuestario auditado. |
-| **Estado Auditoría** | Estado de control (`SIN_SIGE`). |
-| **Radio Sueldo** | Radio determinado por la mediana salarial. |
-| **Personal Afectado** | Cantidad de agentes liquidados en el sector. |
-| **Detalle / Notas** | Nombre refactorizado de la escuela u oficina y tipo de repartición. |
-| **Acción Saneamiento** | Botón interactivo *"Vincular CUE"*. |
+1. **Buscador en Tiempo Real por Autocompletado:**
+   - Permite escribir el CUE de 9 dígitos (ej. `700069900` o `700031401`) o el nombre de la institución (ej. `Nicomedes`, `Kenney`).
+   - Muestra de forma instantánea una lista flotante con las escuelas coincidentes, indicando CUE, departamento y Radio SIGE oficial.
+2. **Comparación de Radios en Tiempo Real:**
+   - Al seleccionar la escuela, el modal evalúa el `Radio Liquidado en el Sector` contra el `Radio SIGE Oficial`.
+   - Si los radios difieren, despliega un aviso: `⚠️ Este sector liquida un radio distinto al CUE oficial. Se registrará la discrepancia para auditoría.`
+3. **Estados de Gestión Disponibles:**
+   - **`CONFORME`**: Para sectores pertenecientes a la escuela sin discrepancia de radio.
+   - **`EN_INVESTIGACION`**: Para sectores en proceso de análisis de expediente.
+   - **`JUSTIFICADO`**: Para sectores respaldados por norma legal o resolución.
+   - **`CORREGIDO`**: Para sectores rectificados en liquidaciones.
+   - **`PENDIENTE`**: Estado inicial sin revisar.
+4. **Traslado Automático:**
+   - Al confirmar el registro, el sector recibe su CUE y se traslada automáticamente al panel de **Seguimiento y Gestión**, donde permanece accesible para filtrado, edición y exportación a Excel.

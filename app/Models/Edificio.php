@@ -21,6 +21,19 @@ class Edificio extends Model
         'punto_partida', 'dist_circunf', 'radio_circ', 'distancia_camino', 'radio_camino', 'tiempo_google_auto', 'observacion',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(function () {
+            Cache::forget('edificios_names_map_v2');
+            Cache::forget('edificios_options_react');
+        });
+
+        static::deleted(function () {
+            Cache::forget('edificios_names_map_v2');
+            Cache::forget('edificios_options_react');
+        });
+    }
+
     public function establecimientos(): HasMany
     {
         return $this->hasMany(Establecimiento::class, 'edificio_id');

@@ -4,6 +4,8 @@ import SIAMELayout from '../../Layouts/SIAMELayout';
 import { GlassCard } from '../../Components/GlassCard';
 import { Pagination } from '../../Components/Pagination';
 
+const ADMIN_NIVELES = ['ADMINISTRACIÓN', 'ADMINISTRATIVO', 'JUNTA DE CLASIFICACIÓN', 'SUPERVISIÓN'];
+
 export default function AuditoriaSueldosIndex({
   nominas = [],
   nominaSeleccionada = null,
@@ -39,7 +41,9 @@ export default function AuditoriaSueldosIndex({
   // State for sector saneamiento
   const [saneamientoModalSector, setSaneamientoModalSector] = useState(null);
   const [saneamientoEstId, setSaneamientoEstId] = useState('');
+  const [saneamientoSearchTerm, setSaneamientoSearchTerm] = useState('');
   const [saneamientoObs, setSaneamientoObs] = useState('');
+  const [saneamientoEstadoGestion, setSaneamientoEstadoGestion] = useState('EN_INVESTIGACION');
   const [sanearSubmitting, setSanearSubmitting] = useState(false);
   const [conflictosModalData, setConflictosModalData] = useState(null);
 
@@ -183,10 +187,12 @@ export default function AuditoriaSueldosIndex({
     const term = search.toLowerCase();
     const matchesSearch =
       !search ||
+      (item.centro && item.centro.toString().includes(term)) ||
       (item.sector && item.sector.toString().includes(term)) ||
       (item.nombre_establecimiento && item.nombre_establecimiento.toLowerCase().includes(term)) ||
       (item.localidad && item.localidad.toLowerCase().includes(term)) ||
-      (item.cue && item.cue.toString().includes(term));
+      (item.cue && item.cue.toString().includes(term)) ||
+      (item.notas_auditor && item.notas_auditor.toLowerCase().includes(term));
 
     const matchesNivel = !filtroNivel || item.nivel_educativo === filtroNivel;
     const matchesGestion = !filtroGestion || item.estado_gestion === filtroGestion;
@@ -217,6 +223,7 @@ export default function AuditoriaSueldosIndex({
     const term = search.toLowerCase();
     return linkedViejos.filter((v) => {
       const matchesSearch = !search ||
+        (v.centro && v.centro.toString().includes(term)) ||
         (v.sector && v.sector.toString().includes(term)) ||
         (v.nombre_establecimiento && v.nombre_establecimiento.toLowerCase().includes(term)) ||
         (v.cue && v.cue.toString().includes(term));
@@ -233,6 +240,7 @@ export default function AuditoriaSueldosIndex({
     const term = search.toLowerCase();
     return unlinkedViejos.filter((v) => {
       const matchesSearch = !search ||
+        (v.centro && v.centro.toString().includes(term)) ||
         (v.sector && v.sector.toString().includes(term)) ||
         (v.nombre_establecimiento && v.nombre_establecimiento.toLowerCase().includes(term)) ||
         (v.cue && v.cue.toString().includes(term));
@@ -250,6 +258,7 @@ export default function AuditoriaSueldosIndex({
       const term = search.toLowerCase();
       const matchesSearch =
         !search ||
+        (item.centro && item.centro.toString().includes(term)) ||
         (item.cue && item.cue.toString().includes(term)) ||
         (item.nombre_establecimiento && item.nombre_establecimiento.toLowerCase().includes(term)) ||
         (item.sector_sige && item.sector_sige.toString().includes(term)) ||
@@ -321,9 +330,14 @@ export default function AuditoriaSueldosIndex({
     return { total: cruceBaseFiltered.length, coincide, noCoincide, sector0, sinLiq };
   }, [cruceBaseFiltered]);
 
+
   const nivelesDisponibles = useMemo(() => {
     return Array.from(
-      new Set(cruceEscuelas.map((i) => i.nivel_educativo).filter(Boolean))
+      new Set(
+        cruceEscuelas
+          .map((i) => i.nivel_educativo)
+          .filter((n) => n && !ADMIN_NIVELES.includes(n.toUpperCase()))
+      )
     ).sort();
   }, [cruceEscuelas]);
 
@@ -335,6 +349,7 @@ export default function AuditoriaSueldosIndex({
 
       const term = search.toLowerCase();
       const matchesSearch = !search ||
+        (c.centro && c.centro.toString().includes(term)) ||
         (c.sector && c.sector.toString().includes(term)) ||
         (c.establecimientos && c.establecimientos.toLowerCase().includes(term));
 
@@ -418,6 +433,13 @@ export default function AuditoriaSueldosIndex({
     }
   };
 
+  const getCsrfToken = () => {
+    const meta = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (meta) return meta;
+    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  };
+
   const handleSanearSectorSubmit = async (sectorVal) => {
     if (!saneamientoEstId) {
       alert('Por favor seleccione una escuela / CUE a vincular');
@@ -425,25 +447,36 @@ export default function AuditoriaSueldosIndex({
     }
     setSanearSubmitting(true);
     try {
+      const token = getCsrfToken();
       const res = await fetch('/api/auditoria-sueldos/sanear-sector', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': token,
+          'X-XSRF-TOKEN': token
         },
         body: JSON.stringify({
+          id: saneamientoModalSector?.id,
           sector: sectorVal,
+          centro: saneamientoModalSector?.centro,
           establecimiento_id: saneamientoEstId,
-          observacion: saneamientoObs
+          observacion: saneamientoObs,
+          estado_gestion: saneamientoEstadoGestion
         })
       });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message || 'Sector saneado con éxito');
+        alert(data.message || 'Sector registrado en auditoría con éxito');
         setSaneamientoModalSector(null);
         setSaneamientoEstId('');
+        setSaneamientoSearchTerm('');
         setSaneamientoObs('');
-        router.reload();
+        setSaneamientoEstadoGestion('EN_INVESTIGACION');
+        setActiveTab('tracking');
+        router.reload({
+          onSuccess: () => setActiveTab('tracking')
+        });
       } else {
         alert(data.message || 'Error al sanear sector');
       }
@@ -613,18 +646,18 @@ export default function AuditoriaSueldosIndex({
           }`}
         >
           <i className="fa-solid fa-circle-question"></i>
-          Sectores sin Escuela ({unlinkedResultados.length + unlinkedViejos.length})
+          Otros Sectores ({unlinkedResultados.length + unlinkedViejos.length})
         </button>
       </div>
 
       {/* Global Filter Bar for Tables */}
       {activeTab !== 'kpi' && (
         <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm mb-6 flex flex-col md:flex-row gap-3 items-center justify-between">
-          <div className="relative w-full md:w-80">
+          <div className="relative w-full md:w-96">
             <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-gray-400 text-sm"></i>
             <input
               type="text"
-              placeholder={activeTab === 'cruce' ? "Buscar CUE, escuela, depto..." : "Buscar sector, CUE o escuela..."}
+              placeholder="Buscar por CUE, centro, sector, escuela o departamento..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-[#FE8204] focus:border-[#FE8204]"
@@ -702,6 +735,7 @@ export default function AuditoriaSueldosIndex({
                 className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-3 py-2 focus:ring-[#FE8204] cursor-pointer"
               >
                 <option value="">Todos los Estados Gestión</option>
+                <option value="CONFORME">CONFORME / VALIDADO</option>
                 <option value="PENDIENTE">PENDIENTE</option>
                 <option value="EN_INVESTIGACION">EN INVESTIGACIÓN</option>
                 <option value="JUSTIFICADO">JUSTIFICADO</option>
@@ -1625,7 +1659,9 @@ export default function AuditoriaSueldosIndex({
                     <td className="px-3 py-3 text-center">
                       <span
                         className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                          item.estado_gestion === 'CORREGIDO'
+                          item.estado_gestion === 'CONFORME'
+                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                            : item.estado_gestion === 'CORREGIDO'
                             ? 'bg-emerald-100 text-emerald-800'
                             : item.estado_gestion === 'JUSTIFICADO'
                             ? 'bg-purple-100 text-purple-800'
@@ -1840,7 +1876,7 @@ export default function AuditoriaSueldosIndex({
         </div>
       )}
 
-      {/* TAB: SECTORES SIN ESCUELA (INVESTIGACIÓN) */}
+      {/* TAB: SECTORES SIN IDENTIFICARSE (INVESTIGACIÓN) */}
       {activeTab === 'sin_escuela' && (
         <div className="space-y-6">
           <GlassCard className="p-6 border-l-4 border-l-slate-500">
@@ -1848,7 +1884,7 @@ export default function AuditoriaSueldosIndex({
               <div>
                 <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
                   <i className="fa-solid fa-circle-question text-slate-600"></i>
-                  Sectores de Nómina Desvinculados de Establecimientos ({unlinkedResultados.length})
+                  Otros Sectores ({unlinkedResultados.length})
                 </h2>
                 <p className="text-xs text-gray-600">
                   Sectores que registran liquidaciones docentes pero no poseen un establecimiento u oficina identificada en la base de datos oficial.
@@ -1859,10 +1895,10 @@ export default function AuditoriaSueldosIndex({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-                title="Descargar sectores sin escuela en Excel"
+                title="Descargar Otros Sectores en Excel"
               >
                 <i className="fa-solid fa-file-excel text-sm"></i>
-                <span>Descargar Excel Sectores sin Escuela</span>
+                <span>Descargar Excel Otros Sectores</span>
               </a>
             </div>
 
@@ -1871,11 +1907,12 @@ export default function AuditoriaSueldosIndex({
                 <thead className="text-xs uppercase bg-slate-100 text-slate-900 border-b">
                   <tr>
                     <th className="px-3 py-3 text-center font-bold">Centro</th>
+                    <th className="px-3 py-3 font-bold">Nivel</th>
+                    <th className="px-3 py-3 font-bold">Nombre Sector</th>
                     <th className="px-3 py-3 text-center font-bold">Sector</th>
-                    <th className="px-3 py-3 font-bold">Estado Auditoría</th>
+                    <th className="px-3 py-3 font-bold">Identificación / Gestión</th>
                     <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
-                    <th className="px-3 py-3 text-right font-bold">Docentes Afectados</th>
-                    <th className="px-3 py-3 font-bold">Detalle / Notas</th>
+                    <th className="px-3 py-3 text-right font-bold">Docentes</th>
                     <th className="px-3 py-3 text-center font-bold">Acción Saneamiento</th>
                   </tr>
                 </thead>
@@ -1883,11 +1920,11 @@ export default function AuditoriaSueldosIndex({
                   {unlinkedResultados.map((s) => (
                     <tr key={s.id} className="hover:bg-slate-50/50">
                       <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{s.centro ?? 'S/D'}</td>
+                      <td className="px-3 py-3 font-extrabold text-slate-800">{s.nivel_educativo || 'S/N'}</td>
+                      <td className="px-3 py-3 font-bold text-gray-900">{s.nombre_establecimiento || 'Sector Desvinculado'}</td>
                       <td className="px-3 py-3 text-center font-black text-gray-900 text-sm">{s.sector}</td>
-                      <td className="px-3 py-3">
-                        <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-orange-100 text-orange-900 border border-orange-200">
-                          {s.estado_auditoria}
-                        </span>
+                      <td className="px-3 py-3 font-medium text-gray-600 max-w-xs truncate">
+                        {s.notas_auditor || <span className="italic text-gray-400">Sin notas de investigación</span>}
                       </td>
                       <td className="px-3 py-3 text-center font-black text-purple-700">
                         Radio {s.radio_sueldo} ({s.porc_pagado_mediana}%)
@@ -1895,15 +1932,14 @@ export default function AuditoriaSueldosIndex({
                       <td className="px-3 py-3 text-right font-bold text-gray-900">
                         {s.total_filas_docentes} docentes
                       </td>
-                      <td className="px-3 py-3 font-medium text-gray-600 max-w-xs truncate">
-                        {s.notas_auditor || <span className="italic text-gray-400">Sin notas de investigación</span>}
-                      </td>
                       <td className="px-3 py-3 text-center">
                         <button
                           onClick={() => {
                             setSaneamientoModalSector(s);
                             setSaneamientoEstId('');
+                            setSaneamientoSearchTerm('');
                             setSaneamientoObs('');
+                            setSaneamientoEstadoGestion('EN_INVESTIGACION');
                           }}
                           className="px-3 py-1.5 text-[11px] font-bold text-white bg-[#FE8204] hover:bg-[#e07203] rounded-xl shadow transition flex items-center gap-1.5 mx-auto cursor-pointer"
                         >
@@ -1915,7 +1951,7 @@ export default function AuditoriaSueldosIndex({
                   ))}
                   {unlinkedResultados.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="px-3 py-8 text-center text-gray-400 font-medium italic">
+                      <td colSpan="8" className="px-3 py-8 text-center text-gray-400 font-medium italic">
                         No hay sectores desvinculados en esta nómina.
                       </td>
                     </tr>
@@ -2010,79 +2046,214 @@ export default function AuditoriaSueldosIndex({
       )}
 
       {/* SANEAMIENTO MODAL */}
-      {saneamientoModalSector && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-gray-100">
-            <div className="flex items-center justify-between border-b pb-3 mb-4">
-              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
-                <i className="fa-solid fa-wand-magic-sparkles text-[#FE8204]"></i>
-                Vincular Sector {saneamientoModalSector.sector}
-              </h3>
-              <button
-                onClick={() => setSaneamientoModalSector(null)}
-                className="text-gray-400 hover:text-gray-600 font-bold cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+      {saneamientoModalSector && (() => {
+        const estSeleccionado = establecimientosList.find(e => Number(e.id) === Number(saneamientoEstId));
+        const radioDifiere = estSeleccionado && estSeleccionado.radio !== null && Number(estSeleccionado.radio) !== Number(saneamientoModalSector.radio_sueldo);
 
-            <div className="space-y-4">
-              <div className="p-3 bg-orange-50 border border-orange-200 rounded-2xl text-xs space-y-1">
-                <div><b className="text-orange-950">Sector a Sanear:</b> Sector {saneamientoModalSector.sector}</div>
-                <div><b className="text-orange-950">Radio Liquidado:</b> Radio {saneamientoModalSector.radio_sueldo} ({saneamientoModalSector.porc_pagado_mediana}%)</div>
-                <div><b className="text-orange-950">Docentes liquidados:</b> {saneamientoModalSector.total_filas_docentes}</div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Seleccionar Escuela / CUE Destino a Vincular:
-                </label>
-                <select
-                  value={saneamientoEstId}
-                  onChange={(e) => setSaneamientoEstId(e.target.value)}
-                  className="w-full text-xs font-semibold bg-gray-50 border border-gray-300 rounded-xl px-3 py-2.5 focus:ring-[#FE8204] focus:border-[#FE8204] cursor-pointer"
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b pb-3 mb-4">
+                <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <i className="fa-solid fa-wand-magic-sparkles text-[#FE8204]"></i>
+                  Asociar Sector {saneamientoModalSector.sector} en Auditoría
+                </h3>
+                <button
+                  onClick={() => setSaneamientoModalSector(null)}
+                  className="text-gray-400 hover:text-gray-600 font-bold cursor-pointer"
                 >
-                  <option value="">-- Buscar / Seleccionar Escuela --</option>
-                  {establecimientosList.map((est) => (
-                    <option key={est.id} value={est.id}>
-                      {est.nombre} (CUE: {est.cue} - {est.departamento})
-                    </option>
-                  ))}
-                </select>
+                  ✕
+                </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Observaciones / Justificación de Saneamiento:
-                </label>
-                <textarea
-                  rows={3}
-                  value={saneamientoObs}
-                  onChange={(e) => setSaneamientoObs(e.target.value)}
-                  placeholder="Ej. El sector 211 pertenece al Anexo Aberastain o es una función volante de la Dirección de Primaria..."
-                  className="w-full text-xs bg-gray-50 border border-gray-300 rounded-xl p-3 focus:ring-[#FE8204]"
-                ></textarea>
-              </div>
-            </div>
+              <div className="space-y-4">
+                <div className="p-3 bg-orange-50 border border-orange-200 rounded-2xl text-xs space-y-1">
+                  <div><b className="text-orange-950">Centro:</b> {saneamientoModalSector.centro ?? 'S/D'} | <b className="text-orange-950">Sector:</b> {saneamientoModalSector.sector}</div>
+                  {saneamientoModalSector.nivel_educativo && <div><b className="text-orange-950">Nivel Refactorizado:</b> {saneamientoModalSector.nivel_educativo}</div>}
+                  {saneamientoModalSector.nombre_establecimiento && <div><b className="text-orange-950">Nombre Sector:</b> {saneamientoModalSector.nombre_establecimiento}</div>}
+                  <div><b className="text-orange-950">Radio Liquidado:</b> Radio {saneamientoModalSector.radio_sueldo} ({saneamientoModalSector.porc_pagado_mediana}%)</div>
+                  <div><b className="text-orange-950">Docentes liquidados:</b> {saneamientoModalSector.total_filas_docentes}</div>
+                </div>
 
-            <div className="flex items-center justify-end gap-3 mt-6">
-              <button
-                onClick={() => setSaneamientoModalSector(null)}
-                className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                disabled={sanearSubmitting || !saneamientoEstId}
-                onClick={() => handleSanearSectorSubmit(saneamientoModalSector.sector)}
-                className="px-4 py-2 text-xs font-bold text-white bg-[#FE8204] hover:bg-[#FE8204]/90 rounded-xl shadow-md transition disabled:opacity-50 cursor-pointer"
-              >
-                {sanearSubmitting ? 'Guardando Vinculación...' : 'Vincular y Sanear Sector'}
-              </button>
+                <div className="relative">
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    Buscar Escuela / CUE Destino a Vincular:
+                  </label>
+                  
+                  {saneamientoEstId && estSeleccionado ? (
+                    <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-xs text-emerald-950 flex items-center gap-1.5">
+                          <i className="fa-solid fa-building-columns text-emerald-600"></i>
+                          <span>{estSeleccionado.nombre}</span>
+                        </div>
+                        <div className="text-[11px] text-emerald-800 font-medium mt-0.5">
+                          CUE: <span className="font-mono font-bold text-emerald-950">{estSeleccionado.cue}</span> • {estSeleccionado.departamento} (Radio SIGE: {estSeleccionado.radio ?? 'S/D'})
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSaneamientoEstId('');
+                          setSaneamientoSearchTerm('');
+                        }}
+                        className="px-2.5 py-1 text-[10px] font-bold text-rose-700 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-lg transition cursor-pointer shrink-0"
+                      >
+                        <i className="fa-solid fa-arrows-rotate mr-1"></i> Cambiar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-gray-400 text-xs"></i>
+                      <input
+                        type="text"
+                        value={saneamientoSearchTerm}
+                        onChange={(e) => setSaneamientoSearchTerm(e.target.value)}
+                        placeholder="Escriba CUE (ej. 700069900) o nombre de la escuela..."
+                        className="w-full text-xs font-semibold bg-gray-50 border border-gray-300 rounded-xl pl-9 pr-8 py-2.5 focus:ring-[#FE8204] focus:border-[#FE8204]"
+                      />
+                      {saneamientoSearchTerm && (
+                        <button
+                          type="button"
+                          onClick={() => setSaneamientoSearchTerm('')}
+                          className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 text-xs font-bold cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      )}
+
+                      {/* Dropdown list of filtered results */}
+                      {saneamientoSearchTerm.trim().length >= 2 && (
+                        <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto divide-y divide-gray-100">
+                          {(() => {
+                            const term = saneamientoSearchTerm.toLowerCase().trim();
+                            const matches = establecimientosList
+                              .filter(est =>
+                                (est.cue && est.cue.toString().includes(term)) ||
+                                (est.nombre && est.nombre.toLowerCase().includes(term)) ||
+                                (est.departamento && est.departamento.toLowerCase().includes(term))
+                              )
+                              .slice(0, 15);
+
+                            if (matches.length === 0) {
+                              return (
+                                <div className="p-4 text-center text-xs text-gray-500 italic">
+                                  {`No se encontraron escuelas que coincidan con "${saneamientoSearchTerm}"`}
+                                </div>
+                              );
+                            }
+
+                            return matches.map((est) => (
+                              <button
+                                key={est.id}
+                                type="button"
+                                onClick={() => {
+                                  setSaneamientoEstId(est.id);
+                                  setSaneamientoSearchTerm(`${est.nombre} (CUE: ${est.cue})`);
+                                }}
+                                className="w-full text-left p-3 hover:bg-orange-50/80 transition flex items-start justify-between gap-2 cursor-pointer"
+                              >
+                                <div>
+                                  <div className="font-bold text-xs text-gray-900">{est.nombre}</div>
+                                  <div className="text-[11px] text-gray-500 font-medium">
+                                    CUE: <span className="font-mono font-bold text-gray-800">{est.cue}</span> • {est.departamento}
+                                  </div>
+                                </div>
+                                <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                  Radio SIGE {est.radio ?? 'S/D'}
+                                </span>
+                              </button>
+                            ));
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!saneamientoEstId && saneamientoSearchTerm.trim().length < 2 && (
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      💡 Escriba al menos 2 números o letras para buscar entre todas las escuelas.
+                    </p>
+                  )}
+                </div>
+
+                {estSeleccionado && (
+                  <div className={`p-3 rounded-xl border text-xs space-y-1 ${
+                    radioDifiere ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                  }`}>
+                    <div className="font-bold flex items-center gap-1.5">
+                      <i className={`fa-solid ${radioDifiere ? 'fa-triangle-exclamation text-amber-600' : 'fa-circle-check text-emerald-600'}`}></i>
+                      <span>Comparación de Radios:</span>
+                    </div>
+                    <div>
+                      • Radio Liquidado en Sector: <b>Radio {saneamientoModalSector.radio_sueldo}</b>
+                    </div>
+                    <div>
+                      • Radio Oficial CUE ({estSeleccionado.cue}): <b>Radio {estSeleccionado.radio ?? 'S/D'}</b>
+                    </div>
+                    {radioDifiere && (
+                      <p className="mt-1 text-[11px] font-semibold text-amber-800 italic">
+                        ⚠️ Este sector liquida un radio distinto al CUE oficial. El sistema registrará la discrepancia para investigación de auditoría.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    Estado de Gestión / Auditoría:
+                  </label>
+                  <select
+                    value={saneamientoEstadoGestion}
+                    onChange={(e) => setSaneamientoEstadoGestion(e.target.value)}
+                    className="w-full text-xs font-semibold bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 focus:ring-[#FE8204] focus:border-[#FE8204] cursor-pointer"
+                  >
+                    <option value="CONFORME">CONFORME / VALIDADO (SIN INCONSISTENCIAS)</option>
+                    <option value="EN_INVESTIGACION">EN INVESTIGACIÓN</option>
+                    <option value="JUSTIFICADO">JUSTIFICADO (CON NORMA LEGAL / RESOLUCIÓN)</option>
+                    <option value="CORREGIDO">CORREGIDO EN NÓMINA</option>
+                    <option value="PENDIENTE">PENDIENTE</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    Observaciones / Expediente / Justificación:
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={saneamientoObs}
+                    onChange={(e) => setSaneamientoObs(e.target.value)}
+                    placeholder="Ej. Sector 203 pertenece a la E.E.E. Nicomedes Pinto. Registrado en expediente de investigación..."
+                    className="w-full text-xs bg-gray-50 border border-gray-300 rounded-xl p-3 focus:ring-[#FE8204]"
+                  ></textarea>
+                </div>
+
+                <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-xl text-[11px] text-sky-800 leading-tight">
+                  <i className="fa-solid fa-circle-info text-sky-600 mr-1"></i>
+                  <b>Protección de Datos:</b> La vinculación se guardará exclusivamente en el historial de auditoría de sueldos. El padrón oficial de establecimientos (SIGE) no sufrirá ningún cambio.
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setSaneamientoModalSector(null)}
+                  className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={sanearSubmitting || !saneamientoEstId}
+                  onClick={() => handleSanearSectorSubmit(saneamientoModalSector.sector)}
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#FE8204] hover:bg-[#FE8204]/90 rounded-xl shadow-md transition disabled:opacity-50 cursor-pointer"
+                >
+                  {sanearSubmitting ? 'Guardando...' : 'Registrar en Auditoría'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* EDIT MODAL */}
       {editingItem && (
@@ -2105,6 +2276,7 @@ export default function AuditoriaSueldosIndex({
                   onChange={(e) => setEstadoGestionInput(e.target.value)}
                   className="w-full text-xs font-semibold bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 focus:ring-[#FE8204]"
                 >
+                  <option value="CONFORME">CONFORME / VALIDADO (SIN INCONSISTENCIAS)</option>
                   <option value="PENDIENTE">PENDIENTE</option>
                   <option value="EN_INVESTIGACION">EN INVESTIGACIÓN</option>
                   <option value="JUSTIFICADO">JUSTIFICADO (CON NORMA LEGAL)</option>

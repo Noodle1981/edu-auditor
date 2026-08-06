@@ -10,37 +10,6 @@ import { Head, router, useForm } from '@inertiajs/react';
 import debounce from 'lodash/debounce';
 import { useEffect, useMemo, useState } from 'react';
 
-// Mapeo estático de Dirección de Área a Niveles Educativos
-const MAPA_AREA_NIVEL = {
-    ADULTOS: ['CENS', 'PROPAA', 'UEPA'],
-    'ED. ESPECIAL': ['EDUCACIÓN ESPECIAL', 'EDUCACIÓN HOSPITALARIA'],
-    INICIAL: ['INICIAL'],
-    PRIMARIO: ['ALBERGUE', 'PRIMARIO'],
-    PRIVADA: [
-        'ADULTOS',
-        'AGROTECNICA',
-        'CENS',
-        'EDUCACIÓN ESPECIAL',
-        'INICIAL',
-        'NO FORMAL',
-        'PRIMARIO',
-        'SECUNDARIO',
-        'SUPERIOR',
-        'TEC. CAP. LABORAL',
-        'TÉCNICO',
-        'UEPA',
-    ],
-    SECUNDARIO: ['NO FORMAL', 'SECUNDARIO'],
-    SUPERIOR: ['SUPERIOR'],
-    TÉCNICA: [
-        'AGROTECNICA',
-        'FOR. PROF. EDUC. NO FORMAL',
-        'MONOTÉCNICA',
-        'TEC. CAP. LABORAL',
-        'TÉCNICO',
-    ],
-};
-
 // Función para obtener el nombre descriptivo del edificio
 const getNombreEdificio = (item, mapa = {}) => {
     try {
@@ -79,7 +48,7 @@ export default function Index({
                 const newFilters = { ...filters, search: query };
                 delete newFilters.page;
                 router.get(
-                    route('admin.establecimientos.index'),
+                    route('admin.oficinas.index'),
                     newFilters,
                     {
                         preserveState: true,
@@ -129,7 +98,7 @@ export default function Index({
         }
 
         router.get(
-            route('admin.establecimientos.index'),
+            route('admin.oficinas.index'),
             newFilters,
             {
                 preserveState: true,
@@ -142,7 +111,7 @@ export default function Index({
         const newFilters = { ...filters, [key]: value };
         delete newFilters.page;
         router.get(
-            route('admin.establecimientos.index'),
+            route('admin.oficinas.index'),
             newFilters,
             {
                 preserveState: true,
@@ -152,7 +121,7 @@ export default function Index({
     };
 
     const resetFilters = () => {
-        router.get(route('admin.establecimientos.index'), {});
+        router.get(route('admin.oficinas.index'), {});
     };
 
     const handleDelete = (item) => {
@@ -170,7 +139,7 @@ export default function Index({
 
         if (confirm(confirmMessage)) {
             router.delete(
-                route('admin.establecimientos.destroy', item.id),
+                route('admin.oficinas.destroy', item.id),
             );
         }
     };
@@ -193,7 +162,7 @@ export default function Index({
                         </PrimaryButton>
                         <a
                             href={route(
-                                'admin.establecimientos.export',
+                                'admin.oficinas.export',
                             )}
                             className="flex w-full items-center justify-center gap-3 rounded-2xl border border-green-100 bg-green-50 py-3 text-[10px] font-black uppercase tracking-widest text-green-700 shadow-sm transition-all hover:bg-green-600 hover:text-white"
                         >
@@ -721,9 +690,9 @@ function EditModalidadModal({
         cue: '',
         nombre_establecimiento: '',
         nivel_educativo: '',
-        direccion_area: '',
-        ambito: '',
-        radio: '',
+        direccion_area: 'ADMINISTRACIÓN',
+        ambito: 'PUBLICO',
+        radio: '1',
         sector: '',
         letra_zona: '',
         categoria: '',
@@ -743,23 +712,19 @@ function EditModalidadModal({
                 cue: modalidad.establecimiento.cue || '',
                 nombre_establecimiento: modalidad.establecimiento.nombre || '',
                 nivel_educativo: modalidad.nivel_educativo || '',
-                direccion_area: modalidad.direccion_area || '',
-                ambito: modalidad.ambito || '',
-                radio: modalidad.radio ?? '',
+                direccion_area: modalidad.direccion_area || 'ADMINISTRACIÓN',
+                ambito: modalidad.ambito || 'PUBLICO',
+                radio: modalidad.radio ?? '1',
                 sector: modalidad.sector ?? '',
-                letra_zona:
-                    modalidad.establecimiento.edificio?.letra_zona ?? '',
+                letra_zona: modalidad.establecimiento.edificio?.letra_zona ?? '',
                 categoria: modalidad.categoria ?? '',
                 validado: !!modalidad.validado,
-                observaciones: modalidad.establecimiento.observaciones || '',
+                observaciones: modalidad.observaciones || '',
             });
 
             setEdificioInfo({
-                departamento:
-                    modalidad.establecimiento.edificio?.zona_departamento || '',
-                cabecera:
-                    nombresEdificios[modalidad.establecimiento.edificio_id] ||
-                    'Sin Nombre',
+                departamento: modalidad.establecimiento.edificio?.zona_departamento || '',
+                cabecera: nombresEdificios[modalidad.establecimiento.edificio_id] || 'Sin Nombre',
             });
         }
     }, [modalidad, show, nombresEdificios, setData]);
@@ -771,17 +736,13 @@ function EditModalidadModal({
             return;
         }
 
-        // If it matches the original CUI of this building
         if (
             modalidad?.establecimiento?.edificio?.cui &&
             cuiStr === String(modalidad.establecimiento.edificio.cui)
         ) {
             setEdificioInfo({
-                departamento:
-                    modalidad.establecimiento.edificio?.zona_departamento || '',
-                cabecera:
-                    nombresEdificios[modalidad.establecimiento.edificio_id] ||
-                    'Sin Nombre',
+                departamento: modalidad.establecimiento.edificio?.zona_departamento || '',
+                cabecera: nombresEdificios[modalidad.establecimiento.edificio_id] || 'Sin Nombre',
             });
             return;
         }
@@ -798,11 +759,8 @@ function EditModalidadModal({
                 .then((res) => {
                     if (res) {
                         setEdificioInfo({
-                            departamento:
-                                res.zona_departamento || 'Sin Departamento',
-                            cabecera:
-                                res.cabecera_nombre ||
-                                'Edificio sin cabecera asignada',
+                            departamento: res.zona_departamento || 'Sin Departamento',
+                            cabecera: res.cabecera_nombre || 'Edificio sin cabecera asignada',
                         });
                     } else {
                         setEdificioInfo({
@@ -826,7 +784,7 @@ function EditModalidadModal({
 
     const submit = (e) => {
         e.preventDefault();
-        patch(route('admin.establecimientos.update', modalidad.id), {
+        patch(route('admin.oficinas.update', modalidad.id), {
             onSuccess: () => {
                 onClose();
             },
@@ -835,206 +793,144 @@ function EditModalidadModal({
 
     return (
         <Modal show={show} onClose={onClose} maxWidth="2xl">
-            <form onSubmit={submit} className="p-6">
-                <h3 className="mb-6 border-b pb-4 text-xl font-black text-gray-900">
-                    Actualizar Establecimiento
+            <form onSubmit={submit} className="p-8">
+                <h3 className="mb-6 border-b pb-4 text-2xl font-black text-gray-900">
+                    Editar Repartición Administrativa
                 </h3>
 
-                <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
-                    <div>
-                        <ModalInput
-                            label="CUI Edificio"
-                            value={data.cui}
-                            onChange={(v) => setData('cui', v)}
-                            error={errors.cui}
-                        />
-                        {data.cui && (
-                            <div className="mt-1.5 space-y-1 rounded-xl border border-orange-100/50 bg-orange-50/50 px-3 py-1.5 text-[10px] font-bold text-gray-600">
-                                <div>
-                                    <span className="mb-0.5 block text-[8px] font-black uppercase tracking-widest text-gray-400">
-                                        Establecimiento Cabecera
-                                    </span>
-                                    <span
-                                        className="block truncate text-xs font-black leading-none text-brand-orange"
-                                        title={edificioInfo.cabecera}
-                                    >
-                                        {edificioInfo.cabecera || 'Sin Nombre'}
-                                    </span>
+                {Object.keys(errors).length > 0 && (
+                    <div className="mb-6 rounded-xl bg-red-50 p-4 text-xs font-semibold text-red-600 border border-red-100">
+                        <p className="font-bold mb-1">Por favor corrija los siguientes errores:</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                            {Object.entries(errors).map(([key, msg]) => (
+                                <li key={key}>{msg}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                <div className="space-y-4">
+                    {/* Ubicación Física */}
+                    <div className="rounded-xl border border-gray-100 bg-gray-50/30 p-4">
+                        <h4 className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                            Ubicación Física
+                        </h4>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <ModalInput
+                                label="CUI Edificio"
+                                value={data.cui}
+                                onChange={(v) => setData('cui', v)}
+                                error={errors.cui}
+                            />
+                            {data.cui && (
+                                <div className="flex flex-col justify-center rounded-xl bg-orange-50/50 px-4 py-2 border border-orange-100">
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">Ubicación del CUI</span>
+                                    <span className="text-xs font-bold text-gray-700">{edificioInfo.departamento || 'Cargando...'}</span>
+                                    {edificioInfo.cabecera && <span className="text-[10px] text-brand-orange mt-0.5">{edificioInfo.cabecera}</span>}
                                 </div>
-                                {edificioInfo.departamento && (
-                                    <div className="border-t border-orange-100/40 pt-1">
-                                        <span className="mb-0.5 block text-[8px] font-black uppercase tracking-widest text-gray-400">
-                                            Ubicación del CUI
-                                        </span>
-                                        <span className="block text-[11px] font-extrabold uppercase leading-none text-gray-700">
-                                            <i className="fas fa-map-marker-alt mr-1 text-brand-orange"></i>{' '}
-                                            {edificioInfo.departamento}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                    <ModalInput
-                        label="CUE Establecimiento"
-                        value={data.cue}
-                        onChange={(v) => setData('cue', v)}
-                        error={errors.cue}
-                    />
-                    <div className="col-span-2">
-                        <ModalInput
-                            label="Nombre del Establecimiento"
-                            value={data.nombre_establecimiento}
-                            onChange={(v) =>
-                                setData('nombre_establecimiento', v)
-                            }
-                            error={errors.nombre_establecimiento}
-                        />
-                    </div>
-
-                    <div className="col-span-2 md:col-span-1">
-                        <InputLabel value="Ámbito" />
-                        <select
-                            className="mt-1 w-full rounded-xl border-gray-300"
-                            value={data.ambito}
-                            onChange={(e) => setData('ambito', e.target.value)}
-                        >
-                            {(options?.ambitos || []).map((o) => (
-                                <option key={o} value={o}>
-                                    {o}
-                                </option>
-                            ))}
-                        </select>
-                        {errors.ambito && (
-                            <InputError message={errors.ambito} />
-                        )}
-                    </div>
-
-                    <div className="col-span-2 flex items-center gap-3 pt-6 md:col-span-1">
-                        <input
-                            type="checkbox"
-                            id="validado"
-                            checked={data.validado}
-                            onChange={(e) =>
-                                setData('validado', e.target.checked)
-                            }
-                            className="h-6 w-6 rounded-lg border-gray-300 text-brand-orange focus:ring-brand-orange"
-                        />
-                        <label
-                            htmlFor="validado"
-                            className="text-sm font-black text-gray-700"
-                        >
-                            MARCAR COMO VALIDADO
-                        </label>
-                    </div>
-
-                    <div className="col-span-2 md:col-span-1">
-                        <InputLabel value="Dirección de Área" />
-                        <select
-                            className="mt-1 w-full rounded-xl border-gray-300 text-sm"
-                            value={data.direccion_area}
-                            onChange={(e) => {
-                                const newArea = e.target.value;
-                                setData((prev) => ({
-                                    ...prev,
-                                    direccion_area: newArea,
-                                    nivel_educativo: '', // Reset Nivel Educativo when area changes
-                                }));
-                            }}
-                        >
-                            <option value="">Seleccione...</option>
-                            {(options?.areas || []).map((o) => (
-                                <option key={o} value={o}>
-                                    {o}
-                                </option>
-                            ))}
-                        </select>
-                        {errors.direccion_area && (
-                            <InputError message={errors.direccion_area} />
-                        )}
-                    </div>
-
-                    <div className="col-span-1">
-                        <InputLabel value="Nivel Educativo" />
-                        <select
-                            className="mt-1 w-full rounded-xl border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
-                            value={data.nivel_educativo}
-                            onChange={(e) =>
-                                setData('nivel_educativo', e.target.value)
-                            }
-                            disabled={!data.direccion_area}
-                        >
-                            <option value="">Seleccione Nivel...</option>
-                            {(data.direccion_area
-                                ? MAPA_AREA_NIVEL[data.direccion_area] || []
-                                : []
-                            ).map((n) => (
-                                <option key={n} value={n}>
-                                    {n}
-                                </option>
-                            ))}
-                        </select>
-                        {errors.nivel_educativo && (
-                            <InputError message={errors.nivel_educativo} />
-                        )}
-                    </div>
-
-                    <div className="col-span-2 mt-2 grid grid-cols-2 gap-4 border-t pt-4 md:grid-cols-4">
-                        <ModalInput
-                            label="Radio"
-                            value={data.radio}
-                            onChange={(v) => setData('radio', v)}
-                            error={errors.radio}
-                        />
-                        <ModalInput
-                            label="Sector"
-                            value={data.sector}
-                            onChange={(v) => setData('sector', v)}
-                            error={errors.sector}
-                        />
-                        <ModalInput
-                            label="Zona"
-                            value={data.letra_zona}
-                            onChange={(v) => setData('letra_zona', v)}
-                            error={errors.letra_zona}
-                        />
-                        <div className="space-y-1">
-                            <InputLabel value="Categoría" />
-                            <select
-                                className="mt-1 w-full rounded-xl border-gray-300 text-xs font-bold focus:border-brand-orange focus:ring-brand-orange"
-                                value={data.categoria}
-                                onChange={(e) =>
-                                    setData('categoria', e.target.value)
-                                }
-                            >
-                                <option value="">Seleccione...</option>
-                                <option value="PRIMERA">PRIMERA</option>
-                                <option value="SEGUNDA">SEGUNDA</option>
-                                <option value="TERCERA">TERCERA</option>
-                                <option value="CUARTA">CUARTA</option>
-                            </select>
-                            {errors.categoria && (
-                                <InputError message={errors.categoria} />
                             )}
                         </div>
                     </div>
 
-                    <div className="col-span-2 mt-2 border-t pt-4">
+                    {/* Datos Administrativos */}
+                    <div className="rounded-xl border border-gray-100 bg-gray-50/30 p-4">
+                        <h4 className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                            Datos Administrativos
+                        </h4>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <ModalInput
+                                label="CUE Repartición"
+                                value={data.cue}
+                                onChange={(v) => setData('cue', v)}
+                                error={errors.cue}
+                            />
+
+                            <div className="col-span-1">
+                                <ModalInput
+                                    label="Nombre de la Repartición"
+                                    value={data.nombre_establecimiento}
+                                    onChange={(v) => setData('nombre_establecimiento', v)}
+                                    error={errors.nombre_establecimiento}
+                                />
+                            </div>
+
+                            <div>
+                                <InputLabel value="Categoría Administrativa" />
+                                <select
+                                    className="mt-1 w-full rounded-xl border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
+                                    value={data.nivel_educativo}
+                                    onChange={(e) => setData('nivel_educativo', e.target.value)}
+                                >
+                                    <option value="">Seleccione Categoría...</option>
+                                    {(options?.niveles || []).map((n) => (
+                                        <option key={n} value={n}>
+                                            {n}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError message={errors.nivel_educativo} />
+                            </div>
+
+                            <div>
+                                <InputLabel value="Ámbito" />
+                                <select
+                                    className="mt-1 w-full rounded-xl border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
+                                    value={data.ambito}
+                                    onChange={(e) => setData('ambito', e.target.value)}
+                                >
+                                    {(options?.ambitos || []).map((o) => (
+                                        <option key={o} value={o}>
+                                            {o}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError message={errors.ambito} />
+                            </div>
+
+                            <ModalInput
+                                label="Sector Presupuestario"
+                                value={data.sector}
+                                onChange={(v) => setData('sector', v)}
+                                error={errors.sector}
+                            />
+
+                            <ModalInput
+                                label="Radio (Zona)"
+                                value={data.radio}
+                                onChange={(v) => setData('radio', v)}
+                                error={errors.radio}
+                            />
+
+                            <div className="col-span-2 flex items-center gap-3 pt-2">
+                                <input
+                                    type="checkbox"
+                                    id="validado"
+                                    checked={data.validado}
+                                    onChange={(e) => setData('validado', e.target.checked)}
+                                    className="h-6 w-6 rounded-lg border-gray-300 text-brand-orange focus:ring-brand-orange"
+                                />
+                                <label
+                                    htmlFor="validado"
+                                    className="text-sm font-black text-gray-700"
+                                >
+                                    MARCAR COMO VALIDADO
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="col-span-2">
                         <InputLabel
-                            value="Comentarios / Observaciones del Establecimiento (CUE)"
+                            value="Observaciones de la Repartición"
                             className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400"
                         />
                         <textarea
-                            placeholder="Escriba aquí las observaciones específicas de esta escuela (CUE)..."
+                            placeholder="Escriba aquí las observaciones específicas..."
                             value={data.observaciones}
-                            onChange={(e) =>
-                                setData('observaciones', e.target.value)
-                            }
-                            className="min-h-[100px] w-full rounded-xl border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
+                            onChange={(e) => setData('observaciones', e.target.value)}
+                            className="min-h-[80px] w-full rounded-xl border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
                         />
-                        {errors.observaciones && (
-                            <InputError message={errors.observaciones} />
-                        )}
+                        {errors.observaciones && <InputError message={errors.observaciones} />}
                     </div>
                 </div>
 
@@ -1058,10 +954,10 @@ function CreateModalidadModal({ show, onClose, options }) {
         cui: '',
         establecimiento_cabecera: '',
         nivel_educativo: '',
-        direccion_area: '',
+        direccion_area: 'ADMINISTRACIÓN',
         ambito: 'PUBLICO',
         sector: '',
-        radio: '',
+        radio: '1',
         zona: '',
         calle: '',
         localidad: '',
@@ -1069,50 +965,59 @@ function CreateModalidadModal({ show, onClose, options }) {
     });
 
     const [cabeceraNombre, setCabeceraNombre] = useState('');
+    const [isExistingEdificio, setIsExistingEdificio] = useState(false);
 
     useEffect(() => {
         if (!show) {
             setCabeceraNombre('');
+            setIsExistingEdificio(false);
         }
     }, [show]);
 
     const lookupCUI = (cuiStr) => {
         const cui = String(cuiStr).trim();
-        if (cui.length < 3) return;
+        if (cui.length < 3) {
+            setIsExistingEdificio(false);
+            return;
+        }
         fetch(route('api.lookup-edificio', cui))
             .then((res) => res.json())
             .then((res) => {
                 if (res) {
+                    setIsExistingEdificio(true);
                     setData((prev) => ({
                         ...prev,
                         cui,
-                        calle: res.calle,
-                        localidad: res.localidad,
-                        zona_departamento: res.zona_departamento,
+                        calle: res.calle || '',
+                        localidad: res.localidad || '',
+                        zona_departamento: res.zona_departamento || '',
                         establecimiento_cabecera: res.cabecera_cue || prev.cue || '',
                     }));
                     if (res.cabecera_nombre) {
                         setCabeceraNombre(res.cabecera_nombre);
                     } else {
-                        setCabeceraNombre('Edificio sin cabecera asignada (este nuevo establecimiento será cabecera)');
+                        setCabeceraNombre('Edificio sin cabecera asignada');
                     }
                 } else {
+                    setIsExistingEdificio(false);
                     setData((prev) => ({
                         ...prev,
                         cui,
                         establecimiento_cabecera: prev.cue || '',
                     }));
-                    setCabeceraNombre('Edificio nuevo (este nuevo establecimiento será cabecera)');
+                    setCabeceraNombre('Edificio nuevo');
                 }
             })
             .catch(() => {
                 setCabeceraNombre('');
+                setIsExistingEdificio(false);
             });
     };
 
     const submit = (e) => {
         e.preventDefault();
-        post(route('admin.establecimientos.store'), {
+
+        post(route('admin.oficinas.store'), {
             onSuccess: () => {
                 onClose();
                 reset();
@@ -1121,169 +1026,169 @@ function CreateModalidadModal({ show, onClose, options }) {
     };
 
     return (
-        <Modal show={show} onClose={onClose} maxWidth="4xl">
+        <Modal show={show} onClose={onClose} maxWidth="2xl">
             <form onSubmit={submit} className="p-8">
-                <h3 className="mb-8 flex items-center gap-3 text-2xl font-black text-gray-900">
+                <h3 className="mb-6 flex items-center gap-3 text-2xl font-black text-gray-900 border-b pb-4">
                     <div className="rounded-xl bg-orange-50 p-2 text-brand-orange">
                         <i className="fas fa-plus"></i>
                     </div>
-                    Nueva Modalidad Escolar
+                    Nueva Repartición Administrativa
                 </h3>
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    <div className="space-y-4 border-r pr-6 lg:col-span-1">
-                        <h4 className="border-b pb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                            Datos de Ubicación
+                {Object.keys(errors).length > 0 && (
+                    <div className="mb-6 rounded-xl bg-red-50 p-4 text-xs font-semibold text-red-600 border border-red-100">
+                        <p className="font-bold mb-1">Por favor corrija los siguientes errores:</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                            {Object.entries(errors).map(([key, msg]) => (
+                                <li key={key}>{msg}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                <div className="space-y-4">
+                    {/* Ubicación Física */}
+                    <div className="rounded-xl border border-gray-100 bg-gray-50/30 p-4">
+                        <h4 className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                            Ubicación Física
                         </h4>
-                        <div>
-                            <InputLabel value="CUI del Edificio" />
-                            <TextInput
-                                className="mt-1 w-full"
-                                value={data.cui}
-                                onChange={(e) => {
-                                    setData('cui', e.target.value);
-                                    lookupCUI(e.target.value);
-                                }}
-                            />
-                            <InputError message={errors.cui} />
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                                <InputLabel value="CUI del Edificio" />
+                                <TextInput
+                                    className="mt-1 w-full"
+                                    value={data.cui}
+                                    onChange={(e) => {
+                                        setData('cui', e.target.value);
+                                        lookupCUI(e.target.value);
+                                    }}
+                                />
+                                <InputError message={errors.cui} />
+                            </div>
+
+                            {isExistingEdificio && (
+                                <div className="flex flex-col justify-center rounded-xl bg-orange-50/50 px-4 py-2 border border-orange-100">
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">Dirección Registrada</span>
+                                    <span className="text-xs font-bold text-gray-700">{data.calle}, {data.localidad} ({data.zona_departamento})</span>
+                                    {cabeceraNombre && <span className="text-[10px] text-brand-orange mt-0.5">{cabeceraNombre}</span>}
+                                </div>
+                            )}
                         </div>
-                        <ModalInput
-                            label="Calle"
-                            value={data.calle}
-                            onChange={(v) => setData('calle', v)}
-                        />
-                        <ModalInput
-                            label="Localidad"
-                            value={data.localidad}
-                            onChange={(v) => setData('localidad', v)}
-                        />
-                        <ModalInput
-                            label="Departamento"
-                            value={data.zona_departamento}
-                            onChange={(v) => setData('zona_departamento', v)}
-                        />
+
+                        {!isExistingEdificio && data.cui && (
+                            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3 border-t pt-4 border-dashed">
+                                <ModalInput
+                                    label="Calle"
+                                    value={data.calle}
+                                    onChange={(v) => setData('calle', v)}
+                                    error={errors.calle}
+                                />
+                                <ModalInput
+                                    label="Localidad"
+                                    value={data.localidad}
+                                    onChange={(v) => setData('localidad', v)}
+                                    error={errors.localidad}
+                                />
+                                <ModalInput
+                                    label="Departamento"
+                                    value={data.zona_departamento}
+                                    onChange={(v) => setData('zona_departamento', v)}
+                                    error={errors.zona_departamento}
+                                />
+                            </div>
+                        )}
                     </div>
 
-                    <div className="space-y-4 lg:col-span-2">
-                        <h4 className="border-b pb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                            Datos Académicos / Institucionales
+                    {/* Datos Administrativos */}
+                    <div className="rounded-xl border border-gray-100 bg-gray-50/30 p-4">
+                        <h4 className="mb-3 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                            Datos Administrativos
                         </h4>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="col-span-2 lg:col-span-1">
-                                <InputLabel value="CUE de la Modalidad" />
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                                <InputLabel value="CUE de la Repartición" />
                                 <TextInput
                                     className="mt-1 w-full"
                                     value={data.cue}
                                     onChange={(e) => {
                                         const val = e.target.value;
-                                        setData((prev) => ({
-                                            ...prev,
-                                            cue: val,
-                                            // Si no hay cabecera asignada en el edificio, se asume que este CUE es cabecera de sí mismo
-                                            establecimiento_cabecera: !cabeceraNombre || 
-                                                cabeceraNombre.includes('nueva') || 
-                                                cabeceraNombre.includes('nuevo') || 
-                                                cabeceraNombre.includes('sin cabecera')
-                                                ? val
-                                                : prev.establecimiento_cabecera,
-                                        }));
+                                        setData((prev) => {
+                                            const next = { ...prev, cue: val };
+                                            if (!prev.establecimiento_cabecera || prev.establecimiento_cabecera === prev.cue) {
+                                                next.establecimiento_cabecera = val;
+                                            }
+                                            return next;
+                                        });
                                     }}
                                 />
                                 <InputError message={errors.cue} />
                             </div>
-                            <div className="col-span-2 lg:col-span-1">
-                                <InputLabel value="CUE Establecimiento Cabecera" />
-                                <TextInput
-                                    className="mt-1 w-full bg-gray-50 font-mono text-gray-700"
-                                    value={data.establecimiento_cabecera}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        setData('establecimiento_cabecera', val);
-                                        setCabeceraNombre('');
-                                    }}
-                                    placeholder="Ej: 700053600"
-                                />
-                                {cabeceraNombre && (
-                                    <p className="mt-1 text-xs font-semibold text-brand-orange">
-                                        <i className="fas fa-school mr-1"></i> {cabeceraNombre}
-                                    </p>
-                                )}
-                                <InputError
-                                    message={errors.establecimiento_cabecera}
-                                />
-                            </div>
-                            <div className="col-span-2">
+
+                            <div>
                                 <InputLabel value="Nombre Completo" />
                                 <TextInput
                                     className="mt-1 w-full"
                                     value={data.nombre_establecimiento}
-                                    onChange={(e) =>
-                                        setData(
-                                            'nombre_establecimiento',
-                                            e.target.value,
-                                        )
-                                    }
+                                    onChange={(e) => setData('nombre_establecimiento', e.target.value)}
                                 />
-                                <InputError
-                                    message={errors.nombre_establecimiento}
-                                />
+                                <InputError message={errors.nombre_establecimiento} />
                             </div>
 
-                            <div className="col-span-1">
-                                <InputLabel value="Dirección de Área" />
-                                <select
-                                    className="mt-1 w-full rounded-xl border-gray-300 text-sm"
-                                    value={data.direccion_area}
-                                    onChange={(e) => {
-                                        const newArea = e.target.value;
-                                        setData((prev) => ({
-                                            ...prev,
-                                            direccion_area: newArea,
-                                            nivel_educativo: '', // Reset Nivel Educativo when area changes
-                                        }));
-                                    }}
-                                >
-                                    <option value="">Seleccione...</option>
-                                    {(options?.areas || []).map((o) => (
-                                        <option key={o} value={o}>
-                                            {o}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="col-span-1">
-                                <InputLabel value="Nivel Educativo" />
+                            <div>
+                                <InputLabel value="Categoría Administrativa" />
                                 <select
                                     className="mt-1 w-full rounded-xl border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
                                     value={data.nivel_educativo}
-                                    onChange={(e) =>
-                                        setData(
-                                            'nivel_educativo',
-                                            e.target.value,
-                                        )
-                                    }
-                                    disabled={!data.direccion_area}
+                                    onChange={(e) => setData('nivel_educativo', e.target.value)}
                                 >
-                                    <option value="">
-                                        Seleccione Nivel...
-                                    </option>
-                                    {(data.direccion_area
-                                        ? MAPA_AREA_NIVEL[
-                                              data.direccion_area
-                                          ] || []
-                                        : []
-                                    ).map((n) => (
+                                    <option value="">Seleccione Categoría...</option>
+                                    {(options?.niveles || []).map((n) => (
                                         <option key={n} value={n}>
                                             {n}
                                         </option>
                                     ))}
                                 </select>
+                                <InputError message={errors.nivel_educativo} />
+                            </div>
+
+                            <div>
+                                <InputLabel value="Ámbito" />
+                                <select
+                                    className="mt-1 w-full rounded-xl border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
+                                    value={data.ambito}
+                                    onChange={(e) => setData('ambito', e.target.value)}
+                                >
+                                    {(options?.ambitos || []).map((a) => (
+                                        <option key={a} value={a}>
+                                            {a}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError message={errors.ambito} />
+                            </div>
+
+                            <div>
+                                <ModalInput
+                                    label="Sector Presupuestario"
+                                    value={data.sector}
+                                    onChange={(v) => setData('sector', v)}
+                                    error={errors.sector}
+                                />
+                            </div>
+
+                            <div>
+                                <ModalInput
+                                    label="Radio (Zona)"
+                                    value={data.radio}
+                                    onChange={(v) => setData('radio', v)}
+                                    error={errors.radio}
+                                />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="mt-12 flex justify-end gap-4 border-t pt-8">
+                <div className="mt-8 flex justify-end gap-4 border-t pt-6">
                     <SecondaryButton onClick={onClose}>
                         Cancelar
                     </SecondaryButton>

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+use Illuminate\Support\Facades\Cache;
+
 class Establecimiento extends Model
 {
     use SoftDeletes;
@@ -16,6 +18,19 @@ class Establecimiento extends Model
     protected $fillable = [
         'edificio_id', 'cue', 'cue_edificio_principal', 'nombre', 'establecimiento_cabecera',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(function () {
+            Cache::forget('edificios_names_map_v2');
+            Cache::forget('edificios_options_react');
+        });
+
+        static::deleted(function () {
+            Cache::forget('edificios_names_map_v2');
+            Cache::forget('edificios_options_react');
+        });
+    }
 
     public function edificio(): BelongsTo
     {

@@ -28,15 +28,26 @@ class StoreModalidadAction
             );
 
             // 2. Establecimiento
-            $establecimiento = Establecimiento::firstOrCreate(
-                ['cue' => $data['cue']],
-                [
+            $cabeceraCue = $edificio->cabecera_cue ?? $data['cue'];
+
+            $establecimiento = Establecimiento::where('cue', $data['cue'])->first();
+
+            if ($establecimiento) {
+                $establecimiento->update([
                     'edificio_id' => $edificio->id,
                     'nombre' => $data['nombre_establecimiento'],
                     'establecimiento_cabecera' => $data['establecimiento_cabecera'],
-                    'cue_edificio_principal' => $edificio->cabecera_cue ?? $data['cue'],
-                ]
-            );
+                    'cue_edificio_principal' => $establecimiento->cue_edificio_principal ?? $cabeceraCue,
+                ]);
+            } else {
+                $establecimiento = Establecimiento::create([
+                    'cue' => $data['cue'],
+                    'edificio_id' => $edificio->id,
+                    'nombre' => $data['nombre_establecimiento'],
+                    'establecimiento_cabecera' => $data['establecimiento_cabecera'],
+                    'cue_edificio_principal' => $cabeceraCue,
+                ]);
+            }
 
             // 3. Modalidad
             return Modalidad::create([

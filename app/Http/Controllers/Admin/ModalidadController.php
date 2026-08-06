@@ -38,6 +38,7 @@ class ModalidadController extends Controller
     public function index(Request $request): Response
     {
         $modalidades = $this->queryService->getFilteredQuery($request)
+            ->where('direccion_area', '<>', 'ADMINISTRACIÓN')
             ->latest()
             ->paginate(10)
             ->onEachSide(1)
