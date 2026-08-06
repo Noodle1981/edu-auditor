@@ -1,11 +1,69 @@
+import { Link } from '@inertiajs/react';
 
 export const Pagination = ({
+  links,
   currentPage,
   totalPages,
   onPageChange,
   totalItems,
   itemsName = 'registros'
 }) => {
+  // If Inertia/Laravel Paginator links array is passed:
+  if (links && Array.isArray(links)) {
+    if (links.length <= 3 && totalItems === undefined) return null;
+
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-white/40 border border-gray-100 rounded-3xl shadow-sm backdrop-blur-md w-full">
+        {totalItems !== undefined && (
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+            Total: <span className="text-gray-900">{totalItems.toLocaleString('es-AR')}</span> {itemsName}
+          </span>
+        )}
+
+        <div className="flex items-center gap-1.5 flex-wrap justify-center">
+          {links.map((link, idx) => {
+            let label = link.label
+              .replace('&laquo;', '')
+              .replace('&raquo;', '')
+              .replace('Previous', 'Ant')
+              .replace('Next', 'Sig')
+              .replace('Anterior', 'Ant')
+              .replace('Siguiente', 'Sig')
+              .trim();
+
+            if (!link.url) {
+              return (
+                <span
+                  key={idx}
+                  className="px-3.5 py-1.5 text-xs font-black text-gray-400 bg-gray-50/80 rounded-xl border border-gray-100 opacity-50 cursor-not-allowed"
+                >
+                  {label}
+                </span>
+              );
+            }
+
+            return (
+              <Link
+                key={idx}
+                href={link.url}
+                preserveScroll
+                preserveState
+                className={`px-3.5 py-1.5 text-xs font-black rounded-xl transition-all ${
+                  link.active
+                    ? 'bg-[#FE8204] text-white shadow-md shadow-[#FE8204]/30'
+                    : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-100'
+                }`}
+              >
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Client-side pagination (with currentPage, totalPages, onPageChange)
   const getPagesToShow = () => {
     const pages = [];
     const maxVisible = 5;
@@ -16,7 +74,7 @@ export const Pagination = ({
       }
     } else {
       pages.push(1);
-      
+
       const start = Math.max(2, currentPage - 1);
       const end = Math.min(totalPages - 1, currentPage + 1);
 
@@ -41,13 +99,13 @@ export const Pagination = ({
   if (totalPages <= 1 && !totalItems) return null;
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-white/40 border border-gray-100 rounded-3xl shadow-sm backdrop-blur-md">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-white/40 border border-gray-100 rounded-3xl shadow-sm backdrop-blur-md w-full">
       {totalItems !== undefined && (
         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
           Total: <span className="text-gray-900">{totalItems.toLocaleString('es-AR')}</span> {itemsName}
         </span>
       )}
-      
+
       <div className="flex items-center gap-2">
         <button
           onClick={() => onPageChange(currentPage - 1)}

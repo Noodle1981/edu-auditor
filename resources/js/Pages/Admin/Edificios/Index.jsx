@@ -343,7 +343,7 @@ export default function Index({ edificios, filters, options }) {
 
                 {/* Pagination */}
                 <div className="-mt-2 flex justify-center">
-                    <Pagination links={edificios.links} />
+                    <Pagination links={edificios.links} totalItems={edificios.total} itemsName="edificios" />
                 </div>
             </div>
 

@@ -523,7 +523,7 @@ export default function Index({
                         </div>
                     </div>
                     <div className="-mt-2 flex justify-center">
-                        <Pagination links={modalidades.links} />
+                        <Pagination links={modalidades.links} totalItems={modalidades.total} itemsName="establecimientos" />
                     </div>
                 </div>
             </div>
