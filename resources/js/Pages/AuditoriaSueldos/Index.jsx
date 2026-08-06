@@ -1925,8 +1925,12 @@ export default function AuditoriaSueldosIndex({
                       <td className="px-3 py-3 font-medium text-gray-600 max-w-xs truncate">
                         {s.notas_auditor || <span className="italic text-gray-400">Sin notas de investigación</span>}
                       </td>
-                      <td className="px-3 py-3 text-center font-black text-purple-700">
-                        Radio {s.radio_sueldo} ({s.porc_pagado_mediana}%)
+                      <td className="px-3 py-3 text-center font-black">
+                        {s.radio_sueldo ? (
+                          <span className="text-purple-700">Radio {s.radio_sueldo} ({s.porc_pagado_mediana ?? 0}%)</span>
+                        ) : (
+                          <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]" title="No registra bonificación por zona (Radio Urbano)">Radio 1 (0%)</span>
+                        )}
                       </td>
                       <td className="px-3 py-3 text-right font-bold text-gray-900">
                         {s.total_filas_docentes} docentes
@@ -2070,7 +2074,7 @@ export default function AuditoriaSueldosIndex({
                   <div><b className="text-orange-950">Centro:</b> {saneamientoModalSector.centro ?? 'S/D'} | <b className="text-orange-950">Sector:</b> {saneamientoModalSector.sector}</div>
                   {saneamientoModalSector.nivel_educativo && <div><b className="text-orange-950">Nivel Refactorizado:</b> {saneamientoModalSector.nivel_educativo}</div>}
                   {saneamientoModalSector.nombre_establecimiento && <div><b className="text-orange-950">Nombre Sector:</b> {saneamientoModalSector.nombre_establecimiento}</div>}
-                  <div><b className="text-orange-950">Radio Liquidado:</b> Radio {saneamientoModalSector.radio_sueldo} ({saneamientoModalSector.porc_pagado_mediana}%)</div>
+                  <div><b className="text-orange-950">Radio Liquidado:</b> {saneamientoModalSector.radio_sueldo ? `Radio ${saneamientoModalSector.radio_sueldo} (${saneamientoModalSector.porc_pagado_mediana ?? 0}%)` : 'Radio 1 (0% - Sin Bonificación)'}</div>
                   <div><b className="text-orange-950">Docentes liquidados:</b> {saneamientoModalSector.total_filas_docentes}</div>
                 </div>
 
@@ -2185,7 +2189,7 @@ export default function AuditoriaSueldosIndex({
                       <span>Comparación de Radios:</span>
                     </div>
                     <div>
-                      • Radio Liquidado en Sector: <b>Radio {saneamientoModalSector.radio_sueldo}</b>
+                      • Radio Liquidado en Sector: <b>{saneamientoModalSector.radio_sueldo ? `Radio ${saneamientoModalSector.radio_sueldo}` : 'Radio 1 (0% Zona)'}</b>
                     </div>
                     <div>
                       • Radio Oficial CUE ({estSeleccionado.cue}): <b>Radio {estSeleccionado.radio ?? 'S/D'}</b>
