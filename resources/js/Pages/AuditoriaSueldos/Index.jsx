@@ -632,7 +632,7 @@ export default function AuditoriaSueldosIndex({
           }`}
         >
           <i className="fa-solid fa-list-check"></i>
-          Seguimiento & Gestión
+          Seguimiento & Gestión ({linkedResultados.length})
         </button>
 
         <button
