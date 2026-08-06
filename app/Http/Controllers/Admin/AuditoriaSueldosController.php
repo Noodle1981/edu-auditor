@@ -346,7 +346,7 @@ class AuditoriaSueldosController extends Controller
             'id' => 'nullable|integer',
             'sector' => 'required',
             'centro' => 'nullable',
-            'establecimiento_id' => 'required|exists:establecimientos,id',
+            'establecimiento_id' => 'nullable|exists:establecimientos,id',
             'observacion' => 'nullable|string',
             'estado_gestion' => 'nullable|string',
         ]);
@@ -358,8 +358,8 @@ class AuditoriaSueldosController extends Controller
         $obs = $request->input('observacion', 'Investigación y saneamiento manual de sector');
         $estadoGestion = $request->input('estado_gestion', 'EN_INVESTIGACION');
 
-        $est = DB::table('establecimientos')->where('id', $estId)->first();
-        $estRadio = DB::table('modalidades')->where('establecimiento_id', $estId)->value('radio');
+        $est = $estId ? DB::table('establecimientos')->where('id', $estId)->first() : null;
+        $estRadio = $estId ? DB::table('modalidades')->where('establecimiento_id', $estId)->value('radio') : null;
 
         $query = DB::table('auditoria_radio_resultados');
         if ($recordId) {
@@ -374,7 +374,9 @@ class AuditoriaSueldosController extends Controller
         $auditRecord = (clone $query)->first();
 
         $estadoAuditoria = 'COINCIDE_SIGE';
-        if ($auditRecord && $auditRecord->radio_sueldo !== null && $estRadio !== null) {
+        if ($estadoGestion === 'DADO_DE_BAJA') {
+            $estadoAuditoria = 'DADO_DE_BAJA';
+        } elseif ($auditRecord && $auditRecord->radio_sueldo !== null && $estRadio !== null) {
             $radioSueldo = (float) $auditRecord->radio_sueldo;
             $radioSige = (float) $estRadio;
             if ($radioSueldo > $radioSige) {
@@ -387,17 +389,25 @@ class AuditoriaSueldosController extends Controller
         }
 
         // Registrar vínculo ÚNICAMENTE en el historial de auditoría (preservando padrón oficial SIGE)
-        $query->update([
-            'nombre_establecimiento' => $est->nombre,
-            'cue' => $est->cue,
-            'radio_sige' => $estRadio,
-            'estado_auditoria' => $estadoAuditoria,
+        $updateData = [
             'estado_gestion' => $estadoGestion,
-            'notas_auditor' => 'Asociado en auditoría a CUE '.$est->cue.': '.$obs,
-        ]);
+        ];
+
+        if ($est) {
+            $updateData['nombre_establecimiento'] = $est->nombre;
+            $updateData['cue'] = $est->cue;
+            $updateData['radio_sige'] = $estRadio;
+            $updateData['estado_auditoria'] = $estadoAuditoria;
+            $updateData['notas_auditor'] = 'Asociado en auditoría a CUE '.$est->cue.': '.$obs;
+        } else {
+            $updateData['estado_auditoria'] = $estadoAuditoria;
+            $updateData['notas_auditor'] = 'Dado de baja / Cerrado: '.$obs;
+        }
+
+        $query->update($updateData);
 
         return response()->json([
-            'message' => 'Sector '.$sector.' registrado en historial de auditoría asociado a CUE '.$est->cue.' ('.$est->nombre.')',
+            'message' => 'Sector '.$sector.' actualizado en auditoría como '.$estadoGestion,
             'estado_auditoria' => $estadoAuditoria,
             'estado_gestion' => $estadoGestion,
         ]);

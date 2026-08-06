@@ -441,8 +441,8 @@ export default function AuditoriaSueldosIndex({
   };
 
   const handleSanearSectorSubmit = async (sectorVal) => {
-    if (!saneamientoEstId) {
-      alert('Por favor seleccione una escuela / CUE a vincular');
+    if (!saneamientoEstId && saneamientoEstadoGestion !== 'DADO_DE_BAJA') {
+      alert('Por favor seleccione una escuela / CUE a vincular o marque el estado como DADO DE BAJA');
       return;
     }
     setSanearSubmitting(true);
@@ -460,7 +460,7 @@ export default function AuditoriaSueldosIndex({
           id: saneamientoModalSector?.id,
           sector: sectorVal,
           centro: saneamientoModalSector?.centro,
-          establecimiento_id: saneamientoEstId,
+          establecimiento_id: saneamientoEstId || null,
           observacion: saneamientoObs,
           estado_gestion: saneamientoEstadoGestion
         })
@@ -472,12 +472,13 @@ export default function AuditoriaSueldosIndex({
         setSaneamientoSearchTerm('');
         setSaneamientoObs('');
         setSaneamientoEstadoGestion('EN_INVESTIGACION');
-        setActiveTab('tracking');
+        const targetTab = (saneamientoEstadoGestion === 'DADO_DE_BAJA' || !saneamientoEstId) ? 'sin_escuela' : 'tracking';
+        setActiveTab(targetTab);
         router.reload({
-          onSuccess: () => setActiveTab('tracking')
+          onSuccess: () => setActiveTab(targetTab)
         });
       } else {
-        alert(data.message || 'Error al sanear sector');
+        alert(data.message || 'Error al actualizar sector');
       }
     } catch (err) {
       console.error(err);
@@ -735,6 +736,7 @@ export default function AuditoriaSueldosIndex({
               >
                 <option value="">Todos los Estados Gestión</option>
                 <option value="CONFORME">CONFORME / VALIDADO</option>
+                <option value="DADO_DE_BAJA">DADO DE BAJA / ESCUELA CERRADA</option>
                 <option value="PENDIENTE">PENDIENTE</option>
                 <option value="EN_INVESTIGACION">EN INVESTIGACIÓN</option>
                 <option value="JUSTIFICADO">JUSTIFICADO</option>
@@ -1658,7 +1660,9 @@ export default function AuditoriaSueldosIndex({
                     <td className="px-3 py-3 text-center">
                       <span
                         className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                          item.estado_gestion === 'CONFORME'
+                          item.estado_gestion === 'DADO_DE_BAJA'
+                            ? 'bg-red-100 text-red-800 border border-red-300 font-extrabold'
+                            : item.estado_gestion === 'CONFORME'
                             ? 'bg-blue-100 text-blue-800 border border-blue-200'
                             : item.estado_gestion === 'CORREGIDO'
                             ? 'bg-emerald-100 text-emerald-800'
@@ -1916,42 +1920,58 @@ export default function AuditoriaSueldosIndex({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {unlinkedResultados.map((s) => (
-                    <tr key={s.id} className="hover:bg-slate-50/50">
-                      <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{s.centro ?? 'S/D'}</td>
-                      <td className="px-3 py-3 font-extrabold text-slate-800">{s.nivel_educativo || 'S/N'}</td>
-                      <td className="px-3 py-3 font-bold text-gray-900">{s.nombre_establecimiento || 'Sector Desvinculado'}</td>
-                      <td className="px-3 py-3 text-center font-black text-gray-900 text-sm">{s.sector}</td>
-                      <td className="px-3 py-3 font-medium text-gray-600 max-w-xs truncate">
-                        {s.notas_auditor || <span className="italic text-gray-400">Sin notas de investigación</span>}
-                      </td>
-                      <td className="px-3 py-3 text-center font-black">
-                        {s.radio_sueldo ? (
-                          <span className="text-purple-700">Radio {s.radio_sueldo} ({s.porc_pagado_mediana ?? 0}%)</span>
-                        ) : (
-                          <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]" title="No registra bonificación por zona (Radio Urbano)">Radio 1 (0%)</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-right font-bold text-gray-900">
-                        {s.total_filas_docentes} docentes
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        <button
-                          onClick={() => {
-                            setSaneamientoModalSector(s);
-                            setSaneamientoEstId('');
-                            setSaneamientoSearchTerm('');
-                            setSaneamientoObs('');
-                            setSaneamientoEstadoGestion('EN_INVESTIGACION');
-                          }}
-                          className="px-3 py-1.5 text-[11px] font-bold text-white bg-[#FE8204] hover:bg-[#e07203] rounded-xl shadow transition flex items-center gap-1.5 mx-auto cursor-pointer"
-                        >
-                          <i className="fa-solid fa-link text-[10px]"></i>
-                          Vincular a CUE
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {unlinkedResultados.map((s) => {
+                    const isDadoDeBaja = s.estado_gestion === 'DADO_DE_BAJA';
+                    return (
+                      <tr key={s.id} className={isDadoDeBaja ? 'bg-red-50/90 text-red-950 font-semibold border-l-4 border-l-red-500' : 'hover:bg-slate-50/50'}>
+                        <td className={`px-3 py-3 text-center font-black rounded-lg ${isDadoDeBaja ? 'bg-red-200/80 text-red-950' : 'text-amber-950 bg-amber-100/60'}`}>{s.centro ?? 'S/D'}</td>
+                        <td className={`px-3 py-3 font-extrabold ${isDadoDeBaja ? 'text-red-900' : 'text-slate-800'}`}>{s.nivel_educativo || 'S/N'}</td>
+                        <td className="px-3 py-3 font-bold">
+                          {isDadoDeBaja ? (
+                            <div className="flex items-center gap-1.5 text-red-900 font-extrabold">
+                              <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-800 border border-red-300 rounded-md uppercase font-black shrink-0">
+                                DADO DE BAJA
+                              </span>
+                              <span>{s.nombre_establecimiento || 'Sector Desvinculado'}</span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-900">{s.nombre_establecimiento || 'Sector Desvinculado'}</span>
+                          )}
+                        </td>
+                        <td className={`px-3 py-3 text-center font-black text-sm ${isDadoDeBaja ? 'text-red-950' : 'text-gray-900'}`}>{s.sector}</td>
+                        <td className={`px-3 py-3 font-medium max-w-xs truncate ${isDadoDeBaja ? 'text-red-700 font-bold' : 'text-gray-600'}`}>
+                          {s.notas_auditor || <span className="italic text-gray-400">Sin notas de investigación</span>}
+                        </td>
+                        <td className="px-3 py-3 text-center font-black">
+                          {s.radio_sueldo ? (
+                            <span className={isDadoDeBaja ? 'text-red-900' : 'text-purple-700'}>Radio {s.radio_sueldo} ({s.porc_pagado_mediana ?? 0}%)</span>
+                          ) : (
+                            <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]" title="No registra bonificación por zona (Radio Urbano)">Radio 1 (0%)</span>
+                          )}
+                        </td>
+                        <td className={`px-3 py-3 text-right font-bold ${isDadoDeBaja ? 'text-red-950' : 'text-gray-900'}`}>
+                          {s.total_filas_docentes} docentes
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <button
+                            onClick={() => {
+                              setSaneamientoModalSector(s);
+                              setSaneamientoEstId('');
+                              setSaneamientoSearchTerm('');
+                              setSaneamientoObs(s.notas_auditor || '');
+                              setSaneamientoEstadoGestion(s.estado_gestion || 'EN_INVESTIGACION');
+                            }}
+                            className={`px-3 py-1.5 text-[11px] font-bold text-white rounded-xl shadow transition flex items-center gap-1.5 mx-auto cursor-pointer ${
+                              isDadoDeBaja ? 'bg-red-600 hover:bg-red-700' : 'bg-[#FE8204] hover:bg-[#e07203]'
+                            }`}
+                          >
+                            <i className={`fa-solid ${isDadoDeBaja ? 'fa-pen-to-square' : 'fa-link'} text-[10px]`}></i>
+                            {isDadoDeBaja ? 'Editar Baja' : 'Vincular a CUE'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {unlinkedResultados.length === 0 && (
                     <tr>
                       <td colSpan="8" className="px-3 py-8 text-center text-gray-400 font-medium italic">
@@ -2212,6 +2232,7 @@ export default function AuditoriaSueldosIndex({
                     className="w-full text-xs font-semibold bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 focus:ring-[#FE8204] focus:border-[#FE8204] cursor-pointer"
                   >
                     <option value="CONFORME">CONFORME / VALIDADO (SIN INCONSISTENCIAS)</option>
+                    <option value="DADO_DE_BAJA">DADO DE BAJA / ESCUELA CERRADA O CAMBIADA</option>
                     <option value="EN_INVESTIGACION">EN INVESTIGACIÓN</option>
                     <option value="JUSTIFICADO">JUSTIFICADO (CON NORMA LEGAL / RESOLUCIÓN)</option>
                     <option value="CORREGIDO">CORREGIDO EN NÓMINA</option>
@@ -2280,6 +2301,7 @@ export default function AuditoriaSueldosIndex({
                   className="w-full text-xs font-semibold bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 focus:ring-[#FE8204]"
                 >
                   <option value="CONFORME">CONFORME / VALIDADO (SIN INCONSISTENCIAS)</option>
+                  <option value="DADO_DE_BAJA">DADO DE BAJA / ESCUELA CERRADA O CAMBIADA</option>
                   <option value="PENDIENTE">PENDIENTE</option>
                   <option value="EN_INVESTIGACION">EN INVESTIGACIÓN</option>
                   <option value="JUSTIFICADO">JUSTIFICADO (CON NORMA LEGAL)</option>
