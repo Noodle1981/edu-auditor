@@ -2098,6 +2098,13 @@ export default function AuditoriaSueldosIndex({
                   <div><b className="text-orange-950">Docentes liquidados:</b> {saneamientoModalSector.total_filas_docentes}</div>
                 </div>
 
+                {saneamientoEstadoGestion === 'DADO_DE_BAJA' && !saneamientoEstId && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 flex items-center gap-2">
+                    <i className="fa-solid fa-circle-info text-red-600 text-sm shrink-0"></i>
+                    <span><b>Modo Baja Activado:</b> No requiere seleccionar una escuela. Al hacer clic en <b>&quot;Confirmar Baja de Sector&quot;</b> se guardará el estado de baja en Otros Sectores con letras rojas.</span>
+                  </div>
+                )}
+
                 <div className="relative">
                   <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
                     Buscar Escuela / CUE Destino a Vincular:
@@ -2267,11 +2274,19 @@ export default function AuditoriaSueldosIndex({
                   Cancelar
                 </button>
                 <button
-                  disabled={sanearSubmitting || !saneamientoEstId}
+                  disabled={sanearSubmitting || (!saneamientoEstId && saneamientoEstadoGestion !== 'DADO_DE_BAJA')}
                   onClick={() => handleSanearSectorSubmit(saneamientoModalSector.sector)}
-                  className="px-4 py-2 text-xs font-bold text-white bg-[#FE8204] hover:bg-[#FE8204]/90 rounded-xl shadow-md transition disabled:opacity-50 cursor-pointer"
+                  className={`px-4 py-2 text-xs font-bold text-white rounded-xl shadow-md transition disabled:opacity-50 cursor-pointer ${
+                    saneamientoEstadoGestion === 'DADO_DE_BAJA'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-[#FE8204] hover:bg-[#FE8204]/90'
+                  }`}
                 >
-                  {sanearSubmitting ? 'Guardando...' : 'Registrar en Auditoría'}
+                  {sanearSubmitting
+                    ? 'Guardando...'
+                    : saneamientoEstadoGestion === 'DADO_DE_BAJA'
+                    ? 'Confirmar Baja de Sector'
+                    : 'Registrar en Auditoría'}
                 </button>
               </div>
             </div>
