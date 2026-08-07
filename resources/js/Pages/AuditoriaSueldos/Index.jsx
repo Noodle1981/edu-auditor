@@ -3015,6 +3015,12 @@ export default function AuditoriaSueldosIndex({
                       } else if (d.estado_desvio === 'PAGA_MENOS') {
                         badgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
                         badgeText = '🔵 PAGA MENOS';
+                      } else if (d.estado_desvio === 'NO_COBRA') {
+                        badgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+                        badgeText = '🟡 SIN ADICIONAL';
+                      } else if (d.estado_desvio === 'COINCIDE') {
+                        badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                        badgeText = '🟢 COINCIDE';
                       }
 
                       return (
@@ -3026,7 +3032,9 @@ export default function AuditoriaSueldosIndex({
                           <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{basico}</td>
                           <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{radio}</td>
                           <td className="px-3 py-2.5 text-center font-bold text-gray-900">{d.porcentaje_calculado ? `${d.porcentaje_calculado}%` : '-'}</td>
-                          <td className="px-3 py-2.5 text-center font-black text-purple-700">{d.radio_deducido ? `R${d.radio_deducido}` : '-'}</td>
+                          <td className="px-3 py-2.5 text-center font-black text-purple-700">
+                            {d.radio_deducido ? `R${d.radio_deducido}` : <span className="text-gray-400 italic">No cobra</span>}
+                          </td>
                           <td className="px-3 py-2.5 text-center">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass}`}>
                               {badgeText}

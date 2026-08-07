@@ -1165,6 +1165,8 @@ class AuditoriaSueldosController extends Controller
                 } elseif ($rDeducido < $rSige) {
                     $estadoDesvio = 'PAGA_MENOS';
                 }
+            } elseif ($rDeducido === null && $rSige !== null && $rSige > 0) {
+                $estadoDesvio = 'NO_COBRA';
             }
 
             return [
