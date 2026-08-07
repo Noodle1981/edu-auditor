@@ -69,6 +69,22 @@ export default function AuditoriaSueldosIndex({
     });
   };
 
+  // State y Efecto para controlar el Spinner de Carga de la Página
+  const [pageLoading, setPageLoading] = useState(false);
+
+  useEffect(() => {
+    const startHandler = () => setPageLoading(true);
+    const finishHandler = () => setPageLoading(false);
+
+    document.addEventListener('inertia:start', startHandler);
+    document.addEventListener('inertia:finish', finishHandler);
+
+    return () => {
+      document.removeEventListener('inertia:start', startHandler);
+      document.removeEventListener('inertia:finish', finishHandler);
+    };
+  }, []);
+
   const depuracionStats = useMemo(() => {
     const total = depuracionList.length;
     const centroSinUso = depuracionList.filter(d => d.estado_depuracion === 'CENTRO_SIN_USO').length;
@@ -3067,6 +3083,22 @@ export default function AuditoriaSueldosIndex({
             </div>
           </div>
         </Modal>
+      )}
+      {/* SPINNER GLOBAL DE CARGA DE PÁGINA */}
+      {pageLoading && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center gap-4 transition-all duration-300">
+          <div className="bg-white/90 backdrop-blur border border-slate-100 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-3 w-80 text-center animate-bounce-short">
+            <div className="relative w-16 h-16 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-slate-100"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-t-[#FE8204] border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+              <i className="fa-solid fa-calculator text-2xl text-[#FE8204] animate-pulse"></i>
+            </div>
+            <div>
+              <h3 className="font-black text-gray-900 text-sm">Procesando Auditoría Salarial</h3>
+              <p className="text-[10px] text-gray-500 font-semibold mt-1">Cargando base de datos y legajos individuales...</p>
+            </div>
+          </div>
+        </div>
       )}
       </div>
     </SIAMELayout>

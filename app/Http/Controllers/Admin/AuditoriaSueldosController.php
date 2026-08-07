@@ -50,6 +50,13 @@ class AuditoriaSueldosController extends Controller
             ]);
         }
 
+        $radioCounts = DB::table('nomina_sueldo_registros')
+            ->select('sector', 'radio_deducido', DB::raw('COUNT(*) as qty'))
+            ->where('nomina_id', $nominaSeleccionada->id)
+            ->groupBy('sector', 'radio_deducido')
+            ->get()
+            ->groupBy('sector');
+
         $resultados = DB::table('auditoria_radio_resultados as r')
             ->where('r.nomina_id', $nominaSeleccionada->id)
             ->leftJoin('establecimientos as e', 'e.cue', '=', 'r.cue')
@@ -62,13 +69,31 @@ class AuditoriaSueldosController extends Controller
                 DB::raw('COALESCE(ed.zona_departamento, "S/D") as departamento'),
                 DB::raw('COALESCE(m.ambito, "PUBLICO") as ambito'),
                 'ed.distancia_camino as dist_camino',
-                'ed.dist_circunf',
-                DB::raw("(SELECT COUNT(*) FROM nomina_sueldo_registros nsr WHERE nsr.nomina_id = r.nomina_id AND nsr.sector = r.sector) as total_docentes_individuales"),
-                DB::raw("(SELECT COUNT(*) FROM nomina_sueldo_registros nsr WHERE nsr.nomina_id = r.nomina_id AND nsr.sector = r.sector AND nsr.radio_deducido IS NOT NULL AND nsr.radio_deducido != CAST(COALESCE(m.radio, 0) AS INTEGER)) as docentes_desviados")
+                'ed.dist_circunf'
             )
             ->groupBy('r.id')
             ->orderBy('r.sector')
             ->get();
+
+        $resultados = $resultados->map(function ($r) use ($radioCounts) {
+            $total = 0;
+            $desviados = 0;
+            $sectorRecords = $radioCounts->get($r->sector);
+            if ($sectorRecords) {
+                foreach ($sectorRecords as $rec) {
+                    $total += $rec->qty;
+                    $rDeducido = $rec->radio_deducido;
+                    if ($r->radio_sige !== null && $r->radio_sige > 0) {
+                        if ($rDeducido === null || intval($rDeducido) !== intval($r->radio_sige)) {
+                            $desviados += $rec->qty;
+                        }
+                    }
+                }
+            }
+            $r->total_docentes_individuales = $total;
+            $r->docentes_desviados = $desviados;
+            return $r;
+        });
 
         $viejos = DB::table('auditoria_sueldo_registros_viejos as v')
             ->where('v.nomina_id', $nominaSeleccionada->id)
@@ -209,12 +234,31 @@ class AuditoriaSueldosController extends Controller
                 'r.estado_auditoria',
                 'r.auditoria_id',
                 'ed.distancia_camino as dist_camino',
-                'ed.dist_circunf',
-                DB::raw("(SELECT COUNT(*) FROM nomina_sueldo_registros nsr WHERE nsr.nomina_id = " . intval($nominaSeleccionada->id) . " AND nsr.sector = CAST(m.sector AS INTEGER)) as total_docentes_individuales"),
-                DB::raw("(SELECT COUNT(*) FROM nomina_sueldo_registros nsr WHERE nsr.nomina_id = " . intval($nominaSeleccionada->id) . " AND nsr.sector = CAST(m.sector AS INTEGER) AND nsr.radio_deducido IS NOT NULL AND nsr.radio_deducido != CAST(m.radio AS INTEGER)) as docentes_desviados")
+                'ed.dist_circunf'
             )
             ->orderBy('e.nombre')
             ->get();
+
+        $cruceEscuelas = $cruceEscuelas->map(function ($c) use ($radioCounts) {
+            $total = 0;
+            $desviados = 0;
+            $sectorKey = intval($c->sector_sige ?: $c->sector_sueldos);
+            $sectorRecords = $radioCounts->get($sectorKey);
+            if ($sectorRecords) {
+                foreach ($sectorRecords as $rec) {
+                    $total += $rec->qty;
+                    $rDeducido = $rec->radio_deducido;
+                    if ($c->radio_sige !== null && $c->radio_sige > 0) {
+                        if ($rDeducido === null || intval($rDeducido) !== intval($c->radio_sige)) {
+                            $desviados += $rec->qty;
+                        }
+                    }
+                }
+            }
+            $c->total_docentes_individuales = $total;
+            $c->docentes_desviados = $desviados;
+            return $c;
+        });
 
         // Filter results and old records to those linked to a school/CUE
         $linkedResultados = $resultados->filter(fn ($r) => ! empty($r->cue));
