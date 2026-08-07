@@ -9,7 +9,6 @@ import axios from 'axios';
 const ADMIN_NIVELES = ['ADMINISTRACIÓN', 'ADMINISTRATIVO', 'JUNTA DE CLASIFICACIÓN', 'SUPERVISIÓN'];
 
 export default function AuditoriaSueldosIndex({
-  nominas = [],
   nominaSeleccionada = null,
   resultados = [],
   viejos = [],
@@ -31,7 +30,9 @@ export default function AuditoriaSueldosIndex({
   const [filtroRadio, setFiltroRadio] = useState('');
   const [pageCruce, setPageCruce] = useState(1);
   const [pageTracking, setPageTracking] = useState(1);
+  const [pageEscala, setPageEscala] = useState(1);
   const PAGE_SIZE = 50;
+  const PAGE_SIZE_ESCALA = 10;
 
   // Local state for Depuración
   const [depuracionList, setDepuracionList] = useState(depuracionCentros);
@@ -53,6 +54,7 @@ export default function AuditoriaSueldosIndex({
   const [modalDocentesLoading, setModalDocentesLoading] = useState(false);
   const [modalDocentesSearch, setModalDocentesSearch] = useState('');
   const [showDistribucionModal, setShowDistribucionModal] = useState(false);
+  const [showMatrizEscalasModal, setShowMatrizEscalasModal] = useState(false);
 
   const abrirModalDocentes = (centro, sector, radioSige) => {
     setModalDocentesSector({ centro, sector, radioSige });
@@ -388,6 +390,12 @@ export default function AuditoriaSueldosIndex({
     });
   }, [linkedViejos, search, filtroDepto, filtroAmbito, filtroRadio]);
 
+  const totalPagesEscala = Math.ceil(filteredLinkedViejos.length / PAGE_SIZE_ESCALA);
+  const paginatedViejos = useMemo(() => {
+    const start = (pageEscala - 1) * PAGE_SIZE_ESCALA;
+    return filteredLinkedViejos.slice(start, start + PAGE_SIZE_ESCALA);
+  }, [filteredLinkedViejos, pageEscala]);
+
   const filteredUnlinkedViejos = useMemo(() => {
     const term = search.toLowerCase();
     return unlinkedViejos.filter((v) => {
@@ -461,6 +469,10 @@ export default function AuditoriaSueldosIndex({
     setPageTracking(1);
   }, [search, filtroNivel, filtroDepto, filtroAmbito, filtroRadio, filtroAuditoria]);
 
+  useEffect(() => {
+    setPageEscala(1);
+  }, [search, filtroDepto, filtroAmbito, filtroRadio]);
+
   const cruceStats = useMemo(() => {
     let coincide = 0;
     let noCoincide = 0;
@@ -509,10 +521,7 @@ export default function AuditoriaSueldosIndex({
     });
   }, [conflictosSige, filtroDepto, filtroRadio, filtroAmbito, search]);
 
-  const handlePeriodoChange = (e) => {
-    const periodo = e.target.value;
-    router.get('/auditoria-sueldos', { periodo }, { preserveState: false });
-  };
+
 
   const openEditModal = (item) => {
     setEditingItem(item);
@@ -645,42 +654,7 @@ export default function AuditoriaSueldosIndex({
       <Head title="Auditoría de Sueldos y Radios — EDU-Auditor" />
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 max-w-[1920px] mx-auto space-y-6">
-        {/* Header Section */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 text-xs font-bold rounded-full bg-[#FE8204]/10 text-[#FE8204] border border-[#FE8204]/20">
-              AUDITORÍA DE RADIOS
-            </span>
-            <span className="text-xs font-medium text-gray-500">
-              Cruce: Sueldos (A04) × SIGE
-            </span>
-          </div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight mt-1">
-            Auditoría de Radios de Sueldos por Establecimiento
-          </h1>
-          <p className="text-sm text-gray-600">
-            Control y comparación de las bonificaciones por zona (Radio) liquidadas frente a los registros oficiales del SIGE.
-          </p>
-        </div>
 
-        {/* Period Selector */}
-        <div className="flex items-center gap-3 bg-white p-2.5 rounded-2xl border border-gray-200 shadow-sm">
-            <i className="fa-solid fa-calendar-days text-[#FE8204] text-lg pl-2"></i>
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Período:</span>
-            <select
-              value={nominaSeleccionada?.periodo || ''}
-              onChange={handlePeriodoChange}
-              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm font-semibold rounded-xl focus:ring-[#FE8204] focus:border-[#FE8204] block px-3 py-1.5 cursor-pointer"
-            >
-              {nominas.map((n) => (
-                <option key={n.id} value={n.periodo}>
-                  Mayo {n.periodo.split('-')[0]} ({n.archivo_nombre})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-gray-200 overflow-x-auto pb-3 mb-6 custom-scrollbar">
@@ -1096,76 +1070,9 @@ export default function AuditoriaSueldosIndex({
       {/* TAB 2: ESCALAS Y REGISTROS VIEJOS */}
       {activeTab === 'escala' && (
         <div className="space-y-6">
-          <GlassCard className="p-6">
-            <h2 className="text-base font-black text-gray-900 mb-2 flex items-center gap-2">
-              <i className="fa-solid fa-scale-balanced text-[#FE8204]"></i>
-              Matriz Comparativa de Escalas de Radio Docente
-            </h2>
-            <p className="text-xs text-gray-600 mb-4">
-              Comparativa entre la escala original de la Ley de Radios y las alícuotas vigentes actualizadas por acuerdos paritarios.
-            </p>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left text-gray-700 border-collapse">
-                <thead className="text-xs uppercase bg-gray-100 text-gray-700 border-b">
-                  <tr>
-                    <th className="px-4 py-3 font-bold">Radio</th>
-                    <th className="px-4 py-3 font-bold">% Ley Original</th>
-                    <th className="px-4 py-3 font-bold">% Paritaria Vigente</th>
-                    <th className="px-4 py-3 text-right font-bold">Liquidaciones Auditadas</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-bold text-gray-900">Radio 1</td>
-                    <td className="px-4 py-3">20%</td>
-                    <td className="px-4 py-3 font-bold text-emerald-600">40%</td>
-                    <td className="px-4 py-3 text-right font-black">16.142</td>
-                  </tr>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-bold text-gray-900">Radio 2</td>
-                    <td className="px-4 py-3">30%</td>
-                    <td className="px-4 py-3 font-bold text-emerald-600">50%</td>
-                    <td className="px-4 py-3 text-right font-black">13.572</td>
-                  </tr>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-bold text-gray-900">Radio 3</td>
-                    <td className="px-4 py-3">40%</td>
-                    <td className="px-4 py-3 font-bold text-emerald-600">60%</td>
-                    <td className="px-4 py-3 text-right font-black">10.291</td>
-                  </tr>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-bold text-gray-900">Radio 4</td>
-                    <td className="px-4 py-3">80%</td>
-                    <td className="px-4 py-3 font-bold text-emerald-600">95%</td>
-                    <td className="px-4 py-3 text-right font-black">7.385 (+27 escala vieja)</td>
-                  </tr>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-bold text-gray-900">Radio 5</td>
-                    <td className="px-4 py-3">100%</td>
-                    <td className="px-4 py-3 font-bold text-emerald-600">115%</td>
-                    <td className="px-4 py-3 text-right font-black">4.261</td>
-                  </tr>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-bold text-gray-900">Radio 6</td>
-                    <td className="px-4 py-3">120%</td>
-                    <td className="px-4 py-3 font-bold text-emerald-600">135%</td>
-                    <td className="px-4 py-3 text-right font-black">4.683 (+6 escala vieja)</td>
-                  </tr>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-bold text-gray-900">Radio 7</td>
-                    <td className="px-4 py-3">140%</td>
-                    <td className="px-4 py-3 font-bold text-emerald-600">155%</td>
-                    <td className="px-4 py-3 text-right font-black">327 (+4 escala vieja)</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </GlassCard>
-
           {/* Sub-panel de Registros Escala Vieja */}
           <GlassCard className="p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <div>
                 <h3 className="text-sm font-black text-amber-900 flex items-center gap-2">
                   <i className="fa-solid fa-triangle-exclamation text-amber-500"></i>
@@ -1174,6 +1081,26 @@ export default function AuditoriaSueldosIndex({
                 <p className="text-xs text-gray-600">
                   Docentes liquidados con porcentaje antiguo (80%, 120%, 140%). Requiere clasificación manual.
                 </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  onClick={() => setShowMatrizEscalasModal(true)}
+                  className="px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-800 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Ver Matriz Comparativa de Escalas de Radio"
+                >
+                  <i className="fa-solid fa-scale-balanced text-[#FE8204] text-sm"></i>
+                  <span>Matriz Comparativa de Escalas</span>
+                </button>
+                <a
+                  href={`/api/auditoria-sueldos/exportar-excel?tab=escala&periodo=${nominaSeleccionada?.periodo || ''}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Descargar Registros en Excel"
+                >
+                  <i className="fa-solid fa-file-excel text-sm"></i>
+                  <span>Descargar Excel Residuales</span>
+                </a>
               </div>
             </div>
 
@@ -1195,7 +1122,7 @@ export default function AuditoriaSueldosIndex({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredLinkedViejos.map((v) => (
+                  {paginatedViejos.map((v) => (
                     <tr key={v.id} className="hover:bg-amber-50/50">
                       <td className="px-3 py-2 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{v.centro ?? 'S/D'}</td>
                       <td className="px-3 py-2 text-center font-black text-gray-900">{v.sector}</td>
@@ -1281,6 +1208,14 @@ export default function AuditoriaSueldosIndex({
                 </tbody>
               </table>
             </div>
+
+            <Pagination
+              currentPage={pageEscala}
+              totalPages={totalPagesEscala}
+              onPageChange={setPageEscala}
+              totalItems={filteredLinkedViejos.length}
+              itemsName="registros"
+            />
           </GlassCard>
         </div>
       )}
@@ -3156,6 +3091,96 @@ export default function AuditoriaSueldosIndex({
               <button
                 type="button"
                 onClick={() => setShowDistribucionModal(false)}
+                className="px-4 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {/* MODAL MATRIZ COMPARATIVA DE ESCALAS DE RADIO */}
+      {showMatrizEscalasModal && (
+        <Modal show={showMatrizEscalasModal} onClose={() => setShowMatrizEscalasModal(false)} maxWidth="2xl">
+          <div className="p-6">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <i className="fa-solid fa-scale-balanced text-[#FE8204]"></i>
+                Matriz Comparativa de Escalas de Radio Docente
+              </h3>
+              <button 
+                onClick={() => setShowMatrizEscalasModal(false)} 
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <p className="text-xs text-gray-600 mb-4 font-semibold">
+              Comparativa entre la escala original de la Ley de Radios y las alícuotas vigentes actualizadas por acuerdos paritarios.
+            </p>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left text-gray-700 border-collapse">
+                <thead className="text-xs uppercase bg-gray-100 text-gray-700 border-b">
+                  <tr>
+                    <th className="px-4 py-3 font-bold">Radio</th>
+                    <th className="px-4 py-3 font-bold">% Ley Original (Histórica)</th>
+                    <th className="px-4 py-3 font-bold">% Paritaria Vigente</th>
+                    <th className="px-4 py-3 text-right font-bold">Estado de Liquidación</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-bold text-gray-900">Radio 1</td>
+                    <td className="px-4 py-3">20%</td>
+                    <td className="px-4 py-3 font-bold text-emerald-600">40%</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-500">Ley Paritaria Vigente</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-bold text-gray-900">Radio 2</td>
+                    <td className="px-4 py-3">30%</td>
+                    <td className="px-4 py-3 font-bold text-emerald-600">50%</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-500">Ley Paritaria Vigente</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-bold text-gray-900">Radio 3</td>
+                    <td className="px-4 py-3">40%</td>
+                    <td className="px-4 py-3 font-bold text-emerald-600">60%</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-500">Ley Paritaria Vigente</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-bold text-gray-900">Radio 4</td>
+                    <td className="px-4 py-3">80%</td>
+                    <td className="px-4 py-3 font-bold text-emerald-600">95%</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-500">Ley Paritaria Vigente</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-bold text-gray-900">Radio 5</td>
+                    <td className="px-4 py-3">100%</td>
+                    <td className="px-4 py-3 font-bold text-emerald-600">115%</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-500">Ley Paritaria Vigente</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-bold text-gray-900">Radio 6</td>
+                    <td className="px-4 py-3">120%</td>
+                    <td className="px-4 py-3 font-bold text-emerald-600">135%</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-500">Ley Paritaria Vigente</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-bold text-gray-900">Radio 7</td>
+                    <td className="px-4 py-3">140%</td>
+                    <td className="px-4 py-3 font-bold text-emerald-600">155%</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-500">Ley Paritaria Vigente</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-6 border-t pt-4">
+              <button
+                type="button"
+                onClick={() => setShowMatrizEscalasModal(false)}
                 className="px-4 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition cursor-pointer"
               >
                 Cerrar

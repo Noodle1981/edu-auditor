@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, usePage, router } from '@inertiajs/react';
 
 export const Header = () => {
   const { url, props } = usePage();
@@ -28,26 +28,49 @@ export const Header = () => {
     }
   };
 
+  const handlePeriodoChange = (e) => {
+    const periodo = e.target.value;
+    router.get('/auditoria-sueldos', { periodo }, { preserveState: false });
+  };
+
   const meta = getPageMeta();
 
   const displayRole = user?.role === 'admin' ? 'Administrador' : 'Administrativo';
 
   return (
-    <header className="bg-white border-b border-gray-100 px-10 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-6 z-20 sticky top-0 backdrop-blur-md bg-white/95">
-      {/* Page Title & Badges */}
-      <div className="flex-1 flex flex-col gap-1.5">
+    <header className="bg-white border-b border-gray-100 px-10 py-6 flex flex-col md:flex-row md:items-center justify-between gap-6 z-20 sticky top-0 backdrop-blur-md bg-white/95">
+      {/* Left: Page Title & Subtitle */}
+      <div className="flex flex-col gap-1.5">
         <h1 className="text-2xl font-black text-gray-900 tracking-tight leading-tight">
           {meta.title}
         </h1>
-        <div className="flex items-center gap-3 flex-wrap">
-          <p className="text-xs font-semibold text-gray-400">
-            {meta.subtitle}
-          </p>
-
-        </div>
+        <p className="text-xs font-semibold text-gray-400">
+          {meta.subtitle}
+        </p>
       </div>
 
-      {/* Profile & Refresh Action */}
+      {/* Center: Period Selector (only if nominas is present) */}
+      {props.nominas && props.nominas.length > 0 && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm">
+            <i className="fa-solid fa-calendar-days text-[#FE8204] text-xs"></i>
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Período:</span>
+            <select
+              value={props.nominaSeleccionada?.periodo || ''}
+              onChange={handlePeriodoChange}
+              className="bg-white border border-gray-300 text-gray-900 text-[11px] font-bold rounded-lg focus:ring-[#FE8204] focus:border-[#FE8204] block px-2.5 py-0.5 cursor-pointer outline-none"
+            >
+              {props.nominas.map((n) => (
+                <option key={n.id} value={n.periodo}>
+                  Mayo {n.periodo.split('-')[0]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Right: Profile & Refresh Action */}
       <div className="flex items-center gap-6 self-end md:self-auto">
 
         <div className="h-8 w-px bg-gray-100"></div>

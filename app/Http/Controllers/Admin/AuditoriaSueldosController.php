@@ -1170,6 +1170,8 @@ class AuditoriaSueldosController extends Controller
             $filename = 'Auditoria_Inconsistencia_Zona_'.$nominaSeleccionada->periodo.'.xlsx';
         } elseif ($tab === 'tracking' || $tab === 'gestion') {
             $filename = 'Auditoria_Seguimiento_Gestion_'.$nominaSeleccionada->periodo.'.xlsx';
+        } elseif ($tab === 'escala') {
+            $filename = 'Escalas_residuales_'.$nominaSeleccionada->periodo.'.xlsx';
         } elseif ($tab === 'sin_escuela') {
             $filename = 'Auditoria_Sectores_Sin_Escuela_'.$nominaSeleccionada->periodo.'.xlsx';
         } else {
