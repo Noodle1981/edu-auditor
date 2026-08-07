@@ -109,6 +109,8 @@ IDX_CLASE  = 4
 IDX_ZONA   = 20
 IDX_A01    = 21
 IDX_A04    = 23
+IDX_APELLIDO_NOMBRE = 6
+IDX_CUIL   = 18
 
 grupos = defaultdict(lambda: {
     'filas': 0,
@@ -118,6 +120,7 @@ grupos = defaultdict(lambda: {
 })
 
 total_filas_excel = 0
+filas_individuales = []
 print("Procesando filas de sueldos...")
 
 for row in ws.iter_rows(min_row=2, values_only=True):
@@ -142,10 +145,17 @@ for row in ws.iter_rows(min_row=2, values_only=True):
 
     clase = row[IDX_CLASE]
     if clase is not None:
-        grupos[key]['clases'].add(int(clase))
+        try:
+            clase = int(clase)
+            grupos[key]['clases'].add(clase)
+        except ValueError:
+            clase = None
 
     a01 = row[IDX_A01]
     a04 = row[IDX_A04]
+
+    v_a01 = None
+    v_a04 = None
 
     if a01 is not None and a04 is not None:
         try:
@@ -155,7 +165,22 @@ for row in ws.iter_rows(min_row=2, values_only=True):
                 grupos[key]['a01_list'].append(v_a01)
                 grupos[key]['a04_list'].append(v_a04)
         except ValueError:
-            pass
+            v_a01 = None
+            v_a04 = None
+
+    cuil = str(row[IDX_CUIL]).strip() if row[IDX_CUIL] is not None else None
+    ap_nom = str(row[IDX_APELLIDO_NOMBRE]).strip() if row[IDX_APELLIDO_NOMBRE] is not None else None
+
+    filas_individuales.append((
+        centro,
+        sector,
+        clase,
+        cuil,
+        ap_nom,
+        zona,
+        v_a01,
+        v_a04
+    ))
 
 wb.close()
 print(f"Total filas procesadas del Excel: {total_filas_excel}")
@@ -206,7 +231,47 @@ else:
 
 # Limpiar resultados anteriores para esta nomina
 cursor.execute("DELETE FROM auditoria_radio_resultados WHERE nomina_id = ?", (nomina_id,))
+cursor.execute("DELETE FROM nomina_sueldo_registros WHERE nomina_id = ?", (nomina_id,))
 conn.commit()
+
+# Insertar registros de haberes individuales
+print("Insertando registros de haberes individuales en nomina_sueldo_registros...")
+sueldos_bulk = []
+now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+for f in filas_individuales:
+    centro, sector, clase, cuil, ap_nom, zona, v_a01, v_a04 = f
+    porc = None
+    r_deducido = None
+    if v_a01 is not None and v_a01 > 0 and v_a04 is not None:
+        porc = round((v_a04 / v_a01) * 100.0, 2)
+        r_deducido = calcular_radio_sueldo(porc)
+    
+    sueldos_bulk.append((
+        nomina_id,
+        centro,
+        sector,
+        clase,
+        cuil,
+        ap_nom,
+        zona,
+        v_a01,
+        v_a04,
+        porc,
+        r_deducido,
+        now_str,
+        now_str
+    ))
+
+for i in range(0, len(sueldos_bulk), 5000):
+    cursor.executemany("""
+        INSERT INTO nomina_sueldo_registros (
+            nomina_id, centro, sector, clase, cuil, apellido_nombre, zona,
+            a01_basico, a04_radio, porcentaje_calculado, radio_deducido,
+            created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, sueldos_bulk[i:i+5000])
+conn.commit()
+print(f"Insertados {len(sueldos_bulk)} registros individuales.")
 
 # 5. Mapear y generar auditoría
 print("Generando registros de auditoría...")

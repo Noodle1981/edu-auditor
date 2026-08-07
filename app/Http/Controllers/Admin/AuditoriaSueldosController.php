@@ -62,7 +62,9 @@ class AuditoriaSueldosController extends Controller
                 DB::raw('COALESCE(ed.zona_departamento, "S/D") as departamento'),
                 DB::raw('COALESCE(m.ambito, "PUBLICO") as ambito'),
                 'ed.distancia_camino as dist_camino',
-                'ed.dist_circunf'
+                'ed.dist_circunf',
+                DB::raw("(SELECT COUNT(*) FROM nomina_sueldo_registros nsr WHERE nsr.nomina_id = r.nomina_id AND nsr.sector = r.sector) as total_docentes_individuales"),
+                DB::raw("(SELECT COUNT(*) FROM nomina_sueldo_registros nsr WHERE nsr.nomina_id = r.nomina_id AND nsr.sector = r.sector AND nsr.radio_deducido IS NOT NULL AND nsr.radio_deducido != CAST(COALESCE(m.radio, 0) AS INTEGER)) as docentes_desviados")
             )
             ->groupBy('r.id')
             ->orderBy('r.sector')
@@ -207,7 +209,9 @@ class AuditoriaSueldosController extends Controller
                 'r.estado_auditoria',
                 'r.auditoria_id',
                 'ed.distancia_camino as dist_camino',
-                'ed.dist_circunf'
+                'ed.dist_circunf',
+                DB::raw("(SELECT COUNT(*) FROM nomina_sueldo_registros nsr WHERE nsr.nomina_id = " . intval($nominaSeleccionada->id) . " AND nsr.sector = CAST(m.sector AS INTEGER)) as total_docentes_individuales"),
+                DB::raw("(SELECT COUNT(*) FROM nomina_sueldo_registros nsr WHERE nsr.nomina_id = " . intval($nominaSeleccionada->id) . " AND nsr.sector = CAST(m.sector AS INTEGER) AND nsr.radio_deducido IS NOT NULL AND nsr.radio_deducido != CAST(m.radio AS INTEGER)) as docentes_desviados")
             )
             ->orderBy('e.nombre')
             ->get();
@@ -1123,6 +1127,65 @@ class AuditoriaSueldosController extends Controller
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    /**
+     * Obtiene el listado de docentes individuales para un sector y centro específico.
+     */
+    public function obtenerDocentesSector(Request $request)
+    {
+        $centro = $request->query('centro');
+        $sector = $request->query('sector');
+        $radioSige = $request->query('radio_sige');
+
+        $nominaSeleccionada = NominaSueldo::orderBy('periodo', 'desc')->first();
+        if (!$nominaSeleccionada) {
+            return response()->json(['error' => 'No hay nóminas registradas'], 404);
+        }
+
+        $query = DB::table('nomina_sueldo_registros')
+            ->where('nomina_id', $nominaSeleccionada->id)
+            ->where('sector', $sector);
+
+        if ($centro) {
+            $query->where('centro', $centro);
+        }
+
+        $docentes = $query->orderBy('apellido_nombre')->get();
+
+        $docentesMap = $docentes->map(function ($d) use ($radioSige) {
+            $rDeducido = $d->radio_deducido;
+            $rSige = $radioSige !== null ? intval($radioSige) : null;
+            
+            $estadoDesvio = 'COINCIDE';
+            if ($rDeducido !== null && $rSige !== null) {
+                if ($rDeducido > $rSige) {
+                    $estadoDesvio = 'PAGA_MAS';
+                } elseif ($rDeducido < $rSige) {
+                    $estadoDesvio = 'PAGA_MENOS';
+                }
+            }
+
+            return [
+                'cuil' => $d->cuil,
+                'apellido_nombre' => $d->apellido_nombre,
+                'clase' => $d->clase,
+                'zona' => $d->zona,
+                'a01_basico' => $d->a01_basico,
+                'a04_radio' => $d->a04_radio,
+                'porcentaje_calculado' => $d->porcentaje_calculado,
+                'radio_deducido' => $rDeducido,
+                'radio_sige' => $rSige,
+                'estado_desvio' => $estadoDesvio
+            ];
+        });
+
+        return response()->json([
+            'centro' => $centro,
+            'sector' => $sector,
+            'radio_sige' => $radioSige,
+            'docentes' => $docentesMap
         ]);
     }
 }

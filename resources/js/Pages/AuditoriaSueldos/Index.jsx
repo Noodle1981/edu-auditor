@@ -46,6 +46,28 @@ export default function AuditoriaSueldosIndex({
   const [sanearDepEstado, setSanearDepEstado] = useState('');
   const [sanearDepSubmitting, setSanearDepSubmitting] = useState(false);
 
+  // States y Callback para la Auditoría Individual de Docentes
+  const [modalDocentesSector, setModalDocentesSector] = useState(null);
+  const [modalDocentesData, setModalDocentesData] = useState([]);
+  const [modalDocentesLoading, setModalDocentesLoading] = useState(false);
+  const [modalDocentesSearch, setModalDocentesSearch] = useState('');
+
+  const abrirModalDocentes = (centro, sector, radioSige) => {
+    setModalDocentesSector({ centro, sector, radioSige });
+    setModalDocentesLoading(true);
+    setModalDocentesData([]);
+    setModalDocentesSearch('');
+    axios.get('/api/auditoria-sueldos/sector-docentes', {
+      params: { centro, sector, radio_sige: radioSige }
+    }).then(res => {
+      setModalDocentesData(res.data.docentes || []);
+    }).catch(err => {
+      console.error(err);
+    }).finally(() => {
+      setModalDocentesLoading(false);
+    });
+  };
+
   const depuracionStats = useMemo(() => {
     const total = depuracionList.length;
     const centroSinUso = depuracionList.filter(d => d.estado_depuracion === 'CENTRO_SIN_USO').length;
@@ -1373,6 +1395,7 @@ export default function AuditoriaSueldosIndex({
                   <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
                   <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
                   <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
+                  <th className="px-3 py-3 text-center font-bold">Docentes Desviados</th>
                   <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                   <th className="px-3 py-3 text-center font-bold">Gestión</th>
                   <th className="px-3 py-3 text-center font-bold">Acciones</th>
@@ -1420,6 +1443,26 @@ export default function AuditoriaSueldosIndex({
                     </td>
                     <td className="px-3 py-3 text-center">
                       {renderDistanciaCamino(item.dist_camino, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {item.total_docentes_individuales !== null && item.total_docentes_individuales > 0 ? (
+                        <button
+                          onClick={() => abrirModalDocentes(item.centro, item.sector, item.radio_sige)}
+                          className="px-2 py-1.5 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl shadow-sm font-bold transition flex items-center gap-1.5 mx-auto cursor-pointer"
+                          title="Ver desglose individual de legajos"
+                        >
+                          <span className={item.docentes_desviados > 0 ? "text-amber-600 font-extrabold" : "text-gray-500 font-semibold"}>
+                            {item.docentes_desviados} / {item.total_docentes_individuales}
+                          </span>
+                          {item.docentes_desviados > 0 ? (
+                            <i className="fa-solid fa-circle-exclamation text-amber-500 text-xs animate-pulse"></i>
+                          ) : (
+                            <i className="fa-solid fa-circle-check text-emerald-500 text-xs"></i>
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 italic">-</span>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-right font-black text-red-700">{item.total_filas_docentes} agentes</td>
                     <td className="px-3 py-3 text-center">
@@ -1491,6 +1534,7 @@ export default function AuditoriaSueldosIndex({
                   <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
                   <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
                   <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
+                  <th className="px-3 py-3 text-center font-bold">Docentes Desviados</th>
                   <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                   <th className="px-3 py-3 text-center font-bold">Gestión</th>
                   <th className="px-3 py-3 text-center font-bold">Acciones</th>
@@ -1538,6 +1582,26 @@ export default function AuditoriaSueldosIndex({
                     </td>
                     <td className="px-3 py-3 text-center">
                       {renderDistanciaCamino(item.dist_camino, item.cue)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {item.total_docentes_individuales !== null && item.total_docentes_individuales > 0 ? (
+                        <button
+                          onClick={() => abrirModalDocentes(item.centro, item.sector, item.radio_sige)}
+                          className="px-2 py-1.5 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl shadow-sm font-bold transition flex items-center gap-1.5 mx-auto cursor-pointer"
+                          title="Ver desglose individual de legajos"
+                        >
+                          <span className={item.docentes_desviados > 0 ? "text-amber-600 font-extrabold" : "text-gray-500 font-semibold"}>
+                            {item.docentes_desviados} / {item.total_docentes_individuales}
+                          </span>
+                          {item.docentes_desviados > 0 ? (
+                            <i className="fa-solid fa-circle-exclamation text-amber-500 text-xs animate-pulse"></i>
+                          ) : (
+                            <i className="fa-solid fa-circle-check text-emerald-500 text-xs"></i>
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 italic">-</span>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-right font-black text-blue-700">{item.total_filas_docentes} agentes</td>
                     <td className="px-3 py-3 text-center">
@@ -1878,6 +1942,7 @@ export default function AuditoriaSueldosIndex({
                     <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
                     <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
                     <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
+                    <th className="px-3 py-3 text-center font-bold">Docentes Desviados</th>
                     <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
                   </tr>
                 </thead>
@@ -1934,6 +1999,26 @@ export default function AuditoriaSueldosIndex({
                         </td>
                         <td className="px-3 py-3 text-center">
                           {renderDistanciaCamino(c.dist_camino, hasCue)}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          {c.total_docentes_individuales !== null && c.total_docentes_individuales > 0 ? (
+                            <button
+                              onClick={() => abrirModalDocentes(c.centro, c.sector_sige || c.sector_sueldos, c.radio_sige)}
+                              className="px-2 py-1.5 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl shadow-sm font-bold transition flex items-center gap-1.5 mx-auto cursor-pointer"
+                              title="Ver desglose individual de legajos"
+                            >
+                              <span className={c.docentes_desviados > 0 ? "text-amber-600 font-extrabold" : "text-gray-500 font-semibold"}>
+                                {c.docentes_desviados} / {c.total_docentes_individuales}
+                              </span>
+                              {c.docentes_desviados > 0 ? (
+                                <i className="fa-solid fa-circle-exclamation text-amber-500 text-xs animate-pulse"></i>
+                              ) : (
+                                <i className="fa-solid fa-circle-check text-emerald-500 text-xs"></i>
+                              )}
+                            </button>
+                          ) : (
+                            <span className="text-gray-400 italic">-</span>
+                          )}
                         </td>
                         <td className="px-3 py-3 text-right font-bold text-gray-700">
                           {c.total_filas_docentes !== null ? `${c.total_filas_docentes} agentes` : '0 agentes'}
@@ -2850,6 +2935,125 @@ export default function AuditoriaSueldosIndex({
                 className="px-4 py-2 text-xs font-bold text-white bg-[#FE8204] hover:bg-[#e07203] rounded-xl shadow-md transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
               >
                 {sanearDepSubmitting ? 'Guardando...' : 'Guardar Saneamiento'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* MODAL DESGLOSE INDIVIDUAL DE DOCENTES */}
+      {modalDocentesSector && (
+        <Modal show={Boolean(modalDocentesSector)} onClose={() => setModalDocentesSector(null)} maxWidth="4xl">
+          <div className="p-6">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <i className="fa-solid fa-users text-[#0284c7]"></i>
+                Desglose de Docentes: Sector {modalDocentesSector.sector} 
+                {modalDocentesSector.centro && ` (Centro ${modalDocentesSector.centro})`}
+              </h3>
+              <button 
+                onClick={() => setModalDocentesSector(null)} 
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+              <div className="text-xs font-semibold text-gray-600">
+                Radio Oficial SIGE: <span className="text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">R{modalDocentesSector.radioSige || '-'}</span>
+              </div>
+              <input
+                type="text"
+                placeholder="Buscar docente por nombre o CUIL..."
+                value={modalDocentesSearch}
+                onChange={(e) => setModalDocentesSearch(e.target.value)}
+                className="w-full sm:w-72 bg-gray-50 border border-gray-300 rounded-xl px-3 py-1.5 text-xs text-gray-900 focus:ring-[#0284c7] outline-none"
+              />
+            </div>
+
+            {modalDocentesLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <i className="fa-solid fa-spinner text-2xl text-[#0284c7] animate-spin"></i>
+                <span className="text-xs text-gray-500 font-semibold">Cargando legajos docentes...</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-h-[400px] border border-gray-200 rounded-xl custom-scrollbar">
+                <table className="w-full text-xs text-left text-gray-700 border-collapse">
+                  <thead className="bg-gray-100 text-gray-700 border-b sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2.5 font-bold">CUIL</th>
+                      <th className="px-3 py-2.5 font-bold">Apellido y Nombre</th>
+                      <th className="px-3 py-2.5 text-center font-bold">Clase</th>
+                      <th className="px-3 py-2.5 text-center font-bold">Zona</th>
+                      <th className="px-3 py-2.5 text-right font-bold">Asig. Básico (A01)</th>
+                      <th className="px-3 py-2.5 text-right font-bold">Asig. Radio (A04)</th>
+                      <th className="px-3 py-2.5 text-center font-bold">% Calculado</th>
+                      <th className="px-3 py-2.5 text-center font-bold">Radio Cobrado</th>
+                      <th className="px-3 py-2.5 text-center font-bold">Estado Desvío</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {modalDocentesData.filter(d => {
+                      if (!modalDocentesSearch) return true;
+                      const term = modalDocentesSearch.toLowerCase();
+                      return (
+                        (d.cuil && d.cuil.toString().includes(term)) ||
+                        (d.apellido_nombre && d.apellido_nombre.toLowerCase().includes(term))
+                      );
+                    }).map((d, idx) => {
+                      const formatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+                      const basico = d.a01_basico ? formatter.format(d.a01_basico) : '-';
+                      const radio = d.a04_radio ? formatter.format(d.a04_radio) : '-';
+
+                      let badgeClass = 'bg-gray-50 text-gray-700 border-gray-200';
+                      let badgeText = 'COINCIDE';
+
+                      if (d.estado_desvio === 'PAGA_MAS') {
+                        badgeClass = 'bg-red-50 text-red-700 border-red-200';
+                        badgeText = '🔴 PAGA MÁS';
+                      } else if (d.estado_desvio === 'PAGA_MENOS') {
+                        badgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
+                        badgeText = '🔵 PAGA MENOS';
+                      }
+
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50/50">
+                          <td className="px-3 py-2.5 font-mono text-gray-500 font-semibold">{d.cuil || '-'}</td>
+                          <td className="px-3 py-2.5 font-bold text-gray-950">{d.apellido_nombre || '-'}</td>
+                          <td className="px-3 py-2.5 text-center font-bold text-gray-500">{d.clase || '-'}</td>
+                          <td className="px-3 py-2.5 text-center font-bold text-gray-500">{d.zona || '-'}</td>
+                          <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{basico}</td>
+                          <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{radio}</td>
+                          <td className="px-3 py-2.5 text-center font-bold text-gray-900">{d.porcentaje_calculado ? `${d.porcentaje_calculado}%` : '-'}</td>
+                          <td className="px-3 py-2.5 text-center font-black text-purple-700">{d.radio_deducido ? `R${d.radio_deducido}` : '-'}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass}`}>
+                              {badgeText}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {modalDocentesData.length === 0 && (
+                      <tr>
+                        <td colSpan="9" className="px-3 py-8 text-center text-gray-400 italic">
+                          No se encontraron registros de liquidaciones individuales en este sector.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 mt-6 border-t pt-4">
+              <button
+                type="button"
+                onClick={() => setModalDocentesSector(null)}
+                className="px-4 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition cursor-pointer"
+              >
+                Cerrar Desglose
               </button>
             </div>
           </div>
