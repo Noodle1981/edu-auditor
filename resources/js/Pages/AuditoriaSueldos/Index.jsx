@@ -4,6 +4,7 @@ import SIAMELayout from '../../Layouts/SIAMELayout';
 import { GlassCard } from '../../Components/GlassCard';
 import { Pagination } from '../../Components/Pagination';
 import Modal from '../../Components/Modal';
+import axios from 'axios';
 
 const ADMIN_NIVELES = ['ADMINISTRACIÓN', 'ADMINISTRATIVO', 'JUNTA DE CLASIFICACIÓN', 'SUPERVISIÓN'];
 

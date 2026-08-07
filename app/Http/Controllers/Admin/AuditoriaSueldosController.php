@@ -717,12 +717,26 @@ class AuditoriaSueldosController extends Controller
             $sheet->getStyle('A4:Q4')->applyFromArray($headerStyle);
             $sheet->getRowDimension(4)->setRowHeight(24);
 
+            $subqueryRadio = DB::table('auditoria_radio_resultados')
+                ->select(
+                    'sector',
+                    DB::raw('MAX(centro) as centro'),
+                    DB::raw('MAX(radio_sueldo) as radio_sueldo'),
+                    DB::raw('MAX(radio_circ) as radio_circ'),
+                    DB::raw('MAX(radio_camino) as radio_camino'),
+                    DB::raw('MAX(porc_pagado_mediana) as porc_pagado_mediana'),
+                    DB::raw('MAX(escala_usada) as escala_usada'),
+                    DB::raw('SUM(total_filas_docentes) as total_filas_docentes'),
+                    DB::raw('MAX(estado_auditoria) as estado_auditoria')
+                )
+                ->where('nomina_id', $nominaId)
+                ->groupBy('sector');
+
             $cruceEscuelas = DB::table('establecimientos as e')
                 ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
                 ->join('modalidades as m', 'm.establecimiento_id', '=', 'e.id')
-                ->leftJoin('auditoria_radio_resultados as r', function ($join) use ($nominaId) {
-                    $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector')
-                        ->where('r.nomina_id', '=', $nominaId);
+                ->leftJoinSub($subqueryRadio, 'r', function ($join) {
+                    $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector');
                 })
                 ->whereNull('e.deleted_at')
                 ->whereNull('m.deleted_at')
