@@ -52,6 +52,7 @@ export default function AuditoriaSueldosIndex({
   const [modalDocentesData, setModalDocentesData] = useState([]);
   const [modalDocentesLoading, setModalDocentesLoading] = useState(false);
   const [modalDocentesSearch, setModalDocentesSearch] = useState('');
+  const [showDistribucionModal, setShowDistribucionModal] = useState(false);
 
   const abrirModalDocentes = (centro, sector, radioSige) => {
     setModalDocentesSector({ centro, sector, radioSige });
@@ -95,6 +96,41 @@ export default function AuditoriaSueldosIndex({
 
     return { total, centroSinUso, sectorSinUso, noCatalogado, bajaVolumetria, activos };
   }, [depuracionList]);
+
+  const statusDistribution = useMemo(() => {
+    // Coincide Total
+    const coincideTotalSectores = resultados.filter(r => r.estado_auditoria === 'COINCIDE_TOTAL').length;
+    const coincideTotalDocentes = resultados.filter(r => r.estado_auditoria === 'COINCIDE_TOTAL').reduce((acc, curr) => acc + (curr.total_filas_docentes || 0), 0);
+    
+    // Coincide SIGE y Camino/Circunferencia
+    const coincideSigeSectores = resultados.filter(r => ['COINCIDE_SIGE', 'COINCIDE_SIGE_Y_CAMINO', 'COINCIDE_SIGE_Y_CIRC'].includes(r.estado_auditoria)).length;
+    const coincideSigeDocentes = resultados.filter(r => ['COINCIDE_SIGE', 'COINCIDE_SIGE_Y_CAMINO', 'COINCIDE_SIGE_Y_CIRC'].includes(r.estado_auditoria)).reduce((acc, curr) => acc + (curr.total_filas_docentes || 0), 0);
+    
+    // Paga Mas
+    const pagaMasSectores = resultados.filter(r => r.estado_auditoria === 'PAGA_MAS_QUE_SIGE').length;
+    const pagaMasDocentes = resultados.filter(r => r.estado_auditoria === 'PAGA_MAS_QUE_SIGE').reduce((acc, curr) => acc + (curr.total_filas_docentes || 0), 0);
+    
+    // Paga Menos
+    const pagaMenosSectores = resultados.filter(r => r.estado_auditoria === 'PAGA_MENOS_QUE_SIGE').length;
+    const pagaMenosDocentes = resultados.filter(r => r.estado_auditoria === 'PAGA_MENOS_QUE_SIGE').reduce((acc, curr) => acc + (curr.total_filas_docentes || 0), 0);
+    
+    // Sin SIGE
+    const sinSigeSectores = resultados.filter(r => r.estado_auditoria === 'SIN_SIGE').length;
+    const sinSigeDocentes = resultados.filter(r => r.estado_auditoria === 'SIN_SIGE').reduce((acc, curr) => acc + (curr.total_filas_docentes || 0), 0);
+    
+    return {
+      coincideTotalSectores,
+      coincideTotalDocentes,
+      coincideSigeSectores,
+      coincideSigeDocentes,
+      pagaMasSectores,
+      pagaMasDocentes,
+      pagaMenosSectores,
+      pagaMenosDocentes,
+      sinSigeSectores,
+      sinSigeDocentes,
+    };
+  }, [resultados]);
 
   const filteredDepuracion = useMemo(() => {
     return depuracionList.filter(d => {
@@ -972,16 +1008,26 @@ export default function AuditoriaSueldosIndex({
                   Resumen ejecutivo consolidado por cada uno de los centros de liquidación salarial de la nómina.
                 </p>
               </div>
-              <a
-                href={`/api/auditoria-sueldos/exportar-excel?tab=kpi&periodo=${nominaSeleccionada?.periodo || ''}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-                title="Descargar tabla de Centros en Excel"
-              >
-                <i className="fa-solid fa-file-excel text-sm"></i>
-                <span>Descargar Excel Centros</span>
-              </a>
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  onClick={() => setShowDistribucionModal(true)}
+                  className="px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-800 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Ver Distribución del Estado de Auditoría"
+                >
+                  <i className="fa-solid fa-list-ol text-[#FE8204] text-sm"></i>
+                  <span>Distribución del Estado de Auditoría</span>
+                </button>
+                <a
+                  href={`/api/auditoria-sueldos/exportar-excel?tab=kpi&periodo=${nominaSeleccionada?.periodo || ''}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Descargar tabla de Centros en Excel"
+                >
+                  <i className="fa-solid fa-file-excel text-sm"></i>
+                  <span>Descargar Excel Centros</span>
+                </a>
+              </div>
             </div>
 
             <div className="overflow-x-auto max-h-96 custom-scrollbar">
@@ -1044,57 +1090,6 @@ export default function AuditoriaSueldosIndex({
               </table>
             </div>
           </GlassCard>
-
-          {/* Detailed Status Breakdown */}
-          <div className="grid grid-cols-1 gap-6">
-            <GlassCard className="p-6">
-              <h2 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2">
-                <i className="fa-solid fa-list-ol text-[#FE8204]"></i>
-                Distribución del Estado de Auditoría
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex items-center justify-between p-3.5 bg-emerald-50 rounded-xl border border-emerald-100">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
-                    <span className="text-sm font-bold text-emerald-900">Coincidencia Total (Sueldo = SIGE = Geo)</span>
-                  </div>
-                  <span className="text-sm font-black text-emerald-700">458 sectores</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3.5 bg-teal-50 rounded-xl border border-teal-100">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-teal-500"></span>
-                    <span className="text-sm font-bold text-teal-900">Coincide SIGE y Camino/Circunferencia</span>
-                  </div>
-                  <span className="text-sm font-black text-teal-700">327 sectores</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3.5 bg-red-50 rounded-xl border border-red-100">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-red-500"></span>
-                    <span className="text-sm font-bold text-red-900">Paga MÁS que SIGE (Exceso de liquidación)</span>
-                  </div>
-                  <span className="text-sm font-black text-red-700">30 sectores (1.694 filas)</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3.5 bg-blue-50 rounded-xl border border-blue-100">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-                    <span className="text-sm font-bold text-blue-900">Paga MENOS que SIGE (Perjuicio al docente)</span>
-                  </div>
-                  <span className="text-sm font-black text-blue-700">25 sectores (1.674 filas)</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200 md:col-span-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                    <span className="text-sm font-bold text-slate-800">Sectores Sin Registro en SIGE PÚBLICO</span>
-                  </div>
-                  <span className="text-sm font-black text-slate-700">184 sectores (6.173 filas)</span>
-                </div>
-              </div>
-            </GlassCard>
-          </div>
         </div>
       )}
 
@@ -3079,6 +3074,91 @@ export default function AuditoriaSueldosIndex({
                 className="px-4 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition cursor-pointer"
               >
                 Cerrar Desglose
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {/* MODAL DISTRIBUCIÓN DEL ESTADO DE AUDITORÍA */}
+      {showDistribucionModal && (
+        <Modal show={showDistribucionModal} onClose={() => setShowDistribucionModal(false)} maxWidth="2xl">
+          <div className="p-6">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <i className="fa-solid fa-list-ol text-[#FE8204]"></i>
+                Distribución del Estado de Auditoría
+              </h3>
+              <button 
+                onClick={() => setShowDistribucionModal(false)} 
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <p className="text-xs text-gray-600 mb-4 font-semibold">
+              Distribución cuantitativa de sectores y agentes según el diagnóstico de radios y haberes docentes para el período seleccionado.
+            </p>
+
+            <div className="grid grid-cols-1 gap-3">
+              <div className="flex items-center justify-between p-3.5 bg-emerald-50 rounded-xl border border-emerald-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
+                  <span className="text-sm font-bold text-emerald-900">Coincidencia Total (Sueldo = SIGE = Geo)</span>
+                </div>
+                <span className="text-sm font-black text-emerald-700">
+                  {statusDistribution.coincideTotalSectores} sectores ({statusDistribution.coincideTotalDocentes.toLocaleString()} agentes)
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-teal-50 rounded-xl border border-teal-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3 h-3 rounded-full bg-teal-500"></span>
+                  <span className="text-sm font-bold text-teal-900">Coincide SIGE y Camino/Circunferencia</span>
+                </div>
+                <span className="text-sm font-black text-teal-700">
+                  {statusDistribution.coincideSigeSectores} sectores ({statusDistribution.coincideSigeDocentes.toLocaleString()} agentes)
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-red-50 rounded-xl border border-red-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                  <span className="text-sm font-bold text-red-900">Paga MÁS que SIGE (Exceso de liquidación)</span>
+                </div>
+                <span className="text-sm font-black text-red-700">
+                  {statusDistribution.pagaMasSectores} sectores ({statusDistribution.pagaMasDocentes.toLocaleString()} agentes)
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-blue-50 rounded-xl border border-blue-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                  <span className="text-sm font-bold text-blue-900">Paga MENOS que SIGE (Perjuicio al docente)</span>
+                </div>
+                <span className="text-sm font-black text-blue-700">
+                  {statusDistribution.pagaMenosSectores} sectores ({statusDistribution.pagaMenosDocentes.toLocaleString()} agentes)
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3 h-3 rounded-full bg-slate-400"></span>
+                  <span className="text-sm font-bold text-slate-800">Sectores Sin Registro en SIGE PÚBLICO</span>
+                </div>
+                <span className="text-sm font-black text-slate-700">
+                  {statusDistribution.sinSigeSectores} sectores ({statusDistribution.sinSigeDocentes.toLocaleString()} agentes)
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-6 border-t pt-4">
+              <button
+                type="button"
+                onClick={() => setShowDistribucionModal(false)}
+                className="px-4 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition cursor-pointer"
+              >
+                Cerrar
               </button>
             </div>
           </div>
