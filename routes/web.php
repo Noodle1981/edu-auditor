@@ -30,9 +30,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/auditoria-sueldos', [AuditoriaSueldosController::class, 'index'])->name('auditoria-sueldos');
     Route::get('/api/auditoria-sueldos/exportar-excel', [AuditoriaSueldosController::class, 'exportExcel'])->name('auditoria-sueldos.export-excel');
+    Route::get('/api/auditoria-sueldos/exportar-depuracion-excel', [AuditoriaSueldosController::class, 'exportDepuracionExcel'])->name('auditoria-sueldos.export-depuracion-excel');
     Route::patch('/api/auditoria-sueldos/{id}/estado', [AuditoriaSueldosController::class, 'updateEstadoGestion']);
     Route::patch('/api/auditoria-sueldos/viejo/{id}', [AuditoriaSueldosController::class, 'updateClasificacionViejo']);
     Route::post('/api/auditoria-sueldos/sanear-sector', [AuditoriaSueldosController::class, 'sanearSector']);
+    Route::post('/api/auditoria-sueldos/sanear-depuracion', [AuditoriaSueldosController::class, 'sanearDepuracion']);
 
     Route::get('/auditoria-automatizada', [AgenteController::class, 'auditoriaAutomatizadaPage'])->name('auditoria-automatizada');
     Route::get('/api/agentes', [AgenteController::class, 'search']);

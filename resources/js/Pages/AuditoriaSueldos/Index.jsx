@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import SIAMELayout from '../../Layouts/SIAMELayout';
 import { GlassCard } from '../../Components/GlassCard';
 import { Pagination } from '../../Components/Pagination';
+import Modal from '../../Components/Modal';
 
 const ADMIN_NIVELES = ['ADMINISTRACIÓN', 'ADMINISTRATIVO', 'JUNTA DE CLASIFICACIÓN', 'SUPERVISIÓN'];
 
@@ -15,7 +16,8 @@ export default function AuditoriaSueldosIndex({
   establecimientosList = [],
   cruceEscuelas = [],
   kpis = {},
-  centrosBreakdown = []
+  centrosBreakdown = [],
+  depuracionCentros = []
 }) {
   const [activeTab, setActiveTab] = useState('kpi');
   const [search, setSearch] = useState('');
@@ -29,6 +31,81 @@ export default function AuditoriaSueldosIndex({
   const [pageCruce, setPageCruce] = useState(1);
   const [pageTracking, setPageTracking] = useState(1);
   const PAGE_SIZE = 50;
+
+  // Local state for Depuración
+  const [depuracionList, setDepuracionList] = useState(depuracionCentros);
+  useEffect(() => { setDepuracionList(depuracionCentros); }, [depuracionCentros]);
+
+  const [depuracionFiltroEstado, setDepuracionFiltroEstado] = useState('TODOS');
+  const [depuracionBusqueda, setDepuracionBusqueda] = useState('');
+
+  const [sanearDepuracionModalItem, setSanearDepuracionModalItem] = useState(null);
+  const [sanearDepEstId, setSanearDepEstId] = useState('');
+  const [sanearDepSearchTerm, setSanearDepSearchTerm] = useState('');
+  const [sanearDepObs, setSanearDepObs] = useState('');
+  const [sanearDepEstado, setSanearDepEstado] = useState('');
+  const [sanearDepSubmitting, setSanearDepSubmitting] = useState(false);
+
+  const depuracionStats = useMemo(() => {
+    const total = depuracionList.length;
+    const centroSinUso = depuracionList.filter(d => d.estado_depuracion === 'CENTRO_SIN_USO').length;
+    const sectorSinUso = depuracionList.filter(d => d.estado_depuracion === 'SECTOR_SIN_USO').length;
+    const noCatalogado = depuracionList.filter(d => d.estado_depuracion === 'SUELDO_NO_CATALOGADO').length;
+    const bajaVolumetria = depuracionList.filter(d => d.estado_depuracion === 'BAJA_VOLUMETRÍA').length;
+    const activos = depuracionList.filter(d => d.estado_depuracion === 'ACTIVO').length;
+
+    return { total, centroSinUso, sectorSinUso, noCatalogado, bajaVolumetria, activos };
+  }, [depuracionList]);
+
+  const filteredDepuracion = useMemo(() => {
+    return depuracionList.filter(d => {
+      const matchesEstado = depuracionFiltroEstado === 'TODOS' || d.estado_depuracion === depuracionFiltroEstado;
+      const term = depuracionBusqueda.toLowerCase();
+      const matchesSearch = !depuracionBusqueda ||
+        (d.centro && d.centro.toString().includes(term)) ||
+        (d.sector && d.sector.toString().includes(term)) ||
+        (d.nom_centro && d.nom_centro.toLowerCase().includes(term)) ||
+        (d.nom_sector && d.nom_sector.toLowerCase().includes(term)) ||
+        (d.observaciones && d.observaciones.toLowerCase().includes(term));
+
+      return matchesEstado && matchesSearch;
+    });
+  }, [depuracionList, depuracionFiltroEstado, depuracionBusqueda]);
+
+  const handleSanearDepuracionSubmit = async () => {
+    if (!sanearDepuracionModalItem) return;
+    setSanearDepSubmitting(true);
+    try {
+      const token = getCsrfToken();
+      const res = await fetch('/api/auditoria-sueldos/sanear-depuracion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': token
+        },
+        body: JSON.stringify({
+          id: sanearDepuracionModalItem.id,
+          establecimiento_id: sanearDepEstId || null,
+          estado_depuracion: sanearDepEstado || null,
+          observaciones: sanearDepObs
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setDepuracionList(prev => prev.map(item => item.id === sanearDepuracionModalItem.id ? data.item : item));
+        setSanearDepuracionModalItem(null);
+        alert('Registro de depuración saneado correctamente.');
+      } else {
+        alert('Ocurrió un error al actualizar la depuración.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión.');
+    } finally {
+      setSanearDepSubmitting(false);
+    }
+  };
 
   // Local state for management updates
   const [auditList, setAuditList] = useState(resultados);
@@ -1879,9 +1956,216 @@ export default function AuditoriaSueldosIndex({
         </div>
       )}
 
-      {/* TAB: SECTORES SIN IDENTIFICARSE (INVESTIGACIÓN) */}
+      {/* TAB: SECTORES SIN IDENTIFICARSE (INVESTIGACIÓN & DEPURACIÓN DE CENTROS/SECTORES) */}
       {activeTab === 'sin_escuela' && (
         <div className="space-y-6">
+          {/* DEPURACIÓN DE CENTROS Y SECTORES (MAESTRO VS SUELDOS) */}
+          <GlassCard className="p-6 border-l-4 border-l-[#FE8204]">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 text-[10px] font-black uppercase rounded-full bg-[#FE8204]/10 text-[#FE8204] border border-[#FE8204]/20">
+                    Depuración de Catálogo
+                  </span>
+                  <span className="text-xs font-bold text-gray-500">
+                    Maestro Refactorizado × Liquidación Sueldos
+                  </span>
+                </div>
+                <h2 className="text-lg font-black text-gray-900 flex items-center gap-2 mt-1">
+                  <i className="fa-solid fa-filter-circle-dollar text-[#FE8204]"></i>
+                  Depuración & Diagnóstico de Centros y Sectores Sin Uso ({depuracionStats.total})
+                </h2>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Cruce automatizado para detectar Centros y Sectores sin uso en la liquidación actual, así como haberes no catalogados.
+                </p>
+              </div>
+
+              <a
+                href="/api/auditoria-sueldos/exportar-depuracion-excel"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <i className="fa-solid fa-file-excel text-sm"></i>
+                <span>Descargar Reporte Depuración Excel</span>
+              </a>
+            </div>
+
+            {/* KPI Sub-Filtros para Depuración */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
+              <button
+                onClick={() => setDepuracionFiltroEstado('TODOS')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  depuracionFiltroEstado === 'TODOS'
+                    ? 'bg-gray-900 text-white border-gray-900 shadow-md font-bold'
+                    : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">TODOS</div>
+                <div className="text-lg font-black">{depuracionStats.total}</div>
+              </button>
+
+              <button
+                onClick={() => setDepuracionFiltroEstado('CENTRO_SIN_USO')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  depuracionFiltroEstado === 'CENTRO_SIN_USO'
+                    ? 'bg-red-600 text-white border-red-600 shadow-md font-bold'
+                    : 'bg-red-50 text-red-900 border-red-200 hover:bg-red-100'
+                }`}
+              >
+                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🔴 Centros Sin Uso</div>
+                <div className="text-lg font-black">{depuracionStats.centroSinUso}</div>
+              </button>
+
+              <button
+                onClick={() => setDepuracionFiltroEstado('SUELDO_NO_CATALOGADO')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  depuracionFiltroEstado === 'SUELDO_NO_CATALOGADO'
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-md font-bold'
+                    : 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100'
+                }`}
+              >
+                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">⚠️ No Catalogados</div>
+                <div className="text-lg font-black">{depuracionStats.noCatalogado}</div>
+              </button>
+
+              <button
+                onClick={() => setDepuracionFiltroEstado('SECTOR_SIN_USO')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  depuracionFiltroEstado === 'SECTOR_SIN_USO'
+                    ? 'bg-yellow-600 text-white border-yellow-600 shadow-md font-bold'
+                    : 'bg-yellow-50 text-yellow-900 border-yellow-200 hover:bg-yellow-100'
+                }`}
+              >
+                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🟡 Sectores Sin Uso</div>
+                <div className="text-lg font-black">{depuracionStats.sectorSinUso}</div>
+              </button>
+
+              <button
+                onClick={() => setDepuracionFiltroEstado('BAJA_VOLUMETRÍA')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  depuracionFiltroEstado === 'BAJA_VOLUMETRÍA'
+                    ? 'bg-sky-600 text-white border-sky-600 shadow-md font-bold'
+                    : 'bg-sky-50 text-sky-900 border-sky-200 hover:bg-sky-100'
+                }`}
+              >
+                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🔵 Baja Volumetría</div>
+                <div className="text-lg font-black">{depuracionStats.bajaVolumetria}</div>
+              </button>
+
+              <button
+                onClick={() => setDepuracionFiltroEstado('ACTIVO')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  depuracionFiltroEstado === 'ACTIVO'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md font-bold'
+                    : 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100'
+                }`}
+              >
+                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🟢 Activos</div>
+                <div className="text-lg font-black">{depuracionStats.activos}</div>
+              </button>
+            </div>
+
+            {/* Búsqueda rápida de Depuración */}
+            <div className="mb-4">
+              <input
+                type="text"
+                value={depuracionBusqueda}
+                onChange={(e) => setDepuracionBusqueda(e.target.value)}
+                placeholder="Buscar en depuración por centro, sector, nombre o diagnóstico..."
+                className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2 text-xs font-semibold text-gray-900 focus:ring-[#FE8204] focus:border-[#FE8204]"
+              />
+            </div>
+
+            {/* Tabla de Depuración */}
+            <div className="overflow-x-auto max-h-96 custom-scrollbar border rounded-xl">
+              <table className="w-full text-xs text-left text-gray-700">
+                <thead className="text-xs uppercase bg-slate-100 text-slate-900 border-b sticky top-0">
+                  <tr>
+                    <th className="px-3 py-3 text-center font-bold">Centro</th>
+                    <th className="px-3 py-3 font-bold">Nombre Centro</th>
+                    <th className="px-3 py-3 text-center font-bold">Sector</th>
+                    <th className="px-3 py-3 font-bold">Nombre Sector</th>
+                    <th className="px-3 py-3 font-bold">Nivel / Gestión</th>
+                    <th className="px-3 py-3 text-center font-bold">Liquidaciones</th>
+                    <th className="px-3 py-3 text-center font-bold">Estado Depuración</th>
+                    <th className="px-3 py-3 font-bold">Diagnóstico / Observaciones</th>
+                    <th className="px-3 py-3 text-center font-bold">Acción Sanación</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredDepuracion.slice(0, 100).map((d) => (
+                    <tr key={`dep-${d.centro}-${d.sector}-${d.id}`} className="hover:bg-slate-50">
+                      <td className="px-3 py-2.5 text-center font-black text-slate-900 bg-slate-100 rounded-lg">{d.centro}</td>
+                      <td className="px-3 py-2.5 font-bold text-gray-900">{d.nom_centro || 'S/D'}</td>
+                      <td className="px-3 py-2.5 text-center font-black text-gray-900">{d.sector}</td>
+                      <td className="px-3 py-2.5 font-semibold text-gray-800">{d.nom_sector || 'S/D'}</td>
+                      <td className="px-3 py-2.5 text-gray-600 font-medium">
+                        {d.nivel || 'S/N'} {d.gestion ? `(${d.gestion})` : ''}
+                      </td>
+                      <td className="px-3 py-2.5 text-center font-black text-sm">
+                        {d.cantidad_liquidaciones}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        {d.estado_depuracion === 'CENTRO_SIN_USO' && (
+                          <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-red-100 text-red-800 border border-red-300">🔴 CENTRO SIN USO</span>
+                        )}
+                        {d.estado_depuracion === 'SUELDO_NO_CATALOGADO' && (
+                          <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-amber-100 text-amber-900 border border-amber-300">⚠️ NO CATALOGADO</span>
+                        )}
+                        {d.estado_depuracion === 'SECTOR_SIN_USO' && (
+                          <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-yellow-100 text-yellow-900 border border-yellow-300">🟡 SECTOR SIN USO</span>
+                        )}
+                        {d.estado_depuracion === 'BAJA_VOLUMETRÍA' && (
+                          <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-sky-100 text-sky-900 border border-sky-300">🔵 BAJA VOLUMETRÍA</span>
+                        )}
+                        {d.estado_depuracion === 'ACTIVO' && (
+                          <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300">🟢 ACTIVO</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 font-medium text-gray-600 text-[11px]">
+                        {d.observaciones}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        <button
+                          onClick={() => {
+                            setSanearDepuracionModalItem(d);
+                            setSanearDepEstId('');
+                            setSanearDepSearchTerm('');
+                            setSanearDepObs(d.observaciones || '');
+                            setSanearDepEstado(d.estado_depuracion || 'ACTIVO');
+                          }}
+                          className={`px-2.5 py-1 text-[10px] font-black text-white rounded-lg shadow-sm transition-all flex items-center gap-1 mx-auto cursor-pointer ${
+                            d.estado_depuracion === 'SUELDO_NO_CATALOGADO'
+                              ? 'bg-amber-600 hover:bg-amber-700 ring-2 ring-amber-400/50'
+                              : d.estado_depuracion === 'CENTRO_SIN_USO'
+                              ? 'bg-red-600 hover:bg-red-700'
+                              : 'bg-[#FE8204] hover:bg-[#e07203]'
+                          }`}
+                        >
+                          <i className="fa-solid fa-pen-to-square text-[9px]"></i>
+                          <span>Sanear / Vincular</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredDepuracion.length === 0 && (
+                    <tr>
+                      <td colSpan="9" className="px-3 py-8 text-center text-gray-400 font-medium italic">
+                        No se encontraron registros de depuración para este filtro.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {filteredDepuracion.length > 100 && (
+              <p className="text-[11px] text-gray-400 text-right mt-2 font-medium">
+                Mostrando los primeros 100 de {filteredDepuracion.length} registros. Utilice la búsqueda para refinar resultados o descargue el reporte Excel completo.
+              </p>
+            )}
+          </GlassCard>
+
           <GlassCard className="p-6 border-l-4 border-l-slate-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
               <div>
@@ -2474,6 +2758,102 @@ export default function AuditoriaSueldosIndex({
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL SANEAR / VINCULAR DEPURACIÓN */}
+      {sanearDepuracionModalItem && (
+        <Modal show={Boolean(sanearDepuracionModalItem)} onClose={() => setSanearDepuracionModalItem(null)}>
+          <div className="p-6">
+            <h3 className="text-lg font-black text-gray-900 mb-2 flex items-center gap-2">
+              <i className="fa-solid fa-file-pen text-[#FE8204]"></i>
+              Sanear Depuración: Centro {sanearDepuracionModalItem.centro} / Sector {sanearDepuracionModalItem.sector}
+            </h3>
+            <p className="text-xs text-gray-600 mb-4">
+              Vinculá esta combinación a una Escuela/CUE oficial o actualizá su estado de depuración u observaciones.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Buscar y Seleccionar Escuela (CUE):</label>
+                <input
+                  type="text"
+                  placeholder="Buscar CUE o Nombre de Escuela..."
+                  value={sanearDepSearchTerm}
+                  onChange={(e) => setSanearDepSearchTerm(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3 py-1.5 text-xs text-gray-900 focus:ring-[#FE8204]"
+                />
+                <select
+                  value={sanearDepEstId}
+                  onChange={(e) => setSanearDepEstId(e.target.value)}
+                  className="w-full mt-2 bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-semibold text-gray-900 focus:ring-[#FE8204]"
+                  size="5"
+                >
+                  <option value="">-- No vincular a CUE (Mantener desvinculado) --</option>
+                  {establecimientosList
+                    .filter((e) => {
+                      if (!sanearDepSearchTerm) return true;
+                      const term = sanearDepSearchTerm.toLowerCase();
+                      return (
+                        (e.cue && e.cue.toString().includes(term)) ||
+                        (e.nombre && e.nombre.toLowerCase().includes(term)) ||
+                        (e.localidad && e.localidad.toLowerCase().includes(term))
+                      );
+                    })
+                    .slice(0, 50)
+                    .map((e) => (
+                      <option key={e.id} value={e.id}>
+                        CUE: {e.cue} - {e.nombre} ({e.localidad || 'S/L'})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Estado Depuración:</label>
+                <select
+                  value={sanearDepEstado}
+                  onChange={(e) => setSanearDepEstado(e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-[#FE8204]"
+                >
+                  <option value="ACTIVO">🟢 ACTIVO (Saneado)</option>
+                  <option value="SUELDO_NO_CATALOGADO">⚠️ SUELDO NO CATALOGADO</option>
+                  <option value="SECTOR_SIN_USO">🟡 SECTOR SIN USO</option>
+                  <option value="CENTRO_SIN_USO">🔴 CENTRO SIN USO</option>
+                  <option value="BAJA_VOLUMETRÍA">🔵 BAJA VOLUMETRÍA</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones / Dictamen de Auditoría:</label>
+                <textarea
+                  value={sanearDepObs}
+                  onChange={(e) => setSanearDepObs(e.target.value)}
+                  rows="3"
+                  placeholder="Escriba las observaciones o dictamen de saneamiento..."
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs text-gray-900 focus:ring-[#FE8204]"
+                ></textarea>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setSanearDepuracionModalItem(null)}
+                className="px-4 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={sanearDepSubmitting}
+                onClick={handleSanearDepuracionSubmit}
+                className="px-4 py-2 text-xs font-bold text-white bg-[#FE8204] hover:bg-[#e07203] rounded-xl shadow-md transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              >
+                {sanearDepSubmitting ? 'Guardando...' : 'Guardar Saneamiento'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
       </div>
     </SIAMELayout>

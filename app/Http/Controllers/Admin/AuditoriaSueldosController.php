@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditoriaRadioResultado;
 use App\Models\AuditoriaSueldoRegistroViejo;
+use App\Models\DepuracionCentroSector;
 use App\Models\NominaSueldo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,17 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class AuditoriaSueldosController extends Controller
 {
+    /**
+     * Export / Download the Depuración Excel Report.
+     */
+    public function exportDepuracionExcel()
+    {
+        $path = storage_path('app/reports/depuracion_centros_sectores.xlsx');
+        if (!file_exists($path)) {
+            \Illuminate\Support\Facades\Artisan::call('auditoria:depurar-centros');
+        }
+        return response()->download($path, 'depuracion_centros_sectores.xlsx');
+    }
     /**
      * Display the main salary & radio audit dashboard.
      */
@@ -146,12 +158,27 @@ class AuditoriaSueldosController extends Controller
             ->orderBy('e.nombre')
             ->get();
 
+        $subqueryRadio = DB::table('auditoria_radio_resultados')
+            ->select(
+                'sector',
+                DB::raw('MAX(centro) as centro'),
+                DB::raw('MAX(radio_sueldo) as radio_sueldo'),
+                DB::raw('MAX(radio_circ) as radio_circ'),
+                DB::raw('MAX(radio_camino) as radio_camino'),
+                DB::raw('MAX(porc_pagado_mediana) as porc_pagado_mediana'),
+                DB::raw('MAX(escala_usada) as escala_usada'),
+                DB::raw('SUM(total_filas_docentes) as total_filas_docentes'),
+                DB::raw('MAX(estado_auditoria) as estado_auditoria'),
+                DB::raw('MAX(id) as auditoria_id')
+            )
+            ->where('nomina_id', $nominaSeleccionada->id)
+            ->groupBy('sector');
+
         $cruceEscuelas = DB::table('establecimientos as e')
             ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
             ->join('modalidades as m', 'm.establecimiento_id', '=', 'e.id')
-            ->leftJoin('auditoria_radio_resultados as r', function ($join) use ($nominaSeleccionada) {
-                $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector')
-                    ->where('r.nomina_id', '=', $nominaSeleccionada->id);
+            ->leftJoinSub($subqueryRadio, 'r', function ($join) {
+                $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector');
             })
             ->whereNull('e.deleted_at')
             ->whereNull('m.deleted_at')
@@ -178,7 +205,7 @@ class AuditoriaSueldosController extends Controller
                 'r.escala_usada',
                 'r.total_filas_docentes',
                 'r.estado_auditoria',
-                'r.id as auditoria_id',
+                'r.auditoria_id',
                 'ed.distancia_camino as dist_camino',
                 'ed.dist_circunf'
             )
@@ -277,6 +304,12 @@ class AuditoriaSueldosController extends Controller
             'registros_escala_vieja' => $linkedViejos->count(),
         ];
 
+        $depuracionCentros = DB::table('depuracion_centros_sectores')
+            ->orderBy('estado_depuracion', 'asc')
+            ->orderBy('centro', 'asc')
+            ->orderBy('sector', 'asc')
+            ->get();
+
         return Inertia::render('AuditoriaSueldos/Index', [
             'nominas' => $nominas,
             'nominaSeleccionada' => $nominaSeleccionada,
@@ -288,6 +321,7 @@ class AuditoriaSueldosController extends Controller
             'cruceEscuelas' => $cruceEscuelas,
             'kpis' => $kpis,
             'centrosBreakdown' => $centrosBreakdown,
+            'depuracionCentros' => $depuracionCentros,
         ]);
     }
 
@@ -410,6 +444,72 @@ class AuditoriaSueldosController extends Controller
             'message' => 'Sector '.$sector.' actualizado en auditoría como '.$estadoGestion,
             'estado_auditoria' => $estadoAuditoria,
             'estado_gestion' => $estadoGestion,
+        ]);
+    }
+
+    /**
+     * Sanear / vincular o actualizar observaciones de un registro de depuración (Centro / Sector).
+     */
+    public function sanearDepuracion(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|integer|exists:depuracion_centros_sectores,id',
+            'establecimiento_id' => 'nullable|exists:establecimientos,id',
+            'estado_depuracion' => 'nullable|string',
+            'observaciones' => 'nullable|string',
+        ]);
+
+        $item = DepuracionCentroSector::findOrFail($request->input('id'));
+
+        $estId = $request->input('establecimiento_id');
+        $nuevoEstado = $request->input('estado_depuracion');
+        $obs = $request->input('observaciones');
+
+        if ($estId) {
+            $est = DB::table('establecimientos')->where('id', $estId)->first();
+            if ($est) {
+                // Vincular o crear modalidad
+                $modalidad = DB::table('modalidades')
+                    ->where('sector', $item->sector)
+                    ->first();
+
+                if (! $modalidad) {
+                    DB::table('modalidades')->insert([
+                        'establecimiento_id' => $est->id,
+                        'sector' => $item->sector,
+                        'radio' => 1,
+                        'direccion_area' => 'CONVENIO',
+                        'nivel_educativo' => 'GENERAL',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } else {
+                    DB::table('modalidades')
+                        ->where('id', $modalidad->id)
+                        ->update([
+                            'establecimiento_id' => $est->id,
+                            'updated_at' => now(),
+                        ]);
+                }
+
+                $item->nom_centro = $est->nombre;
+                $item->estado_depuracion = 'ACTIVO';
+                $item->observaciones = "Saneado y vinculado a CUE {$est->cue} ({$est->nombre}). ".($obs ? "Notas: {$obs}" : '');
+            }
+        } else {
+            if ($nuevoEstado) {
+                $item->estado_depuracion = $nuevoEstado;
+            }
+            if ($obs) {
+                $item->observaciones = $obs;
+            }
+        }
+
+        $item->save();
+
+        return response()->json([
+            'message' => 'Registro de depuración actualizado correctamente',
+            'item' => $item,
         ]);
     }
 

@@ -360,3 +360,11 @@ for row in cursor.fetchall():
 
 conn.close()
 print("\n=== PROCESO COMPLETADO EXITOSAMENTE Y SIN RUIDO ===")
+
+# Ejecutar auditoría y depuración automática de centros y sectores
+try:
+    import auditar_centros_sectores
+    auditar_centros_sectores.ejecutar_auditoria()
+except Exception as e:
+    print(f"Aviso: No se pudo ejecutar la auditoría de depuración automática ({e})")
+
