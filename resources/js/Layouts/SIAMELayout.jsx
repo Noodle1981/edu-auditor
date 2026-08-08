@@ -4,17 +4,17 @@ import { AgentModal } from '../Components/AgentModal';
 
 export default function SIAMELayout({ children, fullWidth = false, hideHeader = false }) {
   return (
-    <div className="min-h-screen flex bg-gray-50/20">
-      {/* Fixed Sidebar */}
-      <Sidebar />
+    <div className="min-h-screen flex flex-col bg-[#F8FAFC]">
+      {/* Top Banner Header (Full Width & Fixed Top) */}
+      {!hideHeader && <Header />}
 
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header */}
-        {!hideHeader && <Header />}
+      {/* Body with Sidebar & Main Content */}
+      <div className={`flex flex-1 min-w-0 relative ${!hideHeader ? 'pt-[60px]' : ''}`}>
+        {/* Sidebar Navigation (Fixed Left under Header) */}
+        <Sidebar />
 
         {/* Dynamic Route Content */}
-        <main className={fullWidth ? "flex-1 w-full flex flex-col relative" : "flex-1 p-10 max-w-[1400px] w-full mx-auto"}>
+        <main className={fullWidth ? "flex-1 w-full flex flex-col relative" : "flex-1 p-6 md:p-8 max-w-[1600px] w-full mx-auto"}>
           {children}
         </main>
       </div>

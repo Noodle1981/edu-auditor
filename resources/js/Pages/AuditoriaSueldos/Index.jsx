@@ -6,7 +6,13 @@ import { Pagination } from '../../Components/Pagination';
 import Modal from '../../Components/Modal';
 import axios from 'axios';
 
-const ADMIN_NIVELES = ['ADMINISTRACIÓN', 'ADMINISTRATIVO', 'JUNTA DE CLASIFICACIÓN', 'SUPERVISIÓN'];
+const ADMIN_NIVELES = ['ADMINIS', 'SUPERVIS', 'JUNTA', 'MINISTERIO', 'OFICINA', 'DIRECCION', 'DIRECCIÓN', 'AREA CENTRAL', 'ÁREA CENTRAL'];
+
+const isAdministrativeLevel = (nivel) => {
+  if (!nivel) return false;
+  const n = nivel.toString().toUpperCase();
+  return ADMIN_NIVELES.some((keyword) => n.includes(keyword));
+};
 
 export default function AuditoriaSueldosIndex({
   nominaSeleccionada = null,
@@ -289,32 +295,31 @@ export default function AuditoriaSueldosIndex({
     }
   }, [filtroNivel, filtroDepto, filtroRadio, auditoriasDisponibles, filtroAuditoria]);
 
-  // Helpers for clear comparison badges requested by user
   const renderCoincideSigeSueldoBadge = (rSige, rSueldo, cue) => {
     if (!cue || rSige === null || rSige === undefined || rSige === '') {
-      return <span className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-slate-100 text-slate-500 border border-slate-200 shrink-0">No Aplica</span>;
+      return <span className="text-[11px] font-bold text-slate-400 shrink-0">No Aplica</span>;
     }
     const sige = Number(rSige);
     const sueldo = Number(rSueldo);
     if (sige === sueldo) {
-      return <span className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">🟢 SI</span>;
+      return <span className="text-[11px] font-black text-emerald-700 shrink-0">🟢 SI</span>;
     }
     if (sueldo > sige) {
       const diff = sueldo - sige;
-      return <span className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-red-100 text-red-800 border border-red-300 shrink-0">🔴 MÁS (+{diff})</span>;
+      return <span className="text-[11px] font-black text-red-700 shrink-0">🔴 MÁS (+{diff})</span>;
     }
     const diff = sige - sueldo;
-    return <span className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-sky-100 text-sky-800 border border-sky-300 shrink-0">🔵 MENOS (-{diff})</span>;
+    return <span className="text-[11px] font-black text-amber-600 shrink-0">🟡 MENOS (-{diff})</span>;
   };
 
   const renderRadioTeoricoBadge = (rSueldo, rTeorico, cue) => {
     if (!cue || rTeorico === null || rTeorico === undefined || rTeorico === '') {
-      return <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-500 border border-slate-200">No Aplica</span>;
+      return <span className="text-[10px] font-bold text-slate-400">No Aplica</span>;
     }
     if (Number(rSueldo) === Number(rTeorico)) {
-      return <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800 border border-emerald-200">🟢 SI</span>;
+      return <span className="text-[10px] font-bold text-emerald-700">🟢 SI</span>;
     }
-    return <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-red-100 text-red-800 border border-red-200">🔴 NO (R{rTeorico})</span>;
+    return <span className="text-[10px] font-bold text-red-700">🔴 NO (R{rTeorico})</span>;
   };
 
   const renderDistanciaCamino = (distCamino, cue) => {
@@ -496,14 +501,29 @@ export default function AuditoriaSueldosIndex({
 
 
   const nivelesDisponibles = useMemo(() => {
-    return Array.from(
-      new Set(
-        cruceEscuelas
-          .map((i) => i.nivel_educativo)
-          .filter((n) => n && !ADMIN_NIVELES.includes(n.toUpperCase()))
-      )
-    ).sort();
-  }, [cruceEscuelas]);
+    const list = new Set();
+    cruceEscuelas.forEach((i) => {
+      if (i.nivel_educativo && (!filtroDepto || i.departamento === filtroDepto)) {
+        if (!isAdministrativeLevel(i.nivel_educativo)) {
+          list.add(i.nivel_educativo);
+        }
+      }
+    });
+    auditList.forEach((i) => {
+      if (i.nivel_educativo && (!filtroDepto || i.departamento === filtroDepto)) {
+        if (!isAdministrativeLevel(i.nivel_educativo)) {
+          list.add(i.nivel_educativo);
+        }
+      }
+    });
+    return Array.from(list).sort();
+  }, [cruceEscuelas, auditList, filtroDepto]);
+
+  useEffect(() => {
+    if (filtroNivel && !nivelesDisponibles.includes(filtroNivel)) {
+      setFiltroNivel('');
+    }
+  }, [filtroDepto, nivelesDisponibles, filtroNivel]);
 
   const filteredConflictosSige = useMemo(() => {
     return conflictosSige.filter((c) => {
@@ -657,136 +677,127 @@ export default function AuditoriaSueldosIndex({
 
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-gray-200 overflow-x-auto pb-3 mb-6 custom-scrollbar">
+      <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto pb-3 mb-6 custom-scrollbar">
         <button
           onClick={() => setActiveTab('kpi')}
-          style={activeTab === 'kpi' ? { backgroundColor: '#FE8204', color: '#ffffff' } : {}}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
             activeTab === 'kpi'
-              ? 'shadow-md border-transparent'
-              : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200'
+              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
           }`}
         >
-          <i className="fa-solid fa-chart-pie"></i>
+          <i className={`fa-solid fa-chart-pie ${activeTab === 'kpi' ? 'text-white' : 'text-[#FE8204]'}`}></i>
           Resumen & KPIs
         </button>
 
         <button
           onClick={() => setActiveTab('cruce')}
-          style={activeTab === 'cruce' ? { backgroundColor: '#0284c7', color: '#ffffff' } : {}}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
             activeTab === 'cruce'
-              ? 'shadow-md border-transparent'
-              : 'text-sky-700 bg-sky-50 hover:bg-sky-100 border-sky-200'
+              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
           }`}
         >
-          <i className="fa-solid fa-building-columns"></i>
+          <i className={`fa-solid fa-building-columns ${activeTab === 'cruce' ? 'text-white' : 'text-[#FE8204]'}`}></i>
           Cruce Escuelas & Sectores ({cruceStats.total})
         </button>
 
         <button
           onClick={() => setActiveTab('escala')}
-          style={activeTab === 'escala' ? { backgroundColor: '#FE8204', color: '#ffffff' } : {}}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
             activeTab === 'escala'
-              ? 'shadow-md border-transparent'
-              : 'text-gray-700 bg-gray-100 hover:bg-gray-200 border-gray-200'
+              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
           }`}
         >
-          <i className="fa-solid fa-scale-balanced"></i>
+          <i className={`fa-solid fa-scale-balanced ${activeTab === 'escala' ? 'text-white' : 'text-[#FE8204]'}`}></i>
           Escalas & Residuales ({linkedViejos.length})
         </button>
 
         <button
           onClick={() => setActiveTab('paga_mas')}
-          style={activeTab === 'paga_mas' ? { backgroundColor: '#dc2626', color: '#ffffff' } : {}}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
             activeTab === 'paga_mas'
-              ? 'shadow-md border-transparent'
-              : 'text-red-700 bg-red-50 hover:bg-red-100 border-red-200'
+              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
           }`}
         >
-          <i className="fa-solid fa-arrow-trend-up"></i>
+          <i className={`fa-solid fa-arrow-trend-up ${activeTab === 'paga_mas' ? 'text-white' : 'text-red-600'}`}></i>
           Pagan MÁS ({pagaMasList.length})
         </button>
 
         <button
           onClick={() => setActiveTab('paga_menos')}
-          style={activeTab === 'paga_menos' ? { backgroundColor: '#2563eb', color: '#ffffff' } : {}}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
             activeTab === 'paga_menos'
-              ? 'shadow-md border-transparent'
-              : 'text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200'
+              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
           }`}
         >
-          <i className="fa-solid fa-arrow-trend-down"></i>
+          <i className={`fa-solid fa-arrow-trend-down ${activeTab === 'paga_menos' ? 'text-white' : 'text-blue-600'}`}></i>
           Pagan MENOS ({pagaMenosList.length})
         </button>
 
         <button
           onClick={() => setActiveTab('conflictos')}
-          style={activeTab === 'conflictos' ? { backgroundColor: '#d97706', color: '#ffffff' } : {}}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
             activeTab === 'conflictos'
-              ? 'shadow-md border-transparent'
-              : 'text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-200'
+              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
           }`}
         >
-          <i className="fa-solid fa-triangle-exclamation"></i>
+          <i className={`fa-solid fa-triangle-exclamation ${activeTab === 'conflictos' ? 'text-white' : 'text-amber-600'}`}></i>
           Conflictos SIGE ({filteredConflictosSige.length})
         </button>
 
         <button
           onClick={() => setActiveTab('zonas')}
-          style={activeTab === 'zonas' ? { backgroundColor: '#9333ea', color: '#ffffff' } : {}}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
             activeTab === 'zonas'
-              ? 'shadow-md border-transparent'
-              : 'text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200'
+              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
           }`}
         >
-          <i className="fa-solid fa-location-dot"></i>
+          <i className={`fa-solid fa-location-dot ${activeTab === 'zonas' ? 'text-white' : 'text-purple-600'}`}></i>
           Inconsistencia Zona ({zonasInconsistentesList.length})
         </button>
 
         <button
           onClick={() => setActiveTab('tracking')}
-          style={activeTab === 'tracking' ? { backgroundColor: '#059669', color: '#ffffff' } : {}}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
             activeTab === 'tracking'
-              ? 'shadow-md border-transparent'
-              : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
+              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
           }`}
         >
-          <i className="fa-solid fa-list-check"></i>
+          <i className={`fa-solid fa-list-check ${activeTab === 'tracking' ? 'text-white' : 'text-emerald-600'}`}></i>
           Seguimiento & Gestión ({linkedResultados.length})
         </button>
 
         <button
           onClick={() => setActiveTab('sin_escuela')}
-          style={activeTab === 'sin_escuela' ? { backgroundColor: '#475569', color: '#ffffff' } : {}}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
             activeTab === 'sin_escuela'
-              ? 'shadow-md border-transparent'
-              : 'text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-200'
+              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
           }`}
         >
-          <i className="fa-solid fa-circle-question"></i>
+          <i className={`fa-solid fa-circle-question ${activeTab === 'sin_escuela' ? 'text-white' : 'text-[#FE8204]'}`}></i>
           Otros Sectores ({unlinkedResultados.length + unlinkedViejos.length})
         </button>
       </div>
 
       {/* Global Filter Bar for Tables */}
       {activeTab !== 'kpi' && (
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm mb-6 flex flex-col md:flex-row gap-3 items-center justify-between">
-          <div className="relative w-full md:w-96">
-            <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-gray-400 text-sm"></i>
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col lg:flex-row gap-3 items-center justify-between">
+          <div className="relative w-full lg:w-96">
+            <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-[#FE8204] text-sm"></i>
             <input
               type="text"
               placeholder="Buscar por CUE, centro, sector, escuela o departamento..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-[#FE8204] focus:border-[#FE8204]"
+              className="w-full pl-9 pr-4 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:ring-[#FE8204] focus:border-[#FE8204] text-[#1A1A1C]"
             />
           </div>
 
@@ -891,79 +902,79 @@ export default function AuditoriaSueldosIndex({
       {/* TAB 1: KPI & EXECUTIVE RESUMEN */}
       {activeTab === 'kpi' && (
         <div className="space-y-6">
-          {/* Top KPI Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <GlassCard className="p-5 border-l-4 border-l-[#FE8204]">
-              <div className="flex items-center justify-between">
+          {/* Top KPI Grid (Compact Version) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <GlassCard className="p-3.5 sm:p-4">
+              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Centros & Sectores Auditados
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Centros & Sectores
                   </span>
-                  <div className="text-2xl font-black text-gray-900 mt-1">
-                    {kpis.total_centros || 0} <span className="text-sm font-bold text-gray-500">Centros</span> / {kpis.total_sectores || 0} <span className="text-sm font-bold text-gray-500">Sectores</span>
+                  <div className="text-lg font-black text-[#1A1A1C] mt-0.5 leading-tight">
+                    {kpis.total_centros || 0} / {kpis.total_sectores || 0}
                   </div>
-                  <span className="text-xs text-gray-500 font-medium">
-                    {(kpis.total_filas_docentes || 0).toLocaleString()} liquidaciones registradas
+                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
+                    {(kpis.total_filas_docentes || 0).toLocaleString()} liquidaciones
                   </span>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-[#FE8204]/10 text-[#FE8204] flex items-center justify-center text-xl">
+                <div className="w-9 h-9 rounded-lg bg-[#FE8204]/10 text-[#FE8204] flex items-center justify-center text-sm shrink-0">
                   <i className="fa-solid fa-building-columns"></i>
                 </div>
               </div>
             </GlassCard>
 
-            <GlassCard className="p-5 border-l-4 border-l-emerald-500">
-              <div className="flex items-center justify-between">
+            <GlassCard className="p-3.5 sm:p-4">
+              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Tasa de Coincidencia
                   </span>
-                  <div className="text-2xl font-black text-emerald-600 mt-1">
+                  <div className="text-lg font-black text-emerald-600 mt-0.5 leading-tight">
                     {kpis.porcentaje_coincidencia || 0}%
                   </div>
-                  <span className="text-xs text-gray-500 font-medium">
-                    Sueldo = SIGE (cruce unívoco)
+                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
+                    Sueldo = SIGE
                   </span>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm shrink-0">
                   <i className="fa-solid fa-circle-check"></i>
                 </div>
               </div>
             </GlassCard>
 
-            <GlassCard className="p-5 border-l-4 border-l-red-500">
-              <div className="flex items-center justify-between">
+            <GlassCard className="p-3.5 sm:p-4">
+              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Pagan MÁS que SIGE
                   </span>
-                  <div className="text-2xl font-black text-red-600 mt-1">
+                  <div className="text-lg font-black text-red-600 mt-0.5 leading-tight">
                     {kpis.paga_mas_sectores || 0} sectores
                   </div>
-                  <span className="text-xs text-red-600 font-semibold">
+                  <span className="text-[11px] text-red-600 font-semibold block mt-0.5">
                     {(kpis.paga_mas_docentes || 0).toLocaleString()} personal afectado
                   </span>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center text-xl">
+                <div className="w-9 h-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-sm shrink-0">
                   <i className="fa-solid fa-arrow-trend-up"></i>
                 </div>
               </div>
             </GlassCard>
 
-            <GlassCard className="p-5 border-l-4 border-l-blue-500">
-              <div className="flex items-center justify-between">
+            <GlassCard className="p-3.5 sm:p-4">
+              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Pagan MENOS que SIGE
                   </span>
-                  <div className="text-2xl font-black text-blue-600 mt-1">
+                  <div className="text-lg font-black text-amber-600 mt-0.5 leading-tight">
                     {kpis.paga_menos_sectores || 0} sectores
                   </div>
-                  <span className="text-xs text-blue-600 font-semibold">
+                  <span className="text-[11px] text-amber-600 font-semibold block mt-0.5">
                     {(kpis.paga_menos_docentes || 0).toLocaleString()} personal afectado
                   </span>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-sm shrink-0">
                   <i className="fa-solid fa-arrow-trend-down"></i>
                 </div>
               </div>
@@ -976,11 +987,8 @@ export default function AuditoriaSueldosIndex({
               <div>
                 <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
                   <i className="fa-solid fa-building-circle-check text-[#FE8204]"></i>
-                  Desglose de Auditoría por Centro Salarial ({centrosBreakdown.length} Centros)
+                  Desglose de Auditoría por Centro Salarial
                 </h2>
-                <p className="text-xs text-gray-600">
-                  Resumen ejecutivo consolidado por cada uno de los centros de liquidación salarial de la nómina.
-                </p>
               </div>
               <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                 <button
@@ -1006,16 +1014,16 @@ export default function AuditoriaSueldosIndex({
 
             <div className="overflow-x-auto max-h-96 custom-scrollbar">
               <table className="w-full text-xs text-left text-gray-700">
-                <thead className="text-xs uppercase bg-gray-100 text-gray-700 border-b sticky top-0">
+                <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
                   <tr>
-                    <th className="px-4 py-3 font-bold">Centro Salarial</th>
-                    <th className="px-4 py-3 text-center font-bold">Sectores</th>
-                    <th className="px-4 py-3 text-center font-bold">Coinciden</th>
-                    <th className="px-4 py-3 text-center font-bold text-red-700">Pagan Más</th>
-                    <th className="px-4 py-3 text-center font-bold text-blue-700">Pagan Menos</th>
-                    <th className="px-4 py-3 text-center font-bold text-slate-600">Sin SIGE</th>
-                    <th className="px-4 py-3 text-right font-bold">Personal Afectado</th>
-                    <th className="px-4 py-3 text-center font-bold">Coincidencia</th>
+                    <th className="px-4 py-3 font-black text-white">Centro Salarial</th>
+                    <th className="px-4 py-3 text-center font-black text-white">Sectores</th>
+                    <th className="px-4 py-3 text-center font-black text-white">Coinciden</th>
+                    <th className="px-4 py-3 text-center font-black text-white">Pagan Más</th>
+                    <th className="px-4 py-3 text-center font-black text-white">Pagan Menos</th>
+                    <th className="px-4 py-3 text-center font-black text-white">Sin SIGE</th>
+                    <th className="px-4 py-3 text-right font-black text-white">Personal Afectado</th>
+                    <th className="px-4 py-3 text-center font-black text-white">Coincidencia</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -1023,8 +1031,8 @@ export default function AuditoriaSueldosIndex({
                     <tr key={idx} className="hover:bg-amber-50/50">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-1 text-xs font-black rounded-lg bg-amber-100 text-amber-950 border border-amber-300 shrink-0">
-                            Centro {cb.centro}
+                          <span className="px-2.5 py-1 text-xs font-black rounded-lg bg-[#FE8204] text-white shrink-0 shadow-xs">
+                            {cb.centro}
                           </span>
                           <span className="font-bold text-gray-900 text-xs">
                             {cb.nombre_centro}
@@ -1032,29 +1040,25 @@ export default function AuditoriaSueldosIndex({
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center font-bold text-gray-900">{cb.sectores}</td>
-                      <td className="px-4 py-3 text-center font-bold text-emerald-700">{cb.coinciden}</td>
+                      <td className="px-4 py-3 text-center font-bold text-[#FE8204]">{cb.coinciden}</td>
                       <td className="px-4 py-3 text-center font-bold text-red-600">
-                        {cb.paga_mas > 0 ? (
-                          <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-black">{cb.paga_mas}</span>
-                        ) : '0'}
+                        {cb.paga_mas > 0 ? cb.paga_mas : '0'}
                       </td>
-                      <td className="px-4 py-3 text-center font-bold text-blue-600">
-                        {cb.paga_menos > 0 ? (
-                          <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-black">{cb.paga_menos}</span>
-                        ) : '0'}
+                      <td className="px-4 py-3 text-center font-bold text-amber-600">
+                        {cb.paga_menos > 0 ? cb.paga_menos : '0'}
                       </td>
                       <td className="px-4 py-3 text-center font-bold text-slate-600">{cb.sin_sige}</td>
                       <td className="px-4 py-3 text-right font-black text-gray-900">
-                        {cb.personal.toLocaleString()} agentes
+                        {cb.personal.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 text-[11px] font-black rounded-full ${
+                      <td className="px-4 py-3 text-center font-black text-xs">
+                        <span className={
                           cb.tasa_coincidencia >= 80 
-                            ? 'bg-emerald-100 text-emerald-800' 
+                            ? 'text-emerald-700 font-black' 
                             : cb.tasa_coincidencia >= 50 
-                            ? 'bg-amber-100 text-amber-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
+                            ? 'text-amber-600 font-black' 
+                            : 'text-red-600 font-black'
+                        }>
                           {cb.tasa_coincidencia}%
                         </span>
                       </td>
@@ -1106,7 +1110,7 @@ export default function AuditoriaSueldosIndex({
 
             <div className="overflow-x-auto max-h-96 custom-scrollbar">
               <table className="w-full text-xs text-left text-gray-700">
-                <thead className="text-xs uppercase bg-amber-50 text-amber-900 border-b sticky top-0">
+                <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0">
                   <tr>
                     <th className="px-3 py-2 text-center font-bold">Centro</th>
                     <th className="px-3 py-2 text-center font-bold">Sector</th>
@@ -1124,7 +1128,7 @@ export default function AuditoriaSueldosIndex({
                 <tbody className="divide-y divide-gray-200">
                   {paginatedViejos.map((v) => (
                     <tr key={v.id} className="hover:bg-amber-50/50">
-                      <td className="px-3 py-2 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{v.centro ?? 'S/D'}</td>
+                      <td className="px-3 py-2 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{v.centro ?? 'S/D'}</span></td>
                       <td className="px-3 py-2 text-center font-black text-gray-900">{v.sector}</td>
                       <td className="px-3 py-2">
                         <div className="font-extrabold text-gray-950 leading-tight">
@@ -1247,13 +1251,13 @@ export default function AuditoriaSueldosIndex({
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left text-gray-700 border-collapse">
-              <thead className="text-xs uppercase bg-amber-50 text-amber-900 border-b">
+              <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 shadow-xs">
                 <tr>
-                  <th className="px-4 py-3 font-bold">Sector</th>
-                  <th className="px-4 py-3 font-bold">Radios en SIGE</th>
-                  <th className="px-4 py-3 font-bold">Niveles Afectados</th>
-                  <th className="px-4 py-3 font-bold">Establecimientos Relacionados</th>
-                  <th className="px-4 py-3 text-right font-bold">Modalidades</th>
+                  <th className="px-4 py-3 font-black text-white">Sector</th>
+                  <th className="px-4 py-3 font-black text-white">Radios en SIGE</th>
+                  <th className="px-4 py-3 font-black text-white">Niveles Afectados</th>
+                  <th className="px-4 py-3 font-black text-white">Establecimientos Relacionados</th>
+                  <th className="px-4 py-3 text-right font-black text-white">Modalidades</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -1329,29 +1333,29 @@ export default function AuditoriaSueldosIndex({
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left text-gray-700">
-              <thead className="text-xs uppercase bg-red-50 text-red-900 border-b">
+              <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 shadow-xs">
                 <tr>
-                  <th className="px-3 py-3 text-center font-bold">Centro</th>
-                  <th className="px-3 py-3 text-center font-bold">Sector</th>
-                  <th className="px-3 py-3 font-bold">Establecimiento / Escuela</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
-                  <th className="px-3 py-3 text-center font-bold bg-red-100/70 border-x border-red-200">Coincide SIGE vs Sueldo</th>
-                  <th className="px-3 py-3 text-center font-bold">% Pagado</th>
-                  <th className="px-3 py-3 text-center font-bold">Ley / Escala</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
-                  <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
-                  <th className="px-3 py-3 text-center font-bold">Docentes Desviados</th>
-                  <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
-                  <th className="px-3 py-3 text-center font-bold">Gestión</th>
-                  <th className="px-3 py-3 text-center font-bold">Acciones</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Centro</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Sector</th>
+                  <th className="px-3 py-3 font-black text-white">Establecimiento / Escuela</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio SIGE</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Sueldo</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Coincide SIGE vs Sueldo</th>
+                  <th className="px-3 py-3 text-center font-black text-white">% Pagado</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Ley / Escala</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Circunferencia</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Camino</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Distancia Camino</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Docentes Desviados</th>
+                  <th className="px-3 py-3 text-right font-black text-white">Personal Afectado</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Gestión</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {pagaMasList.map((item) => (
                   <tr key={item.id} className="hover:bg-red-50/50">
-                    <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
+                    <td className="px-3 py-3 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{item.centro ?? 'S/D'}</span></td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3">
                       <div className="font-extrabold text-gray-950 max-w-xs truncate">
@@ -1368,12 +1372,10 @@ export default function AuditoriaSueldosIndex({
                       </div>
                     </td>
                     <td className="px-3 py-3 text-center font-black text-gray-700">R{item.radio_sige || '-'}</td>
-                    <td className="px-3 py-3 text-center">
-                      <span className="px-2 py-0.5 rounded text-xs font-black bg-red-100 text-red-800">
-                        R{item.radio_sueldo}
-                      </span>
+                    <td className="px-3 py-3 text-center font-black text-red-700">
+                      R{item.radio_sueldo}
                     </td>
-                    <td className="px-3 py-3 text-center bg-red-50/40 border-x border-red-100">
+                    <td className="px-3 py-3 text-center">
                       {renderCoincideSigeSueldoBadge(item.radio_sige, item.radio_sueldo, item.cue)}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">
@@ -1411,7 +1413,7 @@ export default function AuditoriaSueldosIndex({
                         <span className="text-gray-400 italic">-</span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-right font-black text-red-700">{item.total_filas_docentes} agentes</td>
+                    <td className="px-3 py-3 text-right font-black text-red-700">{item.total_filas_docentes}</td>
                     <td className="px-3 py-3 text-center">
                       <span
                         className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
@@ -1468,29 +1470,29 @@ export default function AuditoriaSueldosIndex({
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left text-gray-700">
-              <thead className="text-xs uppercase bg-blue-50 text-blue-900 border-b">
+              <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 shadow-xs">
                 <tr>
-                  <th className="px-3 py-3 text-center font-bold">Centro</th>
-                  <th className="px-3 py-3 text-center font-bold">Sector</th>
-                  <th className="px-3 py-3 font-bold">Establecimiento / Escuela</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
-                  <th className="px-3 py-3 text-center font-bold bg-blue-100/70 border-x border-blue-200">Coincide SIGE vs Sueldo</th>
-                  <th className="px-3 py-3 text-center font-bold">% Pagado</th>
-                  <th className="px-3 py-3 text-center font-bold">Ley / Escala</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
-                  <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
-                  <th className="px-3 py-3 text-center font-bold">Docentes Desviados</th>
-                  <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
-                  <th className="px-3 py-3 text-center font-bold">Gestión</th>
-                  <th className="px-3 py-3 text-center font-bold">Acciones</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Centro</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Sector</th>
+                  <th className="px-3 py-3 font-black text-white">Establecimiento / Escuela</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio SIGE</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Sueldo</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Coincide SIGE vs Sueldo</th>
+                  <th className="px-3 py-3 text-center font-black text-white">% Pagado</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Ley / Escala</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Circunferencia</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Camino</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Distancia Camino</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Docentes Desviados</th>
+                  <th className="px-3 py-3 text-right font-black text-white">Personal Afectado</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Gestión</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {pagaMenosList.map((item) => (
                   <tr key={item.id} className="hover:bg-blue-50/50">
-                    <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
+                    <td className="px-3 py-3 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{item.centro ?? 'S/D'}</span></td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3">
                       <div className="font-extrabold text-gray-950 max-w-xs truncate">
@@ -1507,12 +1509,10 @@ export default function AuditoriaSueldosIndex({
                       </div>
                     </td>
                     <td className="px-3 py-3 text-center font-black text-gray-700">R{item.radio_sige || '-'}</td>
-                    <td className="px-3 py-3 text-center">
-                      <span className="px-2 py-0.5 rounded text-xs font-black bg-blue-100 text-blue-800">
-                        R{item.radio_sueldo}
-                      </span>
+                    <td className="px-3 py-3 text-center font-black text-amber-600">
+                      R{item.radio_sueldo}
                     </td>
-                    <td className="px-3 py-3 text-center bg-blue-50/40 border-x border-blue-100">
+                    <td className="px-3 py-3 text-center">
                       {renderCoincideSigeSueldoBadge(item.radio_sige, item.radio_sueldo, item.cue)}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">
@@ -1550,7 +1550,7 @@ export default function AuditoriaSueldosIndex({
                         <span className="text-gray-400 italic">-</span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-right font-black text-blue-700">{item.total_filas_docentes} agentes</td>
+                    <td className="px-3 py-3 text-right font-black text-blue-700">{item.total_filas_docentes}</td>
                     <td className="px-3 py-3 text-center">
                       <span
                         className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
@@ -1607,26 +1607,26 @@ export default function AuditoriaSueldosIndex({
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left text-gray-700">
-              <thead className="text-xs uppercase bg-purple-50 text-purple-900 border-b">
+              <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 shadow-xs">
                 <tr>
-                  <th className="px-3 py-3 text-center font-bold">Centro</th>
-                  <th className="px-3 py-3 text-center font-bold">Sector</th>
-                  <th className="px-3 py-3 font-bold">Establecimiento / Escuela</th>
-                  <th className="px-3 py-3 text-center">Zona Sueldos</th>
-                  <th className="px-3 py-3 text-center">Zona SIGE</th>
-                  <th className="px-3 py-3 text-center">Radio SIGE</th>
-                  <th className="px-3 py-3 text-center">Radio Sueldo</th>
-                  <th className="px-3 py-3 text-center bg-purple-100/70 border-x border-purple-200">Coincide SIGE vs Sueldo</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
-                  <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
-                  <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Centro</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Sector</th>
+                  <th className="px-3 py-3 font-black text-white">Establecimiento / Escuela</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Zona Sueldos</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Zona SIGE</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio SIGE</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Sueldo</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Coincide SIGE vs Sueldo</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Circunferencia</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Camino</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Distancia Camino</th>
+                  <th className="px-3 py-3 text-right font-black text-white">Personal Afectado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {zonasInconsistentesList.map((item) => (
                   <tr key={item.id} className="hover:bg-purple-50/50">
-                    <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
+                    <td className="px-3 py-3 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{item.centro ?? 'S/D'}</span></td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3">
                       <div className="font-extrabold text-gray-950 max-w-xs truncate">{item.nombre_establecimiento || 'No Registrado'}</div>
@@ -1639,7 +1639,7 @@ export default function AuditoriaSueldosIndex({
                     <td className="px-3 py-3 text-center font-bold text-emerald-600">{item.zona_sige || '-'}</td>
                     <td className="px-3 py-3 text-center font-black text-gray-700">R{item.radio_sige || '-'}</td>
                     <td className="px-3 py-3 text-center font-black text-purple-800">R{item.radio_sueldo}</td>
-                    <td className="px-3 py-3 text-center bg-purple-50/40 border-x border-purple-100">
+                    <td className="px-3 py-3 text-center">
                       {renderCoincideSigeSueldoBadge(item.radio_sige, item.radio_sueldo, item.cue)}
                     </td>
                     <td className="px-3 py-3 text-center">
@@ -1651,7 +1651,7 @@ export default function AuditoriaSueldosIndex({
                     <td className="px-3 py-3 text-center">
                       {renderDistanciaCamino(item.dist_camino, item.cue)}
                     </td>
-                    <td className="px-3 py-3 text-right font-black text-gray-700">{item.total_filas_docentes} agentes</td>
+                    <td className="px-3 py-3 text-right font-black text-gray-700">{item.total_filas_docentes}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1687,28 +1687,28 @@ export default function AuditoriaSueldosIndex({
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left text-gray-700">
-              <thead className="text-xs uppercase bg-emerald-50 text-emerald-900 border-b">
+              <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 shadow-xs">
                 <tr>
-                  <th className="px-3 py-3 text-center font-bold">Centro</th>
-                  <th className="px-3 py-3 text-center font-bold">Sector</th>
-                  <th className="px-3 py-3 font-bold">Establecimiento / Escuela</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
-                  <th className="px-3 py-3 text-center font-bold bg-emerald-100/70 border-x border-emerald-200">Coincide SIGE vs Sueldo</th>
-                  <th className="px-3 py-3 text-center font-bold">% Pagado</th>
-                  <th className="px-3 py-3 text-center font-bold">Ley / Escala</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
-                  <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
-                  <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
-                  <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
-                  <th className="px-3 py-3 text-center font-bold">Estado Gestión</th>
-                  <th className="px-3 py-3 text-center font-bold">Acción</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Centro</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Sector</th>
+                  <th className="px-3 py-3 font-black text-white">Establecimiento / Escuela</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio SIGE</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Sueldo</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Coincide SIGE vs Sueldo</th>
+                  <th className="px-3 py-3 text-center font-black text-white">% Pagado</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Ley / Escala</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Circunferencia</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Radio Camino</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Distancia Camino</th>
+                  <th className="px-3 py-3 text-right font-black text-white">Personal Afectado</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Estado Gestión</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paginatedTracking.map((item) => (
                   <tr key={item.id} className="hover:bg-emerald-50/50">
-                    <td className="px-3 py-3 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{item.centro ?? 'S/D'}</td>
+                    <td className="px-3 py-3 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{item.centro ?? 'S/D'}</span></td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3">
                       <div className="font-extrabold text-gray-950 max-w-xs truncate">
@@ -1726,7 +1726,7 @@ export default function AuditoriaSueldosIndex({
                     </td>
                     <td className="px-3 py-3 text-center font-black text-gray-700">R{item.radio_sige || '-'}</td>
                     <td className="px-3 py-3 text-center font-black text-emerald-800">R{item.radio_sueldo || '-'}</td>
-                    <td className="px-3 py-3 text-center bg-emerald-50/40 border-x border-emerald-100">
+                    <td className="px-3 py-3 text-center">
                       {renderCoincideSigeSueldoBadge(item.radio_sige, item.radio_sueldo, item.cue)}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">
@@ -1744,7 +1744,7 @@ export default function AuditoriaSueldosIndex({
                     <td className="px-3 py-3 text-center">
                       {renderDistanciaCamino(item.dist_camino, item.cue)}
                     </td>
-                    <td className="px-3 py-3 text-right font-black text-emerald-700">{item.total_filas_docentes} agentes</td>
+                    <td className="px-3 py-3 text-right font-black text-emerald-700">{item.total_filas_docentes}</td>
                     <td className="px-3 py-3 text-center">
                       <span
                         className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
@@ -1875,22 +1875,22 @@ export default function AuditoriaSueldosIndex({
 
             <div className="overflow-x-auto max-h-[500px] custom-scrollbar">
               <table className="w-full text-xs text-left text-gray-700 border-collapse">
-                <thead className="text-xs uppercase bg-gray-100 text-gray-700 border-b sticky top-0">
+                <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
                   <tr>
-                    <th className="px-3 py-3 font-bold">CUE / Escuela</th>
-                    <th className="px-3 py-3 text-center font-bold">Centro</th>
-                    <th className="px-3 py-3 text-center font-bold">Sector SIGE</th>
-                    <th className="px-3 py-3 text-center font-bold">Sector Sueldos</th>
-                    <th className="px-3 py-3 text-center font-bold">Radio SIGE</th>
-                    <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
-                    <th className="px-3 py-3 text-center font-bold bg-amber-100/70 border-x border-amber-200">Coincide SIGE vs Sueldo</th>
-                    <th className="px-3 py-3 text-center font-bold">% Pagado</th>
-                    <th className="px-3 py-3 text-center font-bold">Ley / Escala</th>
-                    <th className="px-3 py-3 text-center font-bold">Radio Circunferencia</th>
-                    <th className="px-3 py-3 text-center font-bold">Radio Camino</th>
-                    <th className="px-3 py-3 text-center font-bold">Distancia Camino</th>
-                    <th className="px-3 py-3 text-center font-bold">Docentes Desviados</th>
-                    <th className="px-3 py-3 text-right font-bold">Personal Afectado</th>
+                    <th className="px-3 py-3 font-black text-white">Establecimiento / Escuela</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Centro</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Sector SIGE</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Sector Sueldos</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Radio SIGE</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Radio Sueldo</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Coincide SIGE vs Sueldo</th>
+                    <th className="px-3 py-3 text-center font-black text-white">% Pagado</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Ley / Escala</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Radio Circunferencia</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Radio Camino</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Distancia Camino</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Docentes Desviados</th>
+                    <th className="px-3 py-3 text-right font-black text-white">Personal Afectado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -1909,7 +1909,7 @@ export default function AuditoriaSueldosIndex({
                           </div>
                         </td>
                         <td className="px-3 py-3 text-center font-black">
-                          <span className="text-amber-950 font-bold bg-amber-100/60 px-2 py-0.5 rounded-lg border border-amber-200">{c.centro ?? 'S/D'}</span>
+                          <span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{c.centro ?? 'S/D'}</span>
                         </td>
                         <td className="px-3 py-3 text-center font-black text-sm">
                           {isSector0 ? (
@@ -1968,7 +1968,7 @@ export default function AuditoriaSueldosIndex({
                           )}
                         </td>
                         <td className="px-3 py-3 text-right font-bold text-gray-700">
-                          {c.total_filas_docentes !== null ? `${c.total_filas_docentes} agentes` : '0 agentes'}
+                          {c.total_filas_docentes !== null ? c.total_filas_docentes : 0}
                         </td>
                       </tr>
                     );
@@ -2112,7 +2112,7 @@ export default function AuditoriaSueldosIndex({
             {/* Tabla de Depuración */}
             <div className="overflow-x-auto max-h-96 custom-scrollbar border rounded-xl">
               <table className="w-full text-xs text-left text-gray-700">
-                <thead className="text-xs uppercase bg-slate-100 text-slate-900 border-b sticky top-0">
+                <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0">
                   <tr>
                     <th className="px-3 py-3 text-center font-bold">Centro</th>
                     <th className="px-3 py-3 font-bold">Nombre Centro</th>
@@ -2223,7 +2223,7 @@ export default function AuditoriaSueldosIndex({
 
             <div className="overflow-x-auto max-h-96 custom-scrollbar">
               <table className="w-full text-xs text-left text-gray-700">
-                <thead className="text-xs uppercase bg-slate-100 text-slate-900 border-b">
+                <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200">
                   <tr>
                     <th className="px-3 py-3 text-center font-bold">Centro</th>
                     <th className="px-3 py-3 font-bold">Nivel</th>
@@ -2240,7 +2240,7 @@ export default function AuditoriaSueldosIndex({
                     const isDadoDeBaja = s.estado_gestion === 'DADO_DE_BAJA';
                     return (
                       <tr key={s.id} className={isDadoDeBaja ? 'bg-red-50/90 text-red-950 font-semibold border-l-4 border-l-red-500' : 'hover:bg-slate-50/50'}>
-                        <td className={`px-3 py-3 text-center font-black rounded-lg ${isDadoDeBaja ? 'bg-red-200/80 text-red-950' : 'text-amber-950 bg-amber-100/60'}`}>{s.centro ?? 'S/D'}</td>
+                        <td className="px-3 py-3 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{s.centro ?? 'S/D'}</span></td>
                         <td className={`px-3 py-3 font-extrabold ${isDadoDeBaja ? 'text-red-900' : 'text-slate-800'}`}>{s.nivel_educativo || 'S/N'}</td>
                         <td className="px-3 py-3 font-bold">
                           {isDadoDeBaja ? (
@@ -2312,7 +2312,7 @@ export default function AuditoriaSueldosIndex({
 
             <div className="overflow-x-auto max-h-80 custom-scrollbar">
               <table className="w-full text-xs text-left text-gray-700">
-                <thead className="text-xs uppercase bg-amber-50 text-amber-900 border-b">
+                <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200">
                   <tr>
                     <th className="px-3 py-2 text-center font-bold">Centro</th>
                     <th className="px-3 py-2 text-center font-bold">Sector</th>
@@ -2326,7 +2326,7 @@ export default function AuditoriaSueldosIndex({
                 <tbody className="divide-y divide-gray-200">
                   {filteredUnlinkedViejos.map((v) => (
                     <tr key={v.id} className="hover:bg-amber-50/50">
-                      <td className="px-3 py-2 text-center font-black text-amber-950 bg-amber-100/60 rounded-lg">{v.centro ?? 'S/D'}</td>
+                      <td className="px-3 py-2 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{v.centro ?? 'S/D'}</span></td>
                       <td className="px-3 py-2 text-center font-black text-gray-900">{v.sector}</td>
                       <td className="px-3 py-2 text-center">
                         <span className="px-2 py-0.5 text-[10px] font-black rounded bg-amber-100 text-amber-800 border border-amber-300">
@@ -2698,7 +2698,7 @@ export default function AuditoriaSueldosIndex({
 
               <div className="overflow-y-auto border border-gray-200 rounded-2xl custom-scrollbar flex-1">
                 <table className="w-full text-xs text-left text-gray-700">
-                  <thead className="text-[10px] uppercase bg-gray-100 text-gray-700 border-b sticky top-0">
+                  <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0">
                     <tr>
                       <th className="px-3 py-2.5 font-bold">CUE</th>
                       <th className="px-3 py-2.5 font-bold">Establecimiento / Escuela</th>
@@ -2927,7 +2927,7 @@ export default function AuditoriaSueldosIndex({
             ) : (
               <div className="overflow-x-auto max-h-[400px] border border-gray-200 rounded-xl custom-scrollbar">
                 <table className="w-full text-xs text-left text-gray-700 border-collapse">
-                  <thead className="bg-gray-100 text-gray-700 border-b sticky top-0">
+                  <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0">
                     <tr>
                       <th className="px-3 py-2.5 font-bold">CUIL</th>
                       <th className="px-3 py-2.5 font-bold">Apellido y Nombre</th>
@@ -3042,7 +3042,7 @@ export default function AuditoriaSueldosIndex({
                   <span className="text-sm font-bold text-emerald-900">Coincidencia Total (Sueldo = SIGE = Geo)</span>
                 </div>
                 <span className="text-sm font-black text-emerald-700">
-                  {statusDistribution.coincideTotalSectores} sectores ({statusDistribution.coincideTotalDocentes.toLocaleString()} agentes)
+                  {statusDistribution.coincideTotalSectores} sectores ({statusDistribution.coincideTotalDocentes.toLocaleString()})
                 </span>
               </div>
 
@@ -3052,7 +3052,7 @@ export default function AuditoriaSueldosIndex({
                   <span className="text-sm font-bold text-teal-900">Coincide SIGE y Camino/Circunferencia</span>
                 </div>
                 <span className="text-sm font-black text-teal-700">
-                  {statusDistribution.coincideSigeSectores} sectores ({statusDistribution.coincideSigeDocentes.toLocaleString()} agentes)
+                  {statusDistribution.coincideSigeSectores} sectores ({statusDistribution.coincideSigeDocentes.toLocaleString()})
                 </span>
               </div>
 
@@ -3062,7 +3062,7 @@ export default function AuditoriaSueldosIndex({
                   <span className="text-sm font-bold text-red-900">Paga MÁS que SIGE (Exceso de liquidación)</span>
                 </div>
                 <span className="text-sm font-black text-red-700">
-                  {statusDistribution.pagaMasSectores} sectores ({statusDistribution.pagaMasDocentes.toLocaleString()} agentes)
+                  {statusDistribution.pagaMasSectores} sectores ({statusDistribution.pagaMasDocentes.toLocaleString()})
                 </span>
               </div>
 
@@ -3072,7 +3072,7 @@ export default function AuditoriaSueldosIndex({
                   <span className="text-sm font-bold text-blue-900">Paga MENOS que SIGE (Perjuicio al docente)</span>
                 </div>
                 <span className="text-sm font-black text-blue-700">
-                  {statusDistribution.pagaMenosSectores} sectores ({statusDistribution.pagaMenosDocentes.toLocaleString()} agentes)
+                  {statusDistribution.pagaMenosSectores} sectores ({statusDistribution.pagaMenosDocentes.toLocaleString()})
                 </span>
               </div>
 
@@ -3082,7 +3082,7 @@ export default function AuditoriaSueldosIndex({
                   <span className="text-sm font-bold text-slate-800">Sectores Sin Registro en SIGE PÚBLICO</span>
                 </div>
                 <span className="text-sm font-black text-slate-700">
-                  {statusDistribution.sinSigeSectores} sectores ({statusDistribution.sinSigeDocentes.toLocaleString()} agentes)
+                  {statusDistribution.sinSigeSectores} sectores ({statusDistribution.sinSigeDocentes.toLocaleString()})
                 </span>
               </div>
             </div>
@@ -3122,7 +3122,7 @@ export default function AuditoriaSueldosIndex({
 
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left text-gray-700 border-collapse">
-                <thead className="text-xs uppercase bg-gray-100 text-gray-700 border-b">
+                <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-3 font-bold">Radio</th>
                     <th className="px-4 py-3 font-bold">% Ley Original (Histórica)</th>

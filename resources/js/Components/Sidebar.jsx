@@ -33,17 +33,10 @@ export const Sidebar = () => {
   };
 
   return (
-    <div className="w-[72px] shrink-0 h-screen no-print relative">
-      <aside className="w-[72px] bg-gradient-to-b from-[#FE8204] to-[#ff5e00] border-r border-[#ff5e00]/10 flex flex-col h-screen fixed top-0 left-0 z-30 shadow-md">
-        {/* Sidebar Logo */}
-        <div className="p-3 border-b border-white/10 flex items-center justify-center">
-          <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#FE8204] shadow-md shrink-0">
-            <i className="fa-solid fa-graduation-cap text-2xl"></i>
-          </div>
-        </div>
-
+    <div className="w-[56px] sm:w-[68px] md:w-[72px] shrink-0 no-print">
+      <aside className="fixed left-0 top-[60px] w-[56px] sm:w-[68px] md:w-[72px] h-[calc(100vh-60px)] bg-[#FE8204] border-r border-[#E07000]/20 flex flex-col z-30 shadow-md">
         {/* Sidebar Navigation */}
-        <nav className="flex-1 px-3 py-6 flex flex-col gap-1.5 overflow-y-auto custom-scrollbar overflow-x-hidden items-center">
+        <nav className="flex-1 px-2.5 py-6 flex flex-col gap-2.5 overflow-y-auto custom-scrollbar overflow-x-hidden items-center">
           {menuItems.map((item) => {
             const active = isActive(item.href);
             return (
@@ -51,13 +44,13 @@ export const Sidebar = () => {
                 key={item.href}
                 href={item.href}
                 title={item.label}
-                className={`flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-300 cursor-pointer border ${
+                className={`flex items-center justify-center w-11 h-11 rounded-xl transition-all duration-200 cursor-pointer border ${
                   active
-                    ? 'bg-white/20 text-white border-white/10 shadow-sm font-bold'
-                    : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent'
+                    ? 'bg-white text-[#FE8204] border-white shadow-md font-bold'
+                    : 'text-white/80 hover:text-white hover:bg-white/15 border-transparent'
                 }`}
               >
-                <i className={`${item.icon} text-lg transition-transform ${active ? 'scale-110 text-white' : 'text-white/60'}`}></i>
+                <i className={`${item.icon} text-lg transition-transform ${active ? 'scale-110 text-[#FE8204]' : 'text-white'}`}></i>
               </Link>
             );
           })}

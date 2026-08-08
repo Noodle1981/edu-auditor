@@ -1,7 +1,6 @@
-
 export const GlassCard = ({ children, className = '' }) => {
   return (
-    <div className={`glass p-6 ${className}`}>
+    <div className={`bg-white border border-slate-200 rounded-2xl shadow-sm ${className}`}>
       {children}
     </div>
   );

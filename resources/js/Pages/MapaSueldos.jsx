@@ -16,8 +16,13 @@ export default function MapaSueldos({ edificios = [] }) {
   const [activeFilters, setActiveFilters] = useState({ publico: true, privado: false });
   const [filterDepto, setFilterDepto] = useState('TODOS');
   const [filterNivel, setFilterNivel] = useState('TODOS');
-  const [filterEstadoSueldo, setFilterEstadoSueldo] = useState('TODOS'); // TODOS, COINCIDE, SOBREPAGO, SUBPAGO
+  const [filterEstadoSueldo, setFilterEstadoSueldo] = useState({
+    COINCIDE: true,
+    SOBREPAGO: true,
+    SUBPAGO: true,
+  });
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedEdificio, setSelectedEdificio] = useState(null);
   const [isPanelMinimized, setIsPanelMinimized] = useState(false);
   const [showDeptoBorders, setShowDeptoBorders] = useState(true);
@@ -41,11 +46,15 @@ export default function MapaSueldos({ edificios = [] }) {
     setActiveFilters((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const toggleEstadoSueldo = (key) => {
+    setFilterEstadoSueldo((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const clearFilters = () => {
     setActiveFilters({ publico: true, privado: false });
     setFilterDepto('TODOS');
     setFilterNivel('TODOS');
-    setFilterEstadoSueldo('TODOS');
+    setFilterEstadoSueldo({ COINCIDE: true, SOBREPAGO: true, SUBPAGO: true });
     setSearchQuery('');
   };
 
@@ -149,17 +158,34 @@ export default function MapaSueldos({ edificios = [] }) {
     return Array.from(set).sort();
   }, [edificiosArray]);
 
+  const isAdministrativeLevel = (n) => {
+    if (!n) return false;
+    const upper = n.toString().toUpperCase();
+    const keywords = ['ADMINIS', 'SUPERVIS', 'JUNTA', 'MINISTERIO', 'OFICINA', 'DIRECCION', 'DIRECCIÓN', 'AREA CENTRAL', 'ÁREA CENTRAL'];
+    return keywords.some((k) => upper.includes(k));
+  };
+
   const nivelesDisponibles = useMemo(() => {
     const set = new Set();
     edificiosArray.forEach((edificio) => {
+      const matchesDepto =
+        filterDepto === 'TODOS' || edificio.zona_departamento === filterDepto;
+      if (!matchesDepto) return;
+
       (edificio.establecimientos || []).forEach((est) => {
         (est.modalidades || []).forEach((m) => {
-          if (m.nivel) set.add(m.nivel);
+          if (m.nivel && !isAdministrativeLevel(m.nivel)) set.add(m.nivel);
         });
       });
     });
     return Array.from(set).sort();
-  }, [edificiosArray]);
+  }, [edificiosArray, filterDepto]);
+
+  useEffect(() => {
+    if (filterNivel !== 'TODOS' && !nivelesDisponibles.includes(filterNivel)) {
+      setFilterNivel('TODOS');
+    }
+  }, [nivelesDisponibles, filterNivel]);
 
   // Filter Logic for MapaSueldos
   const filteredEdificios = useMemo(() => {
@@ -175,10 +201,7 @@ export default function MapaSueldos({ edificios = [] }) {
                 (m.ambito === 'PRIVADO' && activeFilters.privado);
               const matchesNivel = filterNivel === 'TODOS' || m.nivel === filterNivel;
 
-              let matchesEstadoSueldo = true;
-              if (filterEstadoSueldo !== 'TODOS') {
-                matchesEstadoSueldo = m.color_sueldo === filterEstadoSueldo;
-              }
+              const matchesEstadoSueldo = m.color_sueldo ? !!filterEstadoSueldo[m.color_sueldo] : true;
 
               return matchesScope && matchesNivel && matchesEstadoSueldo;
             });
@@ -213,47 +236,34 @@ export default function MapaSueldos({ edificios = [] }) {
   }, [edificiosArray, activeFilters, filterDepto, filterNivel, filterEstadoSueldo, searchQuery]);
 
   return (
-    <SIAMELayout fullWidth hideHeader>
-      <Head title="Mapa Salarial (Sueldos A04 vs SIGE) — EDU-Auditor" />
+    <SIAMELayout fullWidth>
+      <Head title="Mapa Salarial (Sueldos vs SIGE) — Ministerio de Educación" />
 
       {/* Toast alert */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[2000] flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-xs font-bold text-white shadow-2xl animate-fade-in">
-          <i className="fa-solid fa-[#10B981] fa-circle-check text-emerald-400"></i>
+          <i className="fa-solid fa-circle-check text-emerald-400"></i>
           <span>{toast.message}</span>
         </div>
       )}
 
-      <div className="flex flex-col h-screen w-full overflow-hidden bg-gray-50">
-        {/* Top Control Bar */}
-        <header className="z-[1010] flex h-16 w-full items-center justify-between border-b border-gray-200/80 bg-white px-6 shadow-sm shrink-0">
-          {/* Brand and Search */}
-          <div className="flex items-center gap-4 flex-1 max-w-xl">
-            <div className="flex items-center gap-2.5 shrink-0">
-              <div className="rounded-xl border border-purple-600/10 bg-purple-600/5 p-2 text-purple-600">
-                <i className="fa-solid fa-money-bill-transfer text-lg"></i>
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-sm font-black leading-tight text-gray-900">
-                  Mapa <span className="text-purple-600">Salarial</span>
-                </h1>
-                <p className="text-[8px] font-bold uppercase tracking-widest text-gray-400">
-                  SIAME
-                </p>
-              </div>
-            </div>
-
-            {/* Search Input */}
-            <div className="relative flex-1">
-              <input
-                type="text"
-                placeholder="Buscar CUE o Escuela..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-gray-55 py-2.5 pl-9 pr-4 text-xs font-semibold text-gray-950 transition-all focus:border-[#FE8204]/50 focus:ring-1 focus:ring-[#FE8204]/30 focus:bg-white"
-              />
-              <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-gray-400 text-xs"></i>
-            </div>
+      <div className="flex flex-col h-[calc(100vh-60px)] w-full bg-slate-50 relative">
+        {/* Optimized Sub-Control Bar */}
+        <div className="z-30 flex h-12 w-full items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-4 shadow-xs shrink-0 gap-2 sm:gap-3 relative overflow-x-auto custom-scrollbar whitespace-nowrap">
+          {/* Search Magnifying Glass Button */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              title="Buscar por CUE o Escuela"
+              className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer shadow-xs ${
+                searchQuery.trim()
+                  ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md'
+                  : 'bg-white text-slate-600 border-slate-200 hover:text-[#FE8204] hover:border-[#FE8204]/30'
+              }`}
+            >
+              <i className="fa-solid fa-magnifying-glass text-xs"></i>
+            </button>
           </div>
 
           {/* Middle Filters (Ambito, Depto, Nivel) */}
@@ -318,26 +328,29 @@ export default function MapaSueldos({ edificios = [] }) {
           {/* Right Options (Estado Salarial Buttons & Reset) */}
           <div className="flex items-center gap-3 shrink-0">
             {/* Estado Salarial Filter Buttons */}
-            <div className="flex gap-1 rounded-xl border border-gray-100 bg-gray-50 p-1 shrink-0">
+            <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 shrink-0">
               {[
-                { key: 'TODOS', label: 'Todos', color: 'text-gray-700', bg: 'bg-white', border: 'border-gray-200' },
-                { key: 'COINCIDE', label: 'Coincide', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-250', icon: 'fa-circle-check' },
-                { key: 'SOBREPAGO', label: 'Sobrepago', color: 'text-purple-700', bg: 'bg-purple-50', border: 'border-purple-250', icon: 'fa-arrow-trend-up' },
-                { key: 'SUBPAGO', label: 'Subpago', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-250', icon: 'fa-arrow-trend-down' }
-              ].map((btn) => (
-                <button
-                  key={btn.key}
-                  onClick={() => setFilterEstadoSueldo(btn.key)}
-                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-black transition-all cursor-pointer ${
-                    filterEstadoSueldo === btn.key
-                      ? `${btn.bg} ${btn.color} border ${btn.border} shadow-sm`
-                      : 'text-gray-400 bg-transparent border border-transparent opacity-60'
-                  }`}
-                >
-                  {btn.icon && <i className={`fa-solid ${btn.icon} text-[9px]`}></i>}
-                  <span>{btn.label}</span>
-                </button>
-              ))}
+                { key: 'COINCIDE', label: 'Coincide (Tilde Verde)', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-300', icon: 'fa-circle-check' },
+                { key: 'SOBREPAGO', label: 'Sobrepago (Flecha Arriba Roja)', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-300', icon: 'fa-arrow-trend-up' },
+                { key: 'SUBPAGO', label: 'Subpago (Flecha Abajo Amarilla)', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300', icon: 'fa-arrow-trend-down' }
+              ].map((btn) => {
+                const active = !!filterEstadoSueldo[btn.key];
+                return (
+                  <button
+                    key={btn.key}
+                    type="button"
+                    onClick={() => toggleEstadoSueldo(btn.key)}
+                    title={btn.label}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all cursor-pointer ${
+                      active
+                        ? `${btn.bg} ${btn.color} ${btn.border} shadow-xs`
+                        : 'text-slate-400 bg-transparent border-transparent opacity-40 grayscale hover:opacity-80'
+                    }`}
+                  >
+                    <i className={`fa-solid ${btn.icon} text-xs`}></i>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Reset button */}
@@ -349,10 +362,10 @@ export default function MapaSueldos({ edificios = [] }) {
               <i className="fa-solid fa-rotate-left text-xs"></i>
             </button>
           </div>
-        </header>
+        </div>
 
         {/* Map Container Body */}
-        <div className="flex-1 flex min-h-0 relative">
+        <div className="flex-1 flex min-h-0 relative overflow-hidden">
           <div className="flex-1 h-full relative">
             <Suspense
               fallback={
@@ -427,8 +440,8 @@ export default function MapaSueldos({ edificios = [] }) {
           {/* Right Collapsible Info Panel */}
           {selectedEdificio && selectedEdificio.establecimientos && (
             <aside
-              className={`absolute right-0 top-0 h-full flex flex-col border-l border-gray-250 bg-white shadow-2xl transition-all duration-300 ease-in-out z-[1000] ${
-                isPanelMinimized ? 'w-0' : 'w-[380px] md:w-[420px]'
+              className={`absolute right-0 top-0 h-full flex flex-col border-l border-gray-250 bg-white shadow-2xl transition-all duration-300 ease-in-out z-[1000] max-w-full ${
+                isPanelMinimized ? 'w-0' : 'w-full sm:w-[380px] md:w-[420px]'
               }`}
             >
               <button
@@ -652,18 +665,24 @@ export default function MapaSueldos({ edificios = [] }) {
                                   <div
                                     className={`mt-1 flex items-center justify-between rounded-lg border px-2.5 py-1.5 text-[9px] font-bold ${
                                       mod.color_sueldo === 'SOBREPAGO'
-                                        ? 'border-purple-300 bg-purple-100 text-purple-900'
+                                        ? 'border-red-300 bg-red-100 text-red-900'
                                         : mod.color_sueldo === 'SUBPAGO'
-                                        ? 'border-blue-300 bg-blue-100 text-blue-900'
+                                        ? 'border-amber-300 bg-amber-100 text-amber-900'
                                         : 'border-emerald-200 bg-emerald-50 text-emerald-800'
                                     }`}
                                   >
                                     <span className="flex items-center gap-1">
-                                      <i className="fa-solid fa-file-invoice-dollar text-[10px]"></i>
+                                      <i className={`fa-solid ${
+                                        mod.color_sueldo === 'SOBREPAGO'
+                                          ? 'fa-arrow-trend-up text-red-600'
+                                          : mod.color_sueldo === 'SUBPAGO'
+                                          ? 'fa-arrow-trend-down text-amber-600'
+                                          : 'fa-circle-check text-emerald-600'
+                                      } text-[10px]`}></i>
                                       {mod.color_sueldo === 'SOBREPAGO'
-                                        ? '🟣 ALERTA SOBREPAGO SALARIAL'
+                                        ? '🔴 ALERTA SOBREPAGO SALARIAL'
                                         : mod.color_sueldo === 'SUBPAGO'
-                                        ? '🔵 ALERTA SUBPAGO SALARIAL'
+                                        ? '🟡 ALERTA SUBPAGO SALARIAL'
                                         : '🟢 Radio Sueldo Coincide con SIGE'}
                                     </span>
                                     <span className="font-black">
@@ -806,6 +825,67 @@ export default function MapaSueldos({ edificios = [] }) {
           )}
         </div>
       </div>
+
+      {/* Search Floating Modal Overlay */}
+      {isSearchOpen && (
+        <div
+          className="fixed inset-0 z-[2000] flex items-start justify-center pt-24 px-4 bg-slate-900/30 backdrop-blur-xs animate-fade-in"
+          onClick={() => setIsSearchOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-wider">
+                <i className="fa-solid fa-magnifying-glass text-[#FE8204]"></i>
+                <span>Buscar CUE o Escuela</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen(false)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <i className="fa-solid fa-xmark text-xs"></i>
+              </button>
+            </div>
+
+            <div className="relative flex items-center mt-1">
+              <input
+                type="text"
+                autoFocus
+                placeholder="Buscar por CUE o Nombre de Escuela..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-9 text-xs font-semibold text-slate-900 focus:border-[#FE8204] focus:bg-white focus:ring-2 focus:ring-[#FE8204]/20 outline-none"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <i className="fa-solid fa-magnifying-glass absolute left-3 text-slate-400 text-xs"></i>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <i className="fa-solid fa-circle-xmark text-xs"></i>
+                </button>
+              )}
+            </div>
+
+            {searchQuery && (
+              <div className="mt-3 text-[11px] text-slate-600 font-bold px-1 flex justify-between items-center bg-slate-50 p-2 rounded-xl border border-slate-100">
+                <span className="truncate">Filtro activo: "{searchQuery}"</span>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-[#FE8204] font-black hover:underline cursor-pointer shrink-0 ml-2"
+                >
+                  Limpiar Búsqueda
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </SIAMELayout>
   );
 }

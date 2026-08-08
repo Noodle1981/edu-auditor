@@ -25,8 +25,6 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
 }
 
-
-
 @utility gradient-text {
   background: linear-gradient(135deg, var(--color-brand-orange) 0%, #ff5e00 100%);
   -webkit-background-clip: text;
@@ -39,7 +37,7 @@ body {
   background-color: var(--bg-color);
   color: var(--text-main);
   overflow-x: hidden;
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, rgba(254, 130, 4, 0.03) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(26, 26, 28, 0.02) 0px, transparent 50%);
   background-attachment: fixed;
@@ -53,20 +51,30 @@ body {
 ::-webkit-scrollbar {
   width: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--bg-color);
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(72, 74, 78, 0.2);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @utility animate-fade-in {
@@ -75,9 +83,22 @@ body {
 
 @utility custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(72,74,78,0.2) transparent;
-  &::-webkit-scrollbar { width: 6px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: rgba(72,74,78,0.2); border-radius: 3px; }
-  &::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  scrollbar-color: rgba(72, 74, 78, 0.2) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(72, 74, 78, 0.2);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
 }

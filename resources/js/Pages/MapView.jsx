@@ -585,11 +585,11 @@ export default function MapView({
                         const firstMod = edificio.establecimientos?.[0]?.modalidades?.[0];
                         const cSueldo = firstMod?.color_sueldo;
                         if (cSueldo === 'SOBREPAGO') {
-                            markerColor = '#9333EA'; // Purple for Sobrepago
+                            markerColor = '#EF4444'; // Red for Sobrepago
                         } else if (cSueldo === 'SUBPAGO') {
-                            markerColor = '#2563EB'; // Blue for Subpago
+                            markerColor = '#F59E0B'; // Yellow/Amber for Subpago
                         } else if (cSueldo === 'SIN_SIGE') {
-                            markerColor = '#F59E0B'; // Amber for Sin SIGE
+                            markerColor = '#64748B'; // Slate for Sin SIGE
                         } else {
                             markerColor = '#10B981'; // Green for Coincide
                         }

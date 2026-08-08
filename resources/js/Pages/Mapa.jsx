@@ -56,10 +56,12 @@ export default function Mapa({ edificios = [] }) {
     }, [selectedEdificio]);
     const [hoveredEdificioId, setHoveredEdificioId] = useState(null);
     const [isSearching, setIsSearching] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [showDeptoBorders, setShowDeptoBorders] = useState(true);
     const [isSatellite, setIsSatellite] = useState(false);
     const [showPlazas, setShowPlazas] = useState(true);
+    const [showStatsModal, setShowStatsModal] = useState(false);
 
     // Form states for the dummy report modal
     const [reportForm, setReportForm] = useState({
@@ -236,6 +238,13 @@ export default function Mapa({ edificios = [] }) {
         return Array.from(set).sort();
     }, [edificiosArray, activeFilters, filterNivel]);
 
+    const isAdministrativeLevel = (n) => {
+        if (!n) return false;
+        const upper = n.toString().toUpperCase();
+        const keywords = ['ADMINIS', 'SUPERVIS', 'JUNTA', 'MINISTERIO', 'OFICINA', 'DIRECCION', 'DIRECCIÓN', 'AREA CENTRAL', 'ÁREA CENTRAL'];
+        return keywords.some((k) => upper.includes(k));
+    };
+
     const nivelesDisponibles = useMemo(() => {
         const set = new Set();
         edificiosArray.forEach((edificio) => {
@@ -249,7 +258,7 @@ export default function Mapa({ edificios = [] }) {
                     const matchesScope =
                         (m.ambito === 'PUBLICO' && activeFilters.publico) ||
                         (m.ambito === 'PRIVADO' && activeFilters.privado);
-                    if (matchesScope && m.nivel) {
+                    if (matchesScope && m.nivel && !isAdministrativeLevel(m.nivel)) {
                         set.add(m.nivel);
                     }
                 });
@@ -514,9 +523,9 @@ export default function Mapa({ edificios = [] }) {
     );
 
     return (
-        <SIAMELayout fullWidth={true} hideHeader={true}>
+        <SIAMELayout fullWidth={true}>
             <Head>
-                <title>Mapa Escolar - SIAME</title>
+                <title>Mapa Escolar (Geográfico) — Ministerio de Educación</title>
                 <meta
                     name="description"
                     content="Explora el Mapa Escolar. Encuentra establecimientos educativos públicos y privados, consulta niveles, modalidades y ubicaciones exactas."
@@ -557,61 +566,23 @@ export default function Mapa({ edificios = [] }) {
                 }
             `}</style>
 
-            <div className="flex flex-col h-screen w-full overflow-hidden bg-gray-50">
-                {/* 1. Custom Horizontal Filter Header Bar */}
-                <header className="z-[1010] flex h-16 w-full items-center justify-between border-b border-gray-200/80 bg-white px-6 shadow-sm">
-                    {/* Brand and Search */}
-                    <div className="flex items-center gap-4 flex-1 max-w-xl">
-                        <div className="flex items-center gap-2.5 shrink-0">
-                            <div className="rounded-xl border border-[#FE8204]/10 bg-[#FE8204]/5 p-2 text-[#FE8204]">
-                                <i className="fa-solid fa-map-location-dot text-lg"></i>
-                            </div>
-                            <div className="hidden sm:block">
-                                <h1 className="text-sm font-black leading-tight text-gray-900">
-                                    Mapa <span className="text-[#FE8204]">Escolar</span>
-                                </h1>
-                                <p className="text-[8px] font-bold uppercase tracking-widest text-gray-400">
-                                    SIAME
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Search Input with Autocomplete */}
-                        <div className="relative flex-1">
-                            <input
-                                id="search-input"
-                                type="text"
-                                placeholder="Buscar CUE, CUI o Nombre..."
-                                aria-label="Buscar establecimientos por CUE, CUI o Nombre"
-                                className="w-full rounded-xl border border-gray-200 bg-gray-55 py-2.5 pl-9 pr-4 text-xs font-semibold text-gray-950 transition-all focus:border-[#FE8204]/50 focus:ring-1 focus:ring-[#FE8204]/30 focus:bg-white"
-                                value={searchQuery}
-                                onChange={(e) => handleSearch(e.target.value)}
-                                onFocus={() => setIsSearching(searchQuery.length > 0)}
-                            />
-                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-gray-400 text-xs"></i>
-
-                            {/* Autocomplete Dropdown */}
-                            {isSearching && searchResults.length > 0 && (
-                                <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[300px] overflow-y-auto rounded-xl border border-gray-150 bg-white shadow-2xl duration-200">
-                                    {searchResults.map((result, idx) => (
-                                        <div
-                                            key={`${result.id}-${idx}`}
-                                            onClick={() => handleSelectSchool(result.edificio)}
-                                            className="group cursor-pointer border-b border-gray-50 p-3 last:border-0 hover:bg-[#FE8204]/5"
-                                        >
-                                            <p className="truncate text-[10px] font-black text-gray-900 transition-colors group-hover:text-[#FE8204]">
-                                                {result.nombre}
-                                            </p>
-                                            <div className="flex items-center gap-2 mt-0.5">
-                                                <span className="text-[8px] font-bold text-gray-400">CUE: {result.cue}</span>
-                                                <span className="text-[8px] font-black text-[#FE8204]/40">•</span>
-                                                <span className="text-[8px] font-bold text-gray-400">{result.edificio.localidad}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+            <div className="flex flex-col h-[calc(100vh-60px)] w-full bg-slate-50 relative">
+                {/* 1. Optimized Filter Sub-Header Bar */}
+                <div className="z-30 flex h-12 w-full items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-4 shadow-xs shrink-0 gap-2 sm:gap-3 relative overflow-x-auto custom-scrollbar whitespace-nowrap">
+                    {/* Search Magnifying Glass Button */}
+                    <div className="relative shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setIsSearchOpen(true)}
+                            title="Buscar por CUE, CUI o Nombre"
+                            className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer shadow-xs ${
+                                searchQuery.trim()
+                                    ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:text-[#FE8204] hover:border-[#FE8204]/30'
+                            }`}
+                        >
+                            <i className="fa-solid fa-magnifying-glass text-xs"></i>
+                        </button>
                     </div>
 
                     {/* Middle Filters (Ambito, Depto, Nivel) */}
@@ -701,17 +672,51 @@ export default function Mapa({ edificios = [] }) {
                     {/* Right Options (Stats, Reset) */}
                     <div className="flex items-center gap-4 shrink-0">
 
-                        {/* Stats Badges */}
-                        <div className="hidden lg:flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-xl p-1 shrink-0">
-                            <div className="px-2 py-0.5">
-                                <p className="text-[7px] font-black uppercase text-gray-400 tracking-wider">Edificios</p>
-                                <p className="text-xs font-black text-gray-700 leading-tight">{stats.totalEdificios}</p>
-                            </div>
-                            <div className="w-px h-6 bg-gray-200"></div>
-                            <div className="px-2 py-0.5">
-                                <p className="text-[7px] font-black uppercase text-gray-400 tracking-wider">Escuelas</p>
-                                <p className="text-xs font-black text-gray-700 leading-tight">{stats.totalEstablecimientos}</p>
-                            </div>
+                        {/* Stats Info Button (?) */}
+                        <div className="relative shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setShowStatsModal(!showStatsModal)}
+                                title="Ver total de Edificios y Escuelas"
+                                className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer shadow-xs ${
+                                    showStatsModal
+                                        ? 'bg-[#FE8204] text-white border-[#FE8204]'
+                                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:text-[#FE8204] hover:border-[#FE8204]/30'
+                                }`}
+                            >
+                                <i className="fa-solid fa-circle-question text-xs"></i>
+                            </button>
+
+                            {showStatsModal && (
+                                <div className="absolute right-0 top-full mt-2 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl p-3.5 z-50 animate-fade-in text-slate-800">
+                                    <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-[#FE8204] flex items-center gap-1.5">
+                                            <i className="fa-solid fa-chart-pie"></i> Estadísticas del Mapa
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowStatsModal(false)}
+                                            className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                                        >
+                                            <i className="fa-solid fa-xmark text-xs"></i>
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2 text-xs font-semibold">
+                                        <div className="flex justify-between items-center bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100">
+                                            <span className="text-slate-500 font-bold">Edificios Totales:</span>
+                                            <span className="font-black text-slate-900">{stats.totalEdificios}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100">
+                                            <span className="text-slate-500 font-bold">Escuelas / Est.:</span>
+                                            <span className="font-black text-slate-900">{stats.totalEstablecimientos}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center px-2 py-0.5 text-[10px]">
+                                            <span className="text-slate-400 font-bold">Públicos: {stats.publicos}</span>
+                                            <span className="text-slate-400 font-bold">Privados: {stats.privados}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Export Excel Button */}
@@ -734,10 +739,10 @@ export default function Mapa({ edificios = [] }) {
                         </button>
                     </div>
 
-                </header>
+                </div>
 
                 {/* 2. Main Map + Sidebar Layout Container */}
-                <div className="flex-1 flex min-h-0 relative">
+                <div className="flex-1 flex min-h-0 relative overflow-hidden">
                     {/* Map Area */}
                     <div className="flex-1 h-full relative">
                         <Suspense
@@ -767,84 +772,47 @@ export default function Mapa({ edificios = [] }) {
                             />
                         </Suspense>
 
-                        {/* Map Buttons (Zoom reset and satellite toggle) */}
-                        <div className="absolute right-6 top-6 z-[1001] flex flex-col gap-3">
+                        {/* Floating map action buttons */}
+                        <div className="absolute right-4 top-4 z-[990] flex flex-col gap-2.5">
                             <button
                                 onClick={() => {
                                     setSelectedEdificio(null);
-                                    setSelectedEdificio({
-                                        latitud: -31.5375,
-                                        longitud: -68.5364,
-                                        zoom: 11,
-                                        _isCenter: true,
-                                    });
+                                    setSelectedEdificio({ latitud: -31.5375, longitud: -68.5364, zoom: 11, _isCenter: true });
                                 }}
-                                aria-label="Recentrar mapa en San Juan"
-                                className="group flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-150 bg-white text-gray-500 shadow-xl transition-all hover:text-[#FE8204]"
+                                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-600 shadow-lg hover:text-[#FE8204] transition"
                                 title="Recentrar Mapa"
                             >
-                                <i className="fa-solid fa-expand transition-transform group-hover:scale-110"></i>
+                                <i className="fa-solid fa-expand text-sm"></i>
                             </button>
 
                             <button
                                 onClick={() => setIsSatellite((v) => !v)}
-                                aria-label={
-                                    isSatellite
-                                        ? 'Cambiar a mapa normal'
-                                        : 'Cambiar a vista satelital'
-                                }
-                                title={
-                                    isSatellite ? 'Vista Normal' : 'Vista Satélite'
-                                }
-                                className={`group flex h-12 w-12 items-center justify-center rounded-2xl border shadow-xl transition-all ${
-                                    isSatellite
-                                        ? 'border-[#FE8204]/30 bg-[#FE8204] text-white'
-                                        : 'border-gray-150 bg-white text-gray-500 hover:text-[#FE8204]'
+                                className={`flex h-11 w-11 items-center justify-center rounded-2xl border shadow-lg transition ${
+                                    isSatellite ? 'bg-[#FE8204] text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:text-[#FE8204]'
                                 }`}
+                                title={isSatellite ? 'Vista Mapa' : 'Vista Satélite'}
                             >
-                                <i
-                                    className={`fa-solid fa-satellite transition-transform group-hover:scale-110 ${isSatellite ? 'text-white' : ''}`}
-                                ></i>
+                                <i className="fa-solid fa-satellite text-sm"></i>
                             </button>
 
-                            {/* Floating Button: Límites Departamentales */}
                             <button
                                 onClick={() => setShowDeptoBorders((v) => !v)}
-                                aria-label={
-                                    showDeptoBorders
-                                        ? 'Ocultar Límites de Departamentos'
-                                        : 'Mostrar Límites de Departamentos'
-                                }
-                                title={
-                                    showDeptoBorders ? 'Ocultar Límites' : 'Mostrar Límites'
-                                }
-                                className={`group flex h-12 w-12 items-center justify-center rounded-2xl border shadow-xl transition-all ${
-                                    showDeptoBorders
-                                        ? 'border-[#FE8204]/30 bg-[#FE8204] text-white'
-                                        : 'border-gray-150 bg-white text-gray-500 hover:text-[#FE8204]'
+                                className={`flex h-11 w-11 items-center justify-center rounded-2xl border shadow-lg transition ${
+                                    showDeptoBorders ? 'bg-[#FE8204] text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:text-[#FE8204]'
                                 }`}
+                                title={showDeptoBorders ? 'Ocultar Límites' : 'Mostrar Límites'}
                             >
-                                <i className="fa-solid fa-map-location transition-transform group-hover:scale-110"></i>
+                                <i className="fa-solid fa-map-location text-sm"></i>
                             </button>
 
-                            {/* Floating Button: Plazas Origen Km 0 */}
                             <button
                                 onClick={() => setShowPlazas((v) => !v)}
-                                aria-label={
-                                    showPlazas
-                                        ? 'Ocultar Plazas Origen Km 0'
-                                        : 'Mostrar Plazas Origen Km 0'
-                                }
-                                title={
-                                    showPlazas ? 'Ocultar Plazas Km 0' : 'Mostrar Plazas Km 0'
-                                }
-                                className={`group flex h-12 w-12 items-center justify-center rounded-2xl border shadow-xl transition-all ${
-                                    showPlazas
-                                        ? 'border-yellow-400/40 bg-amber-500 text-white'
-                                        : 'border-gray-150 bg-white text-gray-500 hover:text-[#FE8204]'
+                                className={`flex h-11 w-11 items-center justify-center rounded-2xl border shadow-lg transition ${
+                                    showPlazas ? 'bg-amber-500 text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:text-[#FE8204]'
                                 }`}
+                                title={showPlazas ? 'Ocultar Plazas' : 'Mostrar Plazas'}
                             >
-                                <i className="fa-solid fa-star transition-transform group-hover:scale-110"></i>
+                                <i className="fa-solid fa-star text-sm"></i>
                             </button>
                         </div>
                     </div>
@@ -852,8 +820,8 @@ export default function Mapa({ edificios = [] }) {
                     {/* Right Collapsible Info Panel */}
                     {selectedEdificio && selectedEdificio.establecimientos && (
                         <aside
-                            className={`absolute right-0 top-0 h-full flex flex-col border-l border-gray-250 bg-white shadow-2xl transition-all duration-300 ease-in-out z-[1000] ${
-                                isPanelMinimized ? 'w-0' : 'w-[380px] md:w-[420px]'
+                            className={`absolute right-0 top-0 h-full flex flex-col border-l border-gray-250 bg-white shadow-2xl transition-all duration-300 ease-in-out z-[1000] max-w-full ${
+                                isPanelMinimized ? 'w-0' : 'w-full sm:w-[380px] md:w-[420px]'
                             }`}
                         >
                             {/* Toggle tab button on the left edge */}
@@ -1216,6 +1184,79 @@ export default function Mapa({ edificios = [] }) {
                     )}
                 </div>
             </div>
+
+            {/* Search Floating Modal Overlay */}
+            {isSearchOpen && (
+                <div
+                    className="fixed inset-0 z-[2000] flex items-start justify-center pt-24 px-4 bg-slate-900/30 backdrop-blur-xs animate-fade-in"
+                    onClick={() => setIsSearchOpen(false)}
+                >
+                    <div
+                        className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 animate-scale-up"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+                            <div className="flex items-center gap-2 text-slate-900 font-black text-xs uppercase tracking-wider">
+                                <i className="fa-solid fa-magnifying-glass text-[#FE8204]"></i>
+                                <span>Buscar Escuela / Establecimiento</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsSearchOpen(false)}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                            >
+                                <i className="fa-solid fa-xmark text-xs"></i>
+                            </button>
+                        </div>
+
+                        <div className="relative flex items-center mt-1">
+                            <input
+                                id="search-input"
+                                type="text"
+                                autoFocus
+                                placeholder="Buscar por CUE, CUI o Nombre..."
+                                aria-label="Buscar establecimientos por CUE, CUI o Nombre"
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-9 text-xs font-semibold text-slate-900 focus:border-[#FE8204] focus:bg-white focus:ring-2 focus:ring-[#FE8204]/20 outline-none"
+                                value={searchQuery}
+                                onChange={(e) => handleSearch(e.target.value)}
+                                onFocus={() => setIsSearching(searchQuery.length > 0)}
+                            />
+                            <i className="fa-solid fa-magnifying-glass absolute left-3 text-slate-400 text-xs"></i>
+                            {searchQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setSearchQuery(''); setIsSearching(false); }}
+                                    className="absolute right-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                                >
+                                    <i className="fa-solid fa-circle-xmark text-xs"></i>
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Autocomplete Dropdown */}
+                        {isSearching && searchResults.length > 0 && (
+                            <div className="mt-3 max-h-[280px] overflow-y-auto rounded-xl border border-slate-150 bg-slate-50 divide-y divide-slate-100">
+                                {searchResults.map((result, idx) => (
+                                    <div
+                                        key={`${result.id}-${idx}`}
+                                        onClick={() => { handleSelectSchool(result.edificio); setIsSearchOpen(false); }}
+                                        className="group cursor-pointer p-3 hover:bg-white transition"
+                                    >
+                                        <p className="truncate text-xs font-black text-slate-900 group-hover:text-[#FE8204]">
+                                            {result.nombre}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-[10px] font-bold text-slate-500">CUE: {result.cue}</span>
+                                            <span className="text-[10px] text-slate-300">•</span>
+                                            <span className="text-[10px] font-bold text-slate-500">{result.edificio.localidad}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Report Modal */}
             <Modal
