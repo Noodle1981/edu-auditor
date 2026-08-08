@@ -50,10 +50,11 @@ class AuditoriaSueldosController extends Controller
             ]);
         }
 
-        $radioCounts = DB::table('nomina_sueldo_registros')
-            ->select('sector', 'radio_deducido', DB::raw('COUNT(*) as qty'))
+        $docentesPorSector = DB::table('nomina_sueldo_registros')
+            ->select('sector', 'cuil', DB::raw('MAX(radio_deducido) as radio_deducido'))
             ->where('nomina_id', $nominaSeleccionada->id)
-            ->groupBy('sector', 'radio_deducido')
+            ->whereNotNull('cuil')
+            ->groupBy('sector', 'cuil')
             ->get()
             ->groupBy('sector');
 
@@ -75,17 +76,16 @@ class AuditoriaSueldosController extends Controller
             ->orderBy('r.sector')
             ->get();
 
-        $resultados = $resultados->map(function ($r) use ($radioCounts) {
+        $resultados = $resultados->map(function ($r) use ($docentesPorSector) {
             $total = 0;
             $desviados = 0;
-            $sectorRecords = $radioCounts->get($r->sector);
-            if ($sectorRecords) {
-                foreach ($sectorRecords as $rec) {
-                    $total += $rec->qty;
-                    $rDeducido = $rec->radio_deducido;
-                    if ($r->radio_sige !== null && $r->radio_sige > 0) {
-                        if ($rDeducido === null || intval($rDeducido) !== intval($r->radio_sige)) {
-                            $desviados += $rec->qty;
+            $sectorDocentes = $docentesPorSector->get($r->sector);
+            if ($sectorDocentes) {
+                $total = $sectorDocentes->count();
+                if ($r->radio_sige !== null && intval($r->radio_sige) > 0) {
+                    foreach ($sectorDocentes as $d) {
+                        if ($d->radio_deducido !== null && intval($d->radio_deducido) !== intval($r->radio_sige)) {
+                            $desviados++;
                         }
                     }
                 }
@@ -239,18 +239,17 @@ class AuditoriaSueldosController extends Controller
             ->orderBy('e.nombre')
             ->get();
 
-        $cruceEscuelas = $cruceEscuelas->map(function ($c) use ($radioCounts) {
+        $cruceEscuelas = $cruceEscuelas->map(function ($c) use ($docentesPorSector) {
             $total = 0;
             $desviados = 0;
             $sectorKey = intval($c->sector_sige ?: $c->sector_sueldos);
-            $sectorRecords = $radioCounts->get($sectorKey);
-            if ($sectorRecords) {
-                foreach ($sectorRecords as $rec) {
-                    $total += $rec->qty;
-                    $rDeducido = $rec->radio_deducido;
-                    if ($c->radio_sige !== null && $c->radio_sige > 0) {
-                        if ($rDeducido === null || intval($rDeducido) !== intval($c->radio_sige)) {
-                            $desviados += $rec->qty;
+            $sectorDocentes = $docentesPorSector->get($sectorKey);
+            if ($sectorDocentes) {
+                $total = $sectorDocentes->count();
+                if ($c->radio_sige !== null && intval($c->radio_sige) > 0) {
+                    foreach ($sectorDocentes as $d) {
+                        if ($d->radio_deducido !== null && intval($d->radio_deducido) !== intval($c->radio_sige)) {
+                            $desviados++;
                         }
                     }
                 }

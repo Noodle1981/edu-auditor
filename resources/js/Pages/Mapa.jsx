@@ -621,7 +621,7 @@ export default function Mapa({ edificios = [] }) {
                                 onChange={(e) => setFilterDepto(e.target.value)}
                                 className="appearance-none rounded-xl border border-gray-150 bg-gray-55 py-2 pl-3 pr-8 text-xs font-bold text-gray-700 shadow-sm transition-all focus:border-[#FE8204] focus:bg-white"
                             >
-                                <option value="TODOS">Todos los Deptos</option>
+                                <option value="TODOS">Departamentos</option>
                                 {deptosDisponibles.map((d) => (
                                     <option key={d} value={d}>{d}</option>
                                 ))}
@@ -637,7 +637,7 @@ export default function Mapa({ edificios = [] }) {
                                 onChange={(e) => setFilterNivel(e.target.value)}
                                 className="appearance-none rounded-xl border border-gray-150 bg-gray-55 py-2 pl-3 pr-8 text-xs font-bold text-gray-700 shadow-sm transition-all focus:border-[#FE8204] focus:bg-white"
                             >
-                                <option value="TODOS">Todos los Niveles</option>
+                                <option value="TODOS">Niveles</option>
                                 {nivelesDisponibles.map((n) => (
                                     <option key={n} value={n}>{n}</option>
                                 ))}

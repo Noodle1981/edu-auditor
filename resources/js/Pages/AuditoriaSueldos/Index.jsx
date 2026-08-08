@@ -306,10 +306,10 @@ export default function AuditoriaSueldosIndex({
     }
     if (sueldo > sige) {
       const diff = sueldo - sige;
-      return <span className="text-[11px] font-black text-red-700 shrink-0">🔴 MÁS (+{diff})</span>;
+      return <span className="text-[11px] font-black text-red-700 shrink-0">🔴 +{diff}</span>;
     }
     const diff = sige - sueldo;
-    return <span className="text-[11px] font-black text-amber-600 shrink-0">🟡 MENOS (-{diff})</span>;
+    return <span className="text-[11px] font-black text-amber-600 shrink-0">🟡 -{diff}</span>;
   };
 
   const renderRadioTeoricoBadge = (rSueldo, rTeorico, cue) => {
@@ -500,6 +500,7 @@ export default function AuditoriaSueldosIndex({
   }, [cruceBaseFiltered]);
 
 
+  // Niveles educativos provenientes únicamente de los establecimientos (cruceEscuelas)
   const nivelesDisponibles = useMemo(() => {
     const list = new Set();
     cruceEscuelas.forEach((i) => {
@@ -509,15 +510,8 @@ export default function AuditoriaSueldosIndex({
         }
       }
     });
-    auditList.forEach((i) => {
-      if (i.nivel_educativo && (!filtroDepto || i.departamento === filtroDepto)) {
-        if (!isAdministrativeLevel(i.nivel_educativo)) {
-          list.add(i.nivel_educativo);
-        }
-      }
-    });
     return Array.from(list).sort();
-  }, [cruceEscuelas, auditList, filtroDepto]);
+  }, [cruceEscuelas, filtroDepto]);
 
   useEffect(() => {
     if (filtroNivel && !nivelesDisponibles.includes(filtroNivel)) {
@@ -676,139 +670,213 @@ export default function AuditoriaSueldosIndex({
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 max-w-[1920px] mx-auto space-y-6">
 
 
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto pb-3 mb-6 custom-scrollbar">
+      {/* Navigation Tabs (Icon-Only Default, Expand Active with Title + Badge) */}
+      <div className="flex items-center gap-1.5 sm:gap-2 border-b border-slate-200 overflow-x-auto pb-3 mb-6 custom-scrollbar">
+        {/* TAB: KPI */}
         <button
           onClick={() => setActiveTab('kpi')}
-          className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
+          className={`py-2 transition-all duration-300 shrink-0 flex items-center justify-center cursor-pointer rounded-xl ${
             activeTab === 'kpi'
-              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
-              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+              ? 'px-4 bg-[#FE8204] text-white border border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-black text-xs gap-2'
+              : 'w-9 h-9 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-xs'
           }`}
+          title="Resumen & KPIs"
         >
-          <i className={`fa-solid fa-chart-pie ${activeTab === 'kpi' ? 'text-white' : 'text-[#FE8204]'}`}></i>
-          Resumen & KPIs
+          <i className={`fa-solid fa-chart-pie text-sm ${activeTab === 'kpi' ? 'text-white' : 'text-[#FE8204]'}`}></i>
+          {activeTab === 'kpi' && <span>Resumen & KPIs</span>}
         </button>
 
+        {/* TAB: CRUCE */}
         <button
           onClick={() => setActiveTab('cruce')}
-          className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
+          className={`py-2 transition-all duration-300 shrink-0 flex items-center justify-center cursor-pointer rounded-xl ${
             activeTab === 'cruce'
-              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
-              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+              ? 'px-4 bg-[#FE8204] text-white border border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-black text-xs gap-2'
+              : 'w-9 h-9 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-xs'
           }`}
+          title="Cruce Escuelas & Sectores"
         >
-          <i className={`fa-solid fa-building-columns ${activeTab === 'cruce' ? 'text-white' : 'text-[#FE8204]'}`}></i>
-          Cruce Escuelas & Sectores ({cruceStats.total})
+          <i className={`fa-solid fa-school text-sm ${activeTab === 'cruce' ? 'text-white' : 'text-[#FE8204]'}`}></i>
+          {activeTab === 'cruce' && (
+            <>
+              <span>Cruce Escuelas & Sectores</span>
+              <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
+                {cruceStats.total}
+              </span>
+            </>
+          )}
         </button>
 
+        {/* TAB: ESCALAS */}
         <button
           onClick={() => setActiveTab('escala')}
-          className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
+          className={`py-2 transition-all duration-300 shrink-0 flex items-center justify-center cursor-pointer rounded-xl ${
             activeTab === 'escala'
-              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
-              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+              ? 'px-4 bg-[#FE8204] text-white border border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-black text-xs gap-2'
+              : 'w-9 h-9 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-xs'
           }`}
+          title="Escalas & Residuales"
         >
-          <i className={`fa-solid fa-scale-balanced ${activeTab === 'escala' ? 'text-white' : 'text-[#FE8204]'}`}></i>
-          Escalas & Residuales ({linkedViejos.length})
+          <i className={`fa-solid fa-scale-balanced text-sm ${activeTab === 'escala' ? 'text-white' : 'text-[#FE8204]'}`}></i>
+          {activeTab === 'escala' && (
+            <>
+              <span>Escalas & Residuales</span>
+              <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
+                {linkedViejos.length}
+              </span>
+            </>
+          )}
         </button>
 
+        {/* TAB: PAGAN MAS */}
         <button
           onClick={() => setActiveTab('paga_mas')}
-          className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
+          className={`py-2 transition-all duration-300 shrink-0 flex items-center justify-center cursor-pointer rounded-xl ${
             activeTab === 'paga_mas'
-              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
-              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+              ? 'px-4 bg-[#FE8204] text-white border border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-black text-xs gap-2'
+              : 'w-9 h-9 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-xs'
           }`}
+          title="Pagan MÁS"
         >
-          <i className={`fa-solid fa-arrow-trend-up ${activeTab === 'paga_mas' ? 'text-white' : 'text-red-600'}`}></i>
-          Pagan MÁS ({pagaMasList.length})
+          <i className={`fa-solid fa-arrow-trend-up text-sm ${activeTab === 'paga_mas' ? 'text-white' : 'text-red-600'}`}></i>
+          {activeTab === 'paga_mas' && (
+            <>
+              <span>Pagan MÁS</span>
+              <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
+                {pagaMasList.length}
+              </span>
+            </>
+          )}
         </button>
 
+        {/* TAB: PAGAN MENOS */}
         <button
           onClick={() => setActiveTab('paga_menos')}
-          className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
+          className={`py-2 transition-all duration-300 shrink-0 flex items-center justify-center cursor-pointer rounded-xl ${
             activeTab === 'paga_menos'
-              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
-              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+              ? 'px-4 bg-[#FE8204] text-white border border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-black text-xs gap-2'
+              : 'w-9 h-9 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-xs'
           }`}
+          title="Pagan MENOS"
         >
-          <i className={`fa-solid fa-arrow-trend-down ${activeTab === 'paga_menos' ? 'text-white' : 'text-blue-600'}`}></i>
-          Pagan MENOS ({pagaMenosList.length})
+          <i className={`fa-solid fa-arrow-trend-down text-sm ${activeTab === 'paga_menos' ? 'text-white' : 'text-blue-600'}`}></i>
+          {activeTab === 'paga_menos' && (
+            <>
+              <span>Pagan MENOS</span>
+              <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
+                {pagaMenosList.length}
+              </span>
+            </>
+          )}
         </button>
 
+        {/* TAB: CONFLICTOS SIGE */}
         <button
           onClick={() => setActiveTab('conflictos')}
-          className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
+          className={`py-2 transition-all duration-300 shrink-0 flex items-center justify-center cursor-pointer rounded-xl ${
             activeTab === 'conflictos'
-              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
-              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+              ? 'px-4 bg-[#FE8204] text-white border border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-black text-xs gap-2'
+              : 'w-9 h-9 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-xs'
           }`}
+          title="Conflictos SIGE"
         >
-          <i className={`fa-solid fa-triangle-exclamation ${activeTab === 'conflictos' ? 'text-white' : 'text-amber-600'}`}></i>
-          Conflictos SIGE ({filteredConflictosSige.length})
+          <i className={`fa-solid fa-triangle-exclamation text-sm ${activeTab === 'conflictos' ? 'text-white' : 'text-amber-600'}`}></i>
+          {activeTab === 'conflictos' && (
+            <>
+              <span>Conflictos SIGE</span>
+              <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
+                {filteredConflictosSige.length}
+              </span>
+            </>
+          )}
         </button>
 
+        {/* TAB: INCONSISTENCIA ZONA */}
         <button
           onClick={() => setActiveTab('zonas')}
-          className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
+          className={`py-2 transition-all duration-300 shrink-0 flex items-center justify-center cursor-pointer rounded-xl ${
             activeTab === 'zonas'
-              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
-              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+              ? 'px-4 bg-[#FE8204] text-white border border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-black text-xs gap-2'
+              : 'w-9 h-9 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-xs'
           }`}
+          title="Inconsistencia Zona"
         >
-          <i className={`fa-solid fa-location-dot ${activeTab === 'zonas' ? 'text-white' : 'text-purple-600'}`}></i>
-          Inconsistencia Zona ({zonasInconsistentesList.length})
+          <i className={`fa-solid fa-location-dot text-sm ${activeTab === 'zonas' ? 'text-white' : 'text-purple-600'}`}></i>
+          {activeTab === 'zonas' && (
+            <>
+              <span>Inconsistencia Zona</span>
+              <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
+                {zonasInconsistentesList.length}
+              </span>
+            </>
+          )}
         </button>
 
+        {/* TAB: SEGUIMIENTO & GESTION */}
         <button
           onClick={() => setActiveTab('tracking')}
-          className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
+          className={`py-2 transition-all duration-300 shrink-0 flex items-center justify-center cursor-pointer rounded-xl ${
             activeTab === 'tracking'
-              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
-              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+              ? 'px-4 bg-[#FE8204] text-white border border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-black text-xs gap-2'
+              : 'w-9 h-9 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-xs'
           }`}
+          title="Seguimiento & Gestión"
         >
-          <i className={`fa-solid fa-list-check ${activeTab === 'tracking' ? 'text-white' : 'text-emerald-600'}`}></i>
-          Seguimiento & Gestión ({linkedResultados.length})
+          <i className={`fa-solid fa-list-check text-sm ${activeTab === 'tracking' ? 'text-white' : 'text-emerald-600'}`}></i>
+          {activeTab === 'tracking' && (
+            <>
+              <span>Seguimiento & Gestión</span>
+              <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
+                {linkedResultados.length}
+              </span>
+            </>
+          )}
         </button>
 
+        {/* TAB: OTROS SECTORES */}
         <button
           onClick={() => setActiveTab('sin_escuela')}
-          className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 shrink-0 flex items-center gap-2 border ${
+          className={`py-2 transition-all duration-300 shrink-0 flex items-center justify-center cursor-pointer rounded-xl ${
             activeTab === 'sin_escuela'
-              ? 'bg-[#FE8204] text-white border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-bold'
-              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+              ? 'px-4 bg-[#FE8204] text-white border border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-black text-xs gap-2'
+              : 'w-9 h-9 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-xs'
           }`}
+          title="Otros Sectores"
         >
-          <i className={`fa-solid fa-circle-question ${activeTab === 'sin_escuela' ? 'text-white' : 'text-[#FE8204]'}`}></i>
-          Otros Sectores ({unlinkedResultados.length + unlinkedViejos.length})
+          <i className={`fa-solid fa-circle-question text-sm ${activeTab === 'sin_escuela' ? 'text-white' : 'text-[#FE8204]'}`}></i>
+          {activeTab === 'sin_escuela' && (
+            <>
+              <span>Otros Sectores</span>
+              <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
+                {unlinkedResultados.length + unlinkedViejos.length}
+              </span>
+            </>
+          )}
         </button>
       </div>
 
-      {/* Global Filter Bar for Tables */}
+      {/* Global Filter Bar for Tables (Single Line) */}
       {activeTab !== 'kpi' && (
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col lg:flex-row gap-3 items-center justify-between">
-          <div className="relative w-full lg:w-96">
-            <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-[#FE8204] text-sm"></i>
+        <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-sm mb-6 flex items-center gap-2.5 overflow-x-auto custom-scrollbar whitespace-nowrap">
+          <div className="relative shrink-0 w-64 sm:w-72">
+            <i className="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-[#FE8204] text-xs"></i>
             <input
               type="text"
-              placeholder="Buscar por CUE, centro, sector, escuela o departamento..."
+              placeholder="Buscar por CUE, centro, sector, escuela..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:ring-[#FE8204] focus:border-[#FE8204] text-[#1A1A1C]"
+              className="w-full pl-8 pr-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:ring-[#FE8204] focus:border-[#FE8204] text-[#1A1A1C]"
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-2 shrink-0">
             {activeTab === 'cruce' && (
               <select
                 value={filtroCruce}
                 onChange={(e) => setFiltroCruce(e.target.value)}
-                className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-3 py-2 focus:ring-[#FE8204] cursor-pointer"
+                className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-2.5 py-1.5 focus:ring-[#FE8204] cursor-pointer shrink-0"
               >
-                <option value="">Todos los Cruces</option>
+                <option value="">Cruces</option>
                 <option value="COINCIDE">🟢 Coinciden Radios</option>
                 <option value="NO_COINCIDE">🔴 No Coinciden Radios</option>
                 <option value="SECTOR_0">🟡 Sector 0 en SIGE</option>
@@ -819,9 +887,9 @@ export default function AuditoriaSueldosIndex({
             <select
               value={filtroNivel}
               onChange={(e) => setFiltroNivel(e.target.value)}
-              className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-3 py-2 focus:ring-[#FE8204]"
+              className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-2.5 py-1.5 focus:ring-[#FE8204] cursor-pointer shrink-0"
             >
-              <option value="">Todos los Niveles</option>
+              <option value="">Niveles</option>
               {nivelesDisponibles.map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -832,9 +900,9 @@ export default function AuditoriaSueldosIndex({
             <select
               value={filtroDepto}
               onChange={(e) => setFiltroDepto(e.target.value)}
-              className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-3 py-2 focus:ring-[#FE8204] cursor-pointer"
+              className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-2.5 py-1.5 focus:ring-[#FE8204] cursor-pointer shrink-0"
             >
-              <option value="">Todos los Departamentos</option>
+              <option value="">Departamentos</option>
               {deptosDisponibles.map((d) => (
                 <option key={d} value={d}>
                   {d}
@@ -845,9 +913,9 @@ export default function AuditoriaSueldosIndex({
             <select
               value={filtroAmbito}
               onChange={(e) => setFiltroAmbito(e.target.value)}
-              className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-3 py-2 focus:ring-[#FE8204] cursor-pointer"
+              className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-2.5 py-1.5 focus:ring-[#FE8204] cursor-pointer shrink-0"
             >
-              <option value="">Todos los Ámbitos</option>
+              <option value="">Ámbitos</option>
               <option value="PUBLICO">PÚBLICO</option>
               <option value="PRIVADO">PRIVADO</option>
             </select>
@@ -855,9 +923,9 @@ export default function AuditoriaSueldosIndex({
             <select
               value={filtroRadio}
               onChange={(e) => setFiltroRadio(e.target.value)}
-              className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-3 py-2 focus:ring-[#FE8204] cursor-pointer"
+              className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-2.5 py-1.5 focus:ring-[#FE8204] cursor-pointer shrink-0"
             >
-              <option value="">Todos los Radios</option>
+              <option value="">Radios</option>
               {radiosDisponibles.map((r) => (
                 <option key={r} value={r}>
                   Radio {r}
@@ -869,9 +937,9 @@ export default function AuditoriaSueldosIndex({
               <select
                 value={filtroGestion}
                 onChange={(e) => setFiltroGestion(e.target.value)}
-                className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-3 py-2 focus:ring-[#FE8204] cursor-pointer"
+                className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-2.5 py-1.5 focus:ring-[#FE8204] cursor-pointer shrink-0"
               >
-                <option value="">Todos los Estados Gestión</option>
+                <option value="">Estados Gestión</option>
                 <option value="CONFORME">CONFORME / VALIDADO</option>
                 <option value="DADO_DE_BAJA">DADO DE BAJA / ESCUELA CERRADA</option>
                 <option value="PENDIENTE">PENDIENTE</option>
@@ -885,9 +953,9 @@ export default function AuditoriaSueldosIndex({
               <select
                 value={filtroAuditoria}
                 onChange={(e) => setFiltroAuditoria(e.target.value)}
-                className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-3 py-2 focus:ring-[#FE8204] cursor-pointer"
+                className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-2.5 py-1.5 focus:ring-[#FE8204] cursor-pointer shrink-0"
               >
-                <option value="">Todos los Estados Auditoría</option>
+                <option value="">Estados Auditoría</option>
                 {auditoriasDisponibles.map((status) => (
                   <option key={status} value={status}>
                     {auditStatusLabels[status] || status}
@@ -1003,11 +1071,10 @@ export default function AuditoriaSueldosIndex({
                   href={`/api/auditoria-sueldos/exportar-excel?tab=kpi&periodo=${nominaSeleccionada?.periodo || ''}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
                   title="Descargar tabla de Centros en Excel"
                 >
                   <i className="fa-solid fa-file-excel text-sm"></i>
-                  <span>Descargar Excel Centros</span>
                 </a>
               </div>
             </div>
@@ -1022,7 +1089,7 @@ export default function AuditoriaSueldosIndex({
                     <th className="px-4 py-3 text-center font-black text-white">Pagan Más</th>
                     <th className="px-4 py-3 text-center font-black text-white">Pagan Menos</th>
                     <th className="px-4 py-3 text-center font-black text-white">Sin SIGE</th>
-                    <th className="px-4 py-3 text-right font-black text-white">Personal Afectado</th>
+                    <th className="px-4 py-3 text-right font-black text-white">Liquidaciones</th>
                     <th className="px-4 py-3 text-center font-black text-white">Coincidencia</th>
                   </tr>
                 </thead>
@@ -1099,11 +1166,10 @@ export default function AuditoriaSueldosIndex({
                   href={`/api/auditoria-sueldos/exportar-excel?tab=escala&periodo=${nominaSeleccionada?.periodo || ''}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
                   title="Descargar Registros en Excel"
                 >
                   <i className="fa-solid fa-file-excel text-sm"></i>
-                  <span>Descargar Excel Residuales</span>
                 </a>
               </div>
             </div>
@@ -1241,11 +1307,10 @@ export default function AuditoriaSueldosIndex({
               href={`/api/auditoria-sueldos/exportar-excel?tab=conflictos&periodo=${nominaSeleccionada?.periodo || ''}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
               title="Descargar conflictos de SIGE en Excel"
             >
               <i className="fa-solid fa-file-excel text-sm"></i>
-              <span>Descargar Excel Conflictos SIGE</span>
             </a>
           </div>
 
@@ -1323,11 +1388,10 @@ export default function AuditoriaSueldosIndex({
               href={`/api/auditoria-sueldos/exportar-excel?tab=paga_mas&periodo=${nominaSeleccionada?.periodo || ''}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
               title="Descargar establecimientos que pagan más en Excel"
             >
               <i className="fa-solid fa-file-excel text-sm"></i>
-              <span>Descargar Excel Pagan Más</span>
             </a>
           </div>
 
@@ -1347,7 +1411,7 @@ export default function AuditoriaSueldosIndex({
                   <th className="px-3 py-3 text-center font-black text-white">Radio Camino</th>
                   <th className="px-3 py-3 text-center font-black text-white">Distancia Camino</th>
                   <th className="px-3 py-3 text-center font-black text-white">Docentes Desviados</th>
-                  <th className="px-3 py-3 text-right font-black text-white">Personal Afectado</th>
+                  <th className="px-3 py-3 text-right font-black text-white">Liquidaciones</th>
                   <th className="px-3 py-3 text-center font-black text-white">Gestión</th>
                   <th className="px-3 py-3 text-center font-black text-white">Acciones</th>
                 </tr>
@@ -1460,11 +1524,10 @@ export default function AuditoriaSueldosIndex({
               href={`/api/auditoria-sueldos/exportar-excel?tab=paga_menos&periodo=${nominaSeleccionada?.periodo || ''}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
               title="Descargar establecimientos que pagan menos en Excel"
             >
               <i className="fa-solid fa-file-excel text-sm"></i>
-              <span>Descargar Excel Pagan Menos</span>
             </a>
           </div>
 
@@ -1484,7 +1547,7 @@ export default function AuditoriaSueldosIndex({
                   <th className="px-3 py-3 text-center font-black text-white">Radio Camino</th>
                   <th className="px-3 py-3 text-center font-black text-white">Distancia Camino</th>
                   <th className="px-3 py-3 text-center font-black text-white">Docentes Desviados</th>
-                  <th className="px-3 py-3 text-right font-black text-white">Personal Afectado</th>
+                  <th className="px-3 py-3 text-right font-black text-white">Liquidaciones</th>
                   <th className="px-3 py-3 text-center font-black text-white">Gestión</th>
                   <th className="px-3 py-3 text-center font-black text-white">Acciones</th>
                 </tr>
@@ -1597,11 +1660,10 @@ export default function AuditoriaSueldosIndex({
               href={`/api/auditoria-sueldos/exportar-excel?tab=zonas&periodo=${nominaSeleccionada?.periodo || ''}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
               title="Descargar inconsistencias de letra de zona en Excel"
             >
               <i className="fa-solid fa-file-excel text-sm"></i>
-              <span>Descargar Excel Inconsistencias Zona</span>
             </a>
           </div>
 
@@ -1620,7 +1682,7 @@ export default function AuditoriaSueldosIndex({
                   <th className="px-3 py-3 text-center font-black text-white">Radio Circunferencia</th>
                   <th className="px-3 py-3 text-center font-black text-white">Radio Camino</th>
                   <th className="px-3 py-3 text-center font-black text-white">Distancia Camino</th>
-                  <th className="px-3 py-3 text-right font-black text-white">Personal Afectado</th>
+                  <th className="px-3 py-3 text-right font-black text-white">Liquidaciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -1677,11 +1739,10 @@ export default function AuditoriaSueldosIndex({
               href={`/api/auditoria-sueldos/exportar-excel?tab=tracking&periodo=${nominaSeleccionada?.periodo || ''}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
               title="Descargar panel de seguimiento y gestión en Excel"
             >
               <i className="fa-solid fa-file-excel text-sm"></i>
-              <span>Descargar Excel Seguimiento y Gestión</span>
             </a>
           </div>
 
@@ -1700,7 +1761,7 @@ export default function AuditoriaSueldosIndex({
                   <th className="px-3 py-3 text-center font-black text-white">Radio Circunferencia</th>
                   <th className="px-3 py-3 text-center font-black text-white">Radio Camino</th>
                   <th className="px-3 py-3 text-center font-black text-white">Distancia Camino</th>
-                  <th className="px-3 py-3 text-right font-black text-white">Personal Afectado</th>
+                  <th className="px-3 py-3 text-right font-black text-white">Liquidaciones</th>
                   <th className="px-3 py-3 text-center font-black text-white">Estado Gestión</th>
                   <th className="px-3 py-3 text-center font-black text-white">Acción</th>
                 </tr>
@@ -1854,22 +1915,18 @@ export default function AuditoriaSueldosIndex({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <div>
                 <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
-                  <i className="fa-solid fa-building-columns text-[#0284c7]"></i>
-                  Matriz de Relación de Escuelas y Sectores Presupuestarios ({filteredCruce.length} registros)
+                  <i className="fa-solid fa-school text-[#FE8204]"></i>
+                  Matriz de Relación de Escuelas y Sectores Presupuestarios
                 </h2>
-                <p className="text-xs text-gray-600">
-                  Cruce detallado de establecimientos cargados en el SIGE con las liquidaciones correspondientes.
-                </p>
               </div>
               <a
                 href={`/api/auditoria-sueldos/exportar-excel?tab=cruce&periodo=${nominaSeleccionada?.periodo || ''}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
                 title="Descargar matriz completa de Escuelas y Sectores en Excel"
               >
                 <i className="fa-solid fa-file-excel text-sm"></i>
-                <span>Descargar Excel Escuelas y Sectores</span>
               </a>
             </div>
 
@@ -1890,7 +1947,7 @@ export default function AuditoriaSueldosIndex({
                     <th className="px-3 py-3 text-center font-black text-white">Radio Camino</th>
                     <th className="px-3 py-3 text-center font-black text-white">Distancia Camino</th>
                     <th className="px-3 py-3 text-center font-black text-white">Docentes Desviados</th>
-                    <th className="px-3 py-3 text-right font-black text-white">Personal Afectado</th>
+                    <th className="px-3 py-3 text-right font-black text-white">Liquidaciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -2016,10 +2073,10 @@ export default function AuditoriaSueldosIndex({
                 href="/api/auditoria-sueldos/exportar-depuracion-excel"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer shrink-0"
+                className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
+                title="Descargar Reporte Depuración Excel"
               >
                 <i className="fa-solid fa-file-excel text-sm"></i>
-                <span>Descargar Reporte Depuración Excel</span>
               </a>
             </div>
 
@@ -2213,11 +2270,10 @@ export default function AuditoriaSueldosIndex({
                 href={`/api/auditoria-sueldos/exportar-excel?tab=sin_escuela&periodo=${nominaSeleccionada?.periodo || ''}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
                 title="Descargar Otros Sectores en Excel"
               >
                 <i className="fa-solid fa-file-excel text-sm"></i>
-                <span>Descargar Excel Otros Sectores</span>
               </a>
             </div>
 
