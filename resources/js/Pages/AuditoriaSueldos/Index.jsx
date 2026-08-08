@@ -326,7 +326,9 @@ export default function AuditoriaSueldosIndex({
     if (!cue || distCamino === null || distCamino === undefined || distCamino === '') {
       return <span className="text-slate-400 font-medium text-[11px]">No Aplica</span>;
     }
-    return <span className="font-extrabold text-gray-900 text-xs">📍 {Number(distCamino).toFixed(1).replace('.', ',')} km</span>;
+    const val = Number(distCamino);
+    const formatted = val % 1 === 0 ? val.toString() : val.toFixed(1).replace('.', ',');
+    return <span className="font-extrabold text-gray-900 text-xs">📍 {formatted} km</span>;
   };
 
   const renderEscalaLeyBadge = (porcPagado) => {
