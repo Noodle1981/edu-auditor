@@ -24,18 +24,19 @@ stateDiagram-v2
 
 ## 2. Estructura y Herramientas del Panel
 
-La tabla de **Seguimiento & Gestión** proporciona un entorno interactivo completo para los auditores:
+La tabla de **Seguimiento & Gestión** cuenta con cabecera Naranja Institucional (`bg-[#FE8204] text-white font-black`) e interactividad completa:
 
 | Columna | Descripción |
 |---|---|
-| **Centro** | Código del Centro Salarial (`Centro 98`, `Centro 19`, `Centro 80`, etc.). |
+| **Centro** | Badge naranja con el código de Centro Salarial (`98`, `19`, `80`, `63`, etc.). |
 | **Sector** | Número del sector presupuestario auditado. |
 | **Establecimiento** | Nombre de la escuela o repartición asociada. |
-| **Radio SIGE** | Radio oficial en la base administrativa SIGE. |
-| **Radio Sueldo** | Radio determinado por la mediana de liquidación de haberes. |
-| **Coincide SIGE vs Sueldo** | Badge dinámico que evalúa coincidencia (`COINCIDE_SIGE`, `PAGA_MÁS_QUE_SIGE`, `PAGA_MENOS_QUE_SIGE`). |
+| **Radio SIGE** | Radio oficial en la base administrativa SIGE (**`R1`** al **`R7`**). |
+| **Radio Sueldo** | Radio determinado por la mediana de liquidación de haberes (**`R1`** al **`R7`**). |
+| **Coincide SIGE vs Sueldo** | Badge dinámico que evalúa coincidencia (`🟢 SI`, `🔴 +1`, `🟡 -1`). |
 | **% Pagado** | Alícuota mediana porcentual efectivamente liquidada. |
-| **Ley / Escala** | Ley aplicable según alícuota pagada. |
+| **Escala Detectada** | Badge de escala (`Ley Paritaria`, `Ley Histórica`, `Porcentaje Irregular`). |
+| **Liquidaciones** | Cantidad de liquidaciones de haberes registradas (`COUNT(DISTINCT cuil)`). |
 | **Estado Gestión** | Estado administrativo (`CONFORME`, `PENDIENTE`, `EN_INVESTIGACION`, `JUSTIFICADO`, `CORREGIDO`). |
 | **Acciones** | Botón para editar estado, expediente y notas de auditoría. |
 

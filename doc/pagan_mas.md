@@ -20,38 +20,37 @@ $$\text{Condición de Alerta: } \text{Radio Sueldo} > \text{Radio SIGE Oficial}$
    La liquidación de un radio superior al asignado oficialmente representa un erogamiento presupuestario en exceso sin sustento normativo, generando un impacto financiero acumulativo en la nómina provincial.
 2. **Desequilibrio de Paridad Salarial:**
    Causa inequidad entre establecimientos ubicados en la misma zona geográfica donde uno percibe la bonificación correcta y otro recibe una bonificación inflada.
-3. **Casos Críticos Detectados (Mayo 2026):**
-   * En la liquidación auditada de Mayo 2026 se identificaron **61 sectores** en esta condición (afectando a **2.327 agentes**).
-   * En todos los casos se analiza la combinación unívoca **`CENTRO + SECTOR`** para evitar confundir establecimientos públicos con colegios privados.
+3. **Casos Críticos Detectados:**
+   Se analiza la combinación unívoca **`CENTRO + SECTOR`** para evitar confundir establecimientos públicos con colegios privados.
 
 ---
 
 ## 3. Matriz de Clasificación de Desvíos
 
-| Nivel de Desvío | Diferencia | Acción Requerida |
+| Nivel de Desvío | Badge Visual | Acción Requerida |
 | :--- | :--- | :--- |
-| 🔴 **Desviación Extrema** | $+3$ a $+5$ Radios | Suspensión cautelar preventiva y citación a liquidaciones. |
-| 🟠 **Desviación Moderada** | $+2$ Radios | Revisión de expediente de creación o traslado de edificio. |
-| 🟡 **Desviación Menor** | $+1$ Radio | Verificación de discrepancia vial o paritaria local. |
+| 🔴 **Desviación Crítica** | `🔴 +2` a `🔴 +5` | Suspensión cautelar preventiva y citación a liquidaciones. |
+| 🔴 **Desviación Estándar** | `🔴 +1` | Revisión de expediente de creación, traslado de edificio o discrepancia vial. |
 
 ---
 
 ## 4. Estructura de la Tabla de Control en la Aplicación
 
-La tabla de **Pagan MÁS que SIGE** se organiza en columnas independientes para máxima claridad:
+La tabla se presenta con cabeceras en Naranja Institucional (`bg-[#FE8204] text-white font-black`) y columnas independientes:
 
 | Columna | Descripción |
 |---|---|
-| **Centro** | Código del Centro Salarial (`Centro 98`, `Centro 19`, `Centro 80`, etc.). |
+| **Centro** | Badge naranja con el código de Centro Salarial (`98`, `19`, `80`, `63`, etc.). |
 | **Sector** | Número del sector presupuestario auditado. |
 | **Establecimiento** | Nombre oficial de la escuela u organización. |
 | **Ámbito** | Badge de gestión (`PÚBLICO` o `PRIVADO`). |
 | **Nivel** | Nivel educativo (Primaria, Secundaria, Superior, etc.). |
-| **Radio SIGE** | Radio asignado administrativamente en SIGE. |
-| **Radio Sueldo** | Radio determinado a partir de la mediana de liquidación en haberes. |
+| **Radio SIGE** | Radio asignado administrativamente en SIGE (**`R1`** al **`R7`**). |
+| **Radio Sueldo** | Radio determinado a partir de la mediana de liquidación en haberes (**`R1`** al **`R7`**). |
+| **Desviación** | Badge simplificado de desvío (ej. **`🔴 +1`**). |
 | **R. Circ / R. Cam** | Radios teóricos calculados por distancia a la Plaza 25 de Mayo y caminos. |
-| **Personal Afectado** | Cantidad total de agentes impactados por el sobrepago. |
-| **Gestión y Acciones** | Estado de gestión (`PENDIENTE`, `EN_INVESTIGACION`, `CORREGIDO`) y notas del auditor. |
+| **Liquidaciones** | Cantidad total de agentes/recibos impactados por el sobrepago (`COUNT(DISTINCT cuil)`). |
+| **Gestión y Acciones** | Estado de gestión (`PENDIENTE`, `EN_INVESTIGACION`, `CORREGIDO`, `JUSTIFICADO`) y notas del auditor. |
 
 ---
 

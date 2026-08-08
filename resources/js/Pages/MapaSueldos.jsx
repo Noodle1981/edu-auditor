@@ -873,7 +873,7 @@ export default function MapaSueldos({ edificios = [] }) {
 
             {searchQuery && (
               <div className="mt-3 text-[11px] text-slate-600 font-bold px-1 flex justify-between items-center bg-slate-50 p-2 rounded-xl border border-slate-100">
-                <span className="truncate">Filtro activo: "{searchQuery}"</span>
+                <span className="truncate">Filtro activo: &quot;{searchQuery}&quot;</span>
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}

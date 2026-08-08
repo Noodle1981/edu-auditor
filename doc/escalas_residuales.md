@@ -12,41 +12,36 @@ En la Provincia de San Juan, la compensación salarial por zona inhóspita y ubi
 
 1. **Escala Histórica (Ley Original):**
    Fijaba porcentajes de bonificación sobre el Sueldo Básico organizados en alícuotas tradicionales:
-   $$\text{Radio 1: } 20\% \quad | \quad \text{Radio 2: } 30\% \quad | \quad \text{Radio 3: } 40\% \quad | \quad \text{Radio 4: } 80\% \quad | \quad \text{Radio 5: } 100\% \quad | \quad \text{Radio 6: } 120\% \quad | \quad \text{Radio 7: } 140\%$$
+   $$\text{R1: } 20\% \quad | \quad \text{R2: } 30\% \quad | \quad \text{R3: } 40\% \quad | \quad \text{R4: } 80\% \quad | \quad \text{R5: } 100\% \quad | \quad \text{R6: } 120\% \quad | \quad \text{R7: } 140\%$$
 
 2. **Escala Paritaria Vigente (Actualización Salarial):**
    Fruto de los acuerdos paritarios, las alícuotas fueron elevadas para mejorar la cobertura de radicación:
-   $$\text{Radio 1: } 40\% \quad | \quad \text{Radio 2: } 50\% \quad | \quad \text{Radio 3: } 60\% \quad | \quad \text{Radio 4: } 95\% \quad | \quad \text{Radio 5: } 115\% \quad | \quad \text{Radio 6: } 135\% \quad | \quad \text{Radio 7: } 155\%$$
+   $$\text{R1: } 40\% \quad | \quad \text{R2: } 50\% \quad | \quad \text{R3: } 60\% \quad | \quad \text{R4: } 95\% \quad | \quad \text{R5: } 115\% \quad | \quad \text{R6: } 135\% \quad | \quad \text{R7: } 155\%$$
 
 ---
 
-## 2. Categorías de Registros Residuales
+## 2. Categorías de Registros Residuales y Clasificación de Alícuotas
 
-En la liquidación auditada de Mayo 2026, el sistema identificó **194 registros residuales**, divididos en dos categorías principales:
+En la liquidación auditada, el sistema clasifica las alícuotas en tres categorías precisas:
 
-### A. Ley Histórica (109 Registros - Ley Vieja / Desconocida)
-Corresponden a liquidaciones que continúan utilizando los porcentajes de la ley original (80%, 120%, 140%). 
-* **Origen:** Docentes con derechos adquiridos antes de las actualizaciones paritarias o cargos congelados por normativas de transición. Se clasifican de forma manual y se dividen en dos sub-pestañas:
-  - **Sectores Vinculados a Escuela (85 registros)**.
-  - **Sectores Desvinculados / Sin Escuela (24 registros)**.
-
-### B. Ley Paritaria / Adicionales Jerárquicos (85 Registros)
-Corresponden a porcentajes no enteros o compuestos (ejemplos: `53,97%`, `80,95%`, `104,23%`, `128,18%`).
-* **Origen:** Directivos, vicedirectores, supervisores y personal jerárquico que perciben adicionales específicos sobre la base de cálculo de zona.
+1. **Ley Paritaria:** Corresponden a los porcentajes vigentes elevados por acuerdo paritario.
+2. **Ley Histórica:** Corresponden a docentes o cargos que conservan alícuotas fijas tradicionales (80%, 120%, 140%).
+3. **Porcentaje Irregular:** Corresponden a porcentajes descalibrados o no enteros (ejemplos: `53,97%`, `104,08%`, `182,15%`).
+   * **Origen:** Absorción de adicionales jerárquicos o topes presupuestarios aplicados masivamente sobre sectores de liquidación.
 
 ---
 
 ## 3. Estructura de la Tabla en la Aplicación
 
-Todas las tablas de **Escalas & Residuales** muestran de forma limpia y separada las columnas:
+Para garantizar máxima legibilidad y evitar columnas redundantes, la información administrativa se organiza de la siguiente manera:
 
 | Columna | Descripción |
 |---|---|
-| **Centro** | Código del Centro Salarial (`Centro 98`, `Centro 19`, `Centro 80`, etc.). |
-| **Sector** | Número del sector presupuestario. |
-| **Establecimiento** | Nombre de la escuela o repartición. |
-| **Porcentaje Pagado** | Porcentaje de bonificación pagado en haberes. |
-| **Escala Detectada** | `LEY HISTORICA` o `LEY PARITARIA`. |
+| **Centro** | Badge naranja con el código de Centro Salarial (`98`, `19`, `80`, `63`, etc.). |
+| **Sector** | Número del sector presupuestario auditado. |
+| **Establecimiento / Escuela** | Nombre de la escuela con datos integrados de CUE, Nivel y Departamento (`CUE: 700012300 INICIAL • CAPITAL`). |
+| **Radio Sueldo (A04)** | Radio abonado con alícuota en texto plano negrita (ej. **`R4 (104.08%)`**), sin recuadros amarillos ni emojis. |
+| **Liquidaciones** | Cantidad de liquidaciones de haberes afectadas (`COUNT(DISTINCT cuil)`). |
+| **Escala Detectada** | Badge clasificatorio (`Ley Paritaria`, `Ley Histórica` o `Porcentaje Irregular`). |
 | **Dictamen Auditor** | `PENDIENTE`, `JUSTIFICADO_LEGAL`, `ERROR_LIQUIDACION`, `CASO_ESPECIAL`. |
-| **Decreto / Norma** | Número de norma respaldatoria (ej. *Decreto N° 1420/89*). |
-| **Notas del Auditor** | Justificación técnica del auditor. |
+| **Acción / Gestión** | Modal para ingresar Decreto/Norma respaldatoria y observaciones del auditor. |

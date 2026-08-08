@@ -735,7 +735,9 @@ class AuditoriaSueldosController extends Controller
                 $sheet->setCellValue('C'.$r, $v->cue ?? 'S/D');
                 $sheet->setCellValue('D'.$r, $v->nombre_establecimiento ?? 'Sin Registro');
                 $sheet->setCellValue('E'.$r, $v->porcentaje_pagado ? $v->porcentaje_pagado.'%' : '-');
-                $escalaText = ($v->escala_detectada === 'LEY HISTORICA' || $v->escala_detectada === 'VIEJA') ? 'Ley Histórica' : 'Ley Paritaria';
+                $escalaText = ($v->escala_detectada === 'LEY HISTORICA' || $v->escala_detectada === 'VIEJA')
+                    ? 'Ley Histórica'
+                    : ($v->escala_detectada === 'DESCONOCIDA' ? 'Porcentaje Irregular' : 'Ley Paritaria');
                 $sheet->setCellValue('F'.$r, $escalaText);
                 $sheet->setCellValue('G'.$r, $v->clasificacion_auditor);
                 $sheet->setCellValue('H'.$r, $v->resolucion_aval ?? '-');

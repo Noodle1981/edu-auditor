@@ -46,6 +46,7 @@ export default function AuditoriaSueldosIndex({
 
   const [depuracionFiltroEstado, setDepuracionFiltroEstado] = useState('TODOS');
   const [depuracionBusqueda, setDepuracionBusqueda] = useState('');
+  const [subTabOtrosSectores, setSubTabOtrosSectores] = useState('depuracion');
 
   const [sanearDepuracionModalItem, setSanearDepuracionModalItem] = useState(null);
   const [sanearDepEstId, setSanearDepEstId] = useState('');
@@ -154,6 +155,19 @@ export default function AuditoriaSueldosIndex({
       return matchesEstado && matchesSearch;
     });
   }, [depuracionList, depuracionFiltroEstado, depuracionBusqueda]);
+
+  const PAGE_SIZE_DEPURACION = 15;
+  const [pageDepuracion, setPageDepuracion] = useState(1);
+
+  useEffect(() => {
+    setPageDepuracion(1);
+  }, [depuracionFiltroEstado, depuracionBusqueda]);
+
+  const totalPagesDepuracion = Math.ceil(filteredDepuracion.length / PAGE_SIZE_DEPURACION) || 1;
+  const paginatedDepuracion = useMemo(() => {
+    const start = (pageDepuracion - 1) * PAGE_SIZE_DEPURACION;
+    return filteredDepuracion.slice(start, start + PAGE_SIZE_DEPURACION);
+  }, [filteredDepuracion, pageDepuracion]);
 
   const handleSanearDepuracionSubmit = async () => {
     if (!sanearDepuracionModalItem) return;
@@ -328,7 +342,7 @@ export default function AuditoriaSueldosIndex({
     }
     const val = Number(distCamino);
     const formatted = val % 1 === 0 ? val.toString() : val.toFixed(1).replace('.', ',');
-    return <span className="font-extrabold text-gray-900 text-xs">📍 {formatted} km</span>;
+    return <span className="font-extrabold text-gray-900 text-xs">{formatted} km</span>;
   };
 
   const renderEscalaLeyBadge = (porcPagado) => {
@@ -858,7 +872,7 @@ export default function AuditoriaSueldosIndex({
       </div>
 
       {/* Global Filter Bar for Tables (Single Line) */}
-      {activeTab !== 'kpi' && (
+      {activeTab !== 'kpi' && activeTab !== 'sin_escuela' && (
         <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-sm mb-6 flex items-center gap-2.5 overflow-x-auto custom-scrollbar whitespace-nowrap">
           <div className="relative shrink-0 w-64 sm:w-72">
             <i className="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-[#FE8204] text-xs"></i>
@@ -1178,19 +1192,18 @@ export default function AuditoriaSueldosIndex({
 
             <div className="overflow-x-auto max-h-96 custom-scrollbar">
               <table className="w-full text-xs text-left text-gray-700">
-                <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0">
+                <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
                   <tr>
-                    <th className="px-3 py-2 text-center font-bold">Centro</th>
-                    <th className="px-3 py-2 text-center font-bold">Sector</th>
-                    <th className="px-3 py-2">Establecimiento / Escuela</th>
-                    <th className="px-3 py-2">Departamento</th>
-                    <th className="px-3 py-2 text-center">Radio SIGE</th>
-                    <th className="px-3 py-2 text-center">Radio Sueldo (A04)</th>
-                    <th className="px-3 py-2 text-right">A01 Básico</th>
-                    <th className="px-3 py-2 text-right">A04 Monto ($)</th>
-                    <th className="px-3 py-2">Escala</th>
-                    <th className="px-3 py-2 text-center">Dictamen / Clasificación</th>
-                    <th className="px-3 py-2">Decreto / Resolución Aval</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Centro</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Sector</th>
+                    <th className="px-3 py-3 font-black text-white">Establecimiento / Escuela</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Radio SIGE</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Radio Sueldo (A04)</th>
+                    <th className="px-3 py-3 text-right font-black text-white">A01 Básico</th>
+                    <th className="px-3 py-3 text-right font-black text-white">A04 Monto ($)</th>
+                    <th className="px-3 py-3 font-black text-white">Escala</th>
+                    <th className="px-3 py-3 text-center font-black text-white">Dictamen / Clasificación</th>
+                    <th className="px-3 py-3 font-black text-white">Decreto / Resolución Aval</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -1202,23 +1215,21 @@ export default function AuditoriaSueldosIndex({
                         <div className="font-extrabold text-gray-950 leading-tight">
                           {v.nombre_establecimiento || 'Sin Establecimiento Registrado'}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-[10px]">
-                          {v.cue && <span className="text-gray-500 font-medium">CUE: {v.cue}</span>}
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-500 font-semibold">
+                          {v.cue && <span>CUE: {v.cue}</span>}
                           {v.nivel_educativo && v.nivel_educativo !== 'S/N' && (
                             <span className="px-1.5 py-0.2 bg-gray-100 text-gray-700 rounded border font-semibold">
                               {v.nivel_educativo}
                             </span>
                           )}
+                          {v.departamento && <span>• {v.departamento}</span>}
                         </div>
                       </td>
-                      <td className="px-3 py-2 font-bold text-gray-700">{v.departamento || 'S/D'}</td>
                       <td className="px-3 py-2 text-center font-black">
-                        {v.radio_sige ? `Radio ${v.radio_sige}` : 'N/A'}
+                        {v.radio_sige ? `R${v.radio_sige}` : 'N/A'}
                       </td>
-                      <td className="px-3 py-2 text-center font-black text-amber-800">
-                        <span className="px-2 py-0.5 text-[10px] font-black rounded bg-amber-100 border border-amber-300">
-                          Radio {v.radio_sueldo} ({v.porcentaje_pagado}%)
-                        </span>
+                      <td className="px-3 py-2 text-center font-black text-amber-800 text-xs">
+                        R{v.radio_sueldo} ({v.porcentaje_pagado}%)
                       </td>
                       <td className="px-3 py-2 text-right font-mono">${v.a01_basico.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right font-mono font-bold">
@@ -1229,11 +1240,15 @@ export default function AuditoriaSueldosIndex({
                           className={`font-bold text-[11px] ${
                             v.escala_detectada === 'LEY HISTORICA' || v.escala_detectada === 'VIEJA'
                               ? 'text-gray-700'
+                              : v.escala_detectada === 'DESCONOCIDA'
+                              ? 'text-amber-800 font-extrabold'
                               : 'text-gray-900'
                           }`}
                         >
                           {v.escala_detectada === 'LEY HISTORICA' || v.escala_detectada === 'VIEJA'
                             ? 'Ley Histórica'
+                            : v.escala_detectada === 'DESCONOCIDA'
+                            ? 'Porcentaje Irregular'
                             : 'Ley Paritaria'}
                         </span>
                       </td>
@@ -2050,395 +2065,438 @@ export default function AuditoriaSueldosIndex({
       {/* TAB: SECTORES SIN IDENTIFICARSE (INVESTIGACIÓN & DEPURACIÓN DE CENTROS/SECTORES) */}
       {activeTab === 'sin_escuela' && (
         <div className="space-y-6">
-          {/* DEPURACIÓN DE CENTROS Y SECTORES (MAESTRO VS SUELDOS) */}
-          <GlassCard className="p-6 border-l-4 border-l-[#FE8204]">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 text-[10px] font-black uppercase rounded-full bg-[#FE8204]/10 text-[#FE8204] border border-[#FE8204]/20">
-                    Depuración de Catálogo
-                  </span>
-                  <span className="text-xs font-bold text-gray-500">
-                    Maestro Refactorizado × Liquidación Sueldos
-                  </span>
-                </div>
-                <h2 className="text-lg font-black text-gray-900 flex items-center gap-2 mt-1">
+          {/* Sub-Navegación Interna para Otros Sectores */}
+          <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200 shadow-xs mb-4">
+            <button
+              onClick={() => setSubTabOtrosSectores('depuracion')}
+              className={`flex-1 min-w-[200px] py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                subTabOtrosSectores === 'depuracion'
+                  ? 'bg-[#FE8204] text-white shadow-md shadow-[#FE8204]/20 border border-[#FE8204]'
+                  : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <i className={`fa-solid fa-filter-circle-dollar text-sm ${subTabOtrosSectores === 'depuracion' ? 'text-white' : 'text-[#FE8204]'}`}></i>
+              <span>Depuración de Catálogo</span>
+              <span className={`px-2 py-0.5 text-[10px] rounded-full font-black ${
+                subTabOtrosSectores === 'depuracion' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
+              }`}>
+                {depuracionStats.total}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setSubTabOtrosSectores('saneamiento')}
+              className={`flex-1 min-w-[200px] py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                subTabOtrosSectores === 'saneamiento'
+                  ? 'bg-[#FE8204] text-white shadow-md shadow-[#FE8204]/20 border border-[#FE8204]'
+                  : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <i className={`fa-solid fa-link text-sm ${subTabOtrosSectores === 'saneamiento' ? 'text-white' : 'text-[#FE8204]'}`}></i>
+              <span>Saneamiento & Vinculación CUE</span>
+              <span className={`px-2 py-0.5 text-[10px] rounded-full font-black ${
+                subTabOtrosSectores === 'saneamiento' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
+              }`}>
+                {unlinkedResultados.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setSubTabOtrosSectores('residuales')}
+              className={`flex-1 min-w-[200px] py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                subTabOtrosSectores === 'residuales'
+                  ? 'bg-[#FE8204] text-white shadow-md shadow-[#FE8204]/20 border border-[#FE8204]'
+                  : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <i className={`fa-solid fa-triangle-exclamation text-sm ${subTabOtrosSectores === 'residuales' ? 'text-white' : 'text-amber-500'}`}></i>
+              <span>Residuales Huérfanos</span>
+              <span className={`px-2 py-0.5 text-[10px] rounded-full font-black ${
+                subTabOtrosSectores === 'residuales' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800 border border-amber-200'
+              }`}>
+                {unlinkedViejos.length}
+              </span>
+            </button>
+          </div>
+
+          {/* SUB-TAB 1: DEPURACIÓN DE CENTROS Y SECTORES (MAESTRO VS SUELDOS) */}
+          {subTabOtrosSectores === 'depuracion' && (
+            <GlassCard className="p-6">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <h2 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
                   <i className="fa-solid fa-filter-circle-dollar text-[#FE8204]"></i>
-                  Depuración & Diagnóstico de Centros y Sectores Sin Uso ({depuracionStats.total})
+                  <span>Depuración & Diagnóstico de Centros y Sectores Sin Uso ({depuracionStats.total})</span>
                 </h2>
-                <p className="text-xs text-gray-600 mt-0.5">
-                  Cruce automatizado para detectar Centros y Sectores sin uso en la liquidación actual, así como haberes no catalogados.
-                </p>
+
+                <a
+                  href="/api/auditoria-sueldos/exportar-depuracion-excel"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
+                  title="Descargar Reporte Depuración Excel"
+                >
+                  <i className="fa-solid fa-file-excel text-sm"></i>
+                </a>
               </div>
 
-              <a
-                href="/api/auditoria-sueldos/exportar-depuracion-excel"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
-                title="Descargar Reporte Depuración Excel"
-              >
-                <i className="fa-solid fa-file-excel text-sm"></i>
-              </a>
-            </div>
+              {/* KPI Sub-Filtros para Depuración */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
+                <button
+                  onClick={() => setDepuracionFiltroEstado('TODOS')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    depuracionFiltroEstado === 'TODOS'
+                      ? 'bg-gray-900 text-white border-gray-900 shadow-md font-bold'
+                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">TODOS</div>
+                  <div className="text-lg font-black">{depuracionStats.total}</div>
+                </button>
 
-            {/* KPI Sub-Filtros para Depuración */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
-              <button
-                onClick={() => setDepuracionFiltroEstado('TODOS')}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                  depuracionFiltroEstado === 'TODOS'
-                    ? 'bg-gray-900 text-white border-gray-900 shadow-md font-bold'
-                    : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                }`}
-              >
-                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">TODOS</div>
-                <div className="text-lg font-black">{depuracionStats.total}</div>
-              </button>
+                <button
+                  onClick={() => setDepuracionFiltroEstado('CENTRO_SIN_USO')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    depuracionFiltroEstado === 'CENTRO_SIN_USO'
+                      ? 'bg-red-600 text-white border-red-600 shadow-md font-bold'
+                      : 'bg-red-50 text-red-900 border-red-200 hover:bg-red-100'
+                  }`}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🔴 Centros Sin Uso</div>
+                  <div className="text-lg font-black">{depuracionStats.centroSinUso}</div>
+                </button>
 
-              <button
-                onClick={() => setDepuracionFiltroEstado('CENTRO_SIN_USO')}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                  depuracionFiltroEstado === 'CENTRO_SIN_USO'
-                    ? 'bg-red-600 text-white border-red-600 shadow-md font-bold'
-                    : 'bg-red-50 text-red-900 border-red-200 hover:bg-red-100'
-                }`}
-              >
-                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🔴 Centros Sin Uso</div>
-                <div className="text-lg font-black">{depuracionStats.centroSinUso}</div>
-              </button>
+                <button
+                  onClick={() => setDepuracionFiltroEstado('SUELDO_NO_CATALOGADO')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    depuracionFiltroEstado === 'SUELDO_NO_CATALOGADO'
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-md font-bold'
+                      : 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100'
+                  }`}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">⚠️ No Catalogados</div>
+                  <div className="text-lg font-black">{depuracionStats.noCatalogado}</div>
+                </button>
 
-              <button
-                onClick={() => setDepuracionFiltroEstado('SUELDO_NO_CATALOGADO')}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                  depuracionFiltroEstado === 'SUELDO_NO_CATALOGADO'
-                    ? 'bg-amber-600 text-white border-amber-600 shadow-md font-bold'
-                    : 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100'
-                }`}
-              >
-                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">⚠️ No Catalogados</div>
-                <div className="text-lg font-black">{depuracionStats.noCatalogado}</div>
-              </button>
+                <button
+                  onClick={() => setDepuracionFiltroEstado('SECTOR_SIN_USO')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    depuracionFiltroEstado === 'SECTOR_SIN_USO'
+                      ? 'bg-yellow-600 text-white border-yellow-600 shadow-md font-bold'
+                      : 'bg-yellow-50 text-yellow-900 border-yellow-200 hover:bg-yellow-100'
+                  }`}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🟡 Sectores Sin Uso</div>
+                  <div className="text-lg font-black">{depuracionStats.sectorSinUso}</div>
+                </button>
 
-              <button
-                onClick={() => setDepuracionFiltroEstado('SECTOR_SIN_USO')}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                  depuracionFiltroEstado === 'SECTOR_SIN_USO'
-                    ? 'bg-yellow-600 text-white border-yellow-600 shadow-md font-bold'
-                    : 'bg-yellow-50 text-yellow-900 border-yellow-200 hover:bg-yellow-100'
-                }`}
-              >
-                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🟡 Sectores Sin Uso</div>
-                <div className="text-lg font-black">{depuracionStats.sectorSinUso}</div>
-              </button>
+                <button
+                  onClick={() => setDepuracionFiltroEstado('BAJA_VOLUMETRÍA')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    depuracionFiltroEstado === 'BAJA_VOLUMETRÍA'
+                      ? 'bg-sky-600 text-white border-sky-600 shadow-md font-bold'
+                      : 'bg-sky-50 text-sky-900 border-sky-200 hover:bg-sky-100'
+                  }`}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🔵 Baja Volumetría</div>
+                  <div className="text-lg font-black">{depuracionStats.bajaVolumetria}</div>
+                </button>
 
-              <button
-                onClick={() => setDepuracionFiltroEstado('BAJA_VOLUMETRÍA')}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                  depuracionFiltroEstado === 'BAJA_VOLUMETRÍA'
-                    ? 'bg-sky-600 text-white border-sky-600 shadow-md font-bold'
-                    : 'bg-sky-50 text-sky-900 border-sky-200 hover:bg-sky-100'
-                }`}
-              >
-                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🔵 Baja Volumetría</div>
-                <div className="text-lg font-black">{depuracionStats.bajaVolumetria}</div>
-              </button>
+                <button
+                  onClick={() => setDepuracionFiltroEstado('ACTIVO')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    depuracionFiltroEstado === 'ACTIVO'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md font-bold'
+                      : 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                >
+                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🟢 Activos</div>
+                  <div className="text-lg font-black">{depuracionStats.activos}</div>
+                </button>
+              </div>
 
-              <button
-                onClick={() => setDepuracionFiltroEstado('ACTIVO')}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                  depuracionFiltroEstado === 'ACTIVO'
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md font-bold'
-                    : 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100'
-                }`}
-              >
-                <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🟢 Activos</div>
-                <div className="text-lg font-black">{depuracionStats.activos}</div>
-              </button>
-            </div>
+              {/* Búsqueda rápida de Depuración */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  value={depuracionBusqueda}
+                  onChange={(e) => setDepuracionBusqueda(e.target.value)}
+                  placeholder="Buscar en depuración por centro, sector, nombre o diagnóstico..."
+                  className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2 text-xs font-semibold text-gray-900 focus:ring-[#FE8204] focus:border-[#FE8204]"
+                />
+              </div>
 
-            {/* Búsqueda rápida de Depuración */}
-            <div className="mb-4">
-              <input
-                type="text"
-                value={depuracionBusqueda}
-                onChange={(e) => setDepuracionBusqueda(e.target.value)}
-                placeholder="Buscar en depuración por centro, sector, nombre o diagnóstico..."
-                className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2 text-xs font-semibold text-gray-900 focus:ring-[#FE8204] focus:border-[#FE8204]"
-              />
-            </div>
-
-            {/* Tabla de Depuración */}
-            <div className="overflow-x-auto max-h-96 custom-scrollbar border rounded-xl">
-              <table className="w-full text-xs text-left text-gray-700">
-                <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0">
-                  <tr>
-                    <th className="px-3 py-3 text-center font-bold">Centro</th>
-                    <th className="px-3 py-3 font-bold">Nombre Centro</th>
-                    <th className="px-3 py-3 text-center font-bold">Sector</th>
-                    <th className="px-3 py-3 font-bold">Nombre Sector</th>
-                    <th className="px-3 py-3 font-bold">Nivel / Gestión</th>
-                    <th className="px-3 py-3 text-center font-bold">Liquidaciones</th>
-                    <th className="px-3 py-3 text-center font-bold">Estado Depuración</th>
-                    <th className="px-3 py-3 font-bold">Diagnóstico / Observaciones</th>
-                    <th className="px-3 py-3 text-center font-bold">Acción Sanación</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredDepuracion.slice(0, 100).map((d) => (
-                    <tr key={`dep-${d.centro}-${d.sector}-${d.id}`} className="hover:bg-slate-50">
-                      <td className="px-3 py-2.5 text-center font-black text-slate-900 bg-slate-100 rounded-lg">{d.centro}</td>
-                      <td className="px-3 py-2.5 font-bold text-gray-900">{d.nom_centro || 'S/D'}</td>
-                      <td className="px-3 py-2.5 text-center font-black text-gray-900">{d.sector}</td>
-                      <td className="px-3 py-2.5 font-semibold text-gray-800">{d.nom_sector || 'S/D'}</td>
-                      <td className="px-3 py-2.5 text-gray-600 font-medium">
-                        {d.nivel || 'S/N'} {d.gestion ? `(${d.gestion})` : ''}
-                      </td>
-                      <td className="px-3 py-2.5 text-center font-black text-sm">
-                        {d.cantidad_liquidaciones}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        {d.estado_depuracion === 'CENTRO_SIN_USO' && (
-                          <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-red-100 text-red-800 border border-red-300">🔴 CENTRO SIN USO</span>
-                        )}
-                        {d.estado_depuracion === 'SUELDO_NO_CATALOGADO' && (
-                          <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-amber-100 text-amber-900 border border-amber-300">⚠️ NO CATALOGADO</span>
-                        )}
-                        {d.estado_depuracion === 'SECTOR_SIN_USO' && (
-                          <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-yellow-100 text-yellow-900 border border-yellow-300">🟡 SECTOR SIN USO</span>
-                        )}
-                        {d.estado_depuracion === 'BAJA_VOLUMETRÍA' && (
-                          <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-sky-100 text-sky-900 border border-sky-300">🔵 BAJA VOLUMETRÍA</span>
-                        )}
-                        {d.estado_depuracion === 'ACTIVO' && (
-                          <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300">🟢 ACTIVO</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 font-medium text-gray-600 text-[11px]">
-                        {d.observaciones}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <button
-                          onClick={() => {
-                            setSanearDepuracionModalItem(d);
-                            setSanearDepEstId('');
-                            setSanearDepSearchTerm('');
-                            setSanearDepObs(d.observaciones || '');
-                            setSanearDepEstado(d.estado_depuracion || 'ACTIVO');
-                          }}
-                          className={`px-2.5 py-1 text-[10px] font-black text-white rounded-lg shadow-sm transition-all flex items-center gap-1 mx-auto cursor-pointer ${
-                            d.estado_depuracion === 'SUELDO_NO_CATALOGADO'
-                              ? 'bg-amber-600 hover:bg-amber-700 ring-2 ring-amber-400/50'
-                              : d.estado_depuracion === 'CENTRO_SIN_USO'
-                              ? 'bg-red-600 hover:bg-red-700'
-                              : 'bg-[#FE8204] hover:bg-[#e07203]'
-                          }`}
-                        >
-                          <i className="fa-solid fa-pen-to-square text-[9px]"></i>
-                          <span>Sanear / Vincular</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredDepuracion.length === 0 && (
+              {/* Tabla de Depuración */}
+              <div className="overflow-x-auto max-h-96 custom-scrollbar border rounded-xl">
+                <table className="w-full text-xs text-left text-gray-700">
+                  <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
                     <tr>
-                      <td colSpan="9" className="px-3 py-8 text-center text-gray-400 font-medium italic">
-                        No se encontraron registros de depuración para este filtro.
-                      </td>
+                      <th className="px-3 py-3 text-center font-black text-white">Centro</th>
+                      <th className="px-3 py-3 font-black text-white">Nombre Centro</th>
+                      <th className="px-3 py-3 text-center font-black text-white">Sector</th>
+                      <th className="px-3 py-3 font-black text-white">Nombre Sector</th>
+                      <th className="px-3 py-3 font-black text-white">Nivel / Gestión</th>
+                      <th className="px-3 py-3 text-center font-black text-white">Liquidaciones</th>
+                      <th className="px-3 py-3 text-center font-black text-white">Estado Depuración</th>
+                      <th className="px-3 py-3 font-black text-white">Diagnóstico / Observaciones</th>
+                      <th className="px-3 py-3 text-center font-black text-white">Acción Sanación</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {filteredDepuracion.length > 100 && (
-              <p className="text-[11px] text-gray-400 text-right mt-2 font-medium">
-                Mostrando los primeros 100 de {filteredDepuracion.length} registros. Utilice la búsqueda para refinar resultados o descargue el reporte Excel completo.
-              </p>
-            )}
-          </GlassCard>
-
-          <GlassCard className="p-6 border-l-4 border-l-slate-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-              <div>
-                <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
-                  <i className="fa-solid fa-circle-question text-slate-600"></i>
-                  Otros Sectores ({unlinkedResultados.length})
-                </h2>
-                <p className="text-xs text-gray-600">
-                  Sectores que registran liquidaciones docentes pero no poseen un establecimiento u oficina identificada en la base de datos oficial.
-                </p>
-              </div>
-              <a
-                href={`/api/auditoria-sueldos/exportar-excel?tab=sin_escuela&periodo=${nominaSeleccionada?.periodo || ''}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
-                title="Descargar Otros Sectores en Excel"
-              >
-                <i className="fa-solid fa-file-excel text-sm"></i>
-              </a>
-            </div>
-
-            <div className="overflow-x-auto max-h-96 custom-scrollbar">
-              <table className="w-full text-xs text-left text-gray-700">
-                <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200">
-                  <tr>
-                    <th className="px-3 py-3 text-center font-bold">Centro</th>
-                    <th className="px-3 py-3 font-bold">Nivel</th>
-                    <th className="px-3 py-3 font-bold">Nombre Sector</th>
-                    <th className="px-3 py-3 text-center font-bold">Sector</th>
-                    <th className="px-3 py-3 font-bold">Identificación / Gestión</th>
-                    <th className="px-3 py-3 text-center font-bold">Radio Sueldo</th>
-                    <th className="px-3 py-3 text-right font-bold">Docentes</th>
-                    <th className="px-3 py-3 text-center font-bold">Acción Saneamiento</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {unlinkedResultados.map((s) => {
-                    const isDadoDeBaja = s.estado_gestion === 'DADO_DE_BAJA';
-                    return (
-                      <tr key={s.id} className={isDadoDeBaja ? 'bg-red-50/90 text-red-950 font-semibold border-l-4 border-l-red-500' : 'hover:bg-slate-50/50'}>
-                        <td className="px-3 py-3 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{s.centro ?? 'S/D'}</span></td>
-                        <td className={`px-3 py-3 font-extrabold ${isDadoDeBaja ? 'text-red-900' : 'text-slate-800'}`}>{s.nivel_educativo || 'S/N'}</td>
-                        <td className="px-3 py-3 font-bold">
-                          {isDadoDeBaja ? (
-                            <div className="flex items-center gap-1.5 text-red-900 font-extrabold">
-                              <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-800 border border-red-300 rounded-md uppercase font-black shrink-0">
-                                DADO DE BAJA
-                              </span>
-                              <span>{s.nombre_establecimiento || 'Sector Desvinculado'}</span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-900">{s.nombre_establecimiento || 'Sector Desvinculado'}</span>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {paginatedDepuracion.map((d) => (
+                      <tr key={`dep-${d.centro}-${d.sector}-${d.id}`} className="hover:bg-slate-50">
+                        <td className="px-3 py-2.5 text-center font-black text-slate-900 bg-slate-100 rounded-lg">{d.centro}</td>
+                        <td className="px-3 py-2.5 font-bold text-gray-900">{d.nom_centro || 'S/D'}</td>
+                        <td className="px-3 py-2.5 text-center font-black text-gray-900">{d.sector}</td>
+                        <td className="px-3 py-2.5 font-semibold text-gray-800">{d.nom_sector || 'S/D'}</td>
+                        <td className="px-3 py-2.5 text-gray-600 font-medium">
+                          {d.nivel || 'S/N'} {d.gestion ? `(${d.gestion})` : ''}
+                        </td>
+                        <td className="px-3 py-2.5 text-center font-black text-sm">
+                          {d.cantidad_liquidaciones}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          {d.estado_depuracion === 'CENTRO_SIN_USO' && (
+                            <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-red-100 text-red-800 border border-red-300">🔴 CENTRO SIN USO</span>
+                          )}
+                          {d.estado_depuracion === 'SUELDO_NO_CATALOGADO' && (
+                            <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-amber-100 text-amber-900 border border-amber-300">⚠️ NO CATALOGADO</span>
+                          )}
+                          {d.estado_depuracion === 'SECTOR_SIN_USO' && (
+                            <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-yellow-100 text-yellow-900 border border-yellow-300">🟡 SECTOR SIN USO</span>
+                          )}
+                          {d.estado_depuracion === 'BAJA_VOLUMETRÍA' && (
+                            <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-sky-100 text-sky-900 border border-sky-300">🔵 BAJA VOLUMETRÍA</span>
+                          )}
+                          {d.estado_depuracion === 'ACTIVO' && (
+                            <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300">🟢 ACTIVO</span>
                           )}
                         </td>
-                        <td className={`px-3 py-3 text-center font-black text-sm ${isDadoDeBaja ? 'text-red-950' : 'text-gray-900'}`}>{s.sector}</td>
-                        <td className={`px-3 py-3 font-medium max-w-xs truncate ${isDadoDeBaja ? 'text-red-700 font-bold' : 'text-gray-600'}`}>
-                          {s.notas_auditor || <span className="italic text-gray-400">Sin notas de investigación</span>}
+                        <td className="px-3 py-2.5 font-medium text-gray-600 text-[11px]">
+                          {d.observaciones}
                         </td>
-                        <td className="px-3 py-3 text-center font-black">
-                          {s.radio_sueldo ? (
-                            <span className={isDadoDeBaja ? 'text-red-900' : 'text-purple-700'}>Radio {s.radio_sueldo} ({s.porc_pagado_mediana ?? 0}%)</span>
-                          ) : (
-                            <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]" title="No registra bonificación por zona (Radio Urbano)">Radio 1 (0%)</span>
-                          )}
-                        </td>
-                        <td className={`px-3 py-3 text-right font-bold ${isDadoDeBaja ? 'text-red-950' : 'text-gray-900'}`}>
-                          {s.total_filas_docentes} docentes
-                        </td>
-                        <td className="px-3 py-3 text-center">
+                        <td className="px-3 py-2.5 text-center">
                           <button
                             onClick={() => {
-                              setSaneamientoModalSector(s);
-                              setSaneamientoEstId('');
-                              setSaneamientoSearchTerm('');
-                              setSaneamientoObs(s.notas_auditor || '');
-                              setSaneamientoEstadoGestion(s.estado_gestion || 'EN_INVESTIGACION');
+                              setSanearDepuracionModalItem(d);
+                              setSanearDepEstId('');
+                              setSanearDepSearchTerm('');
+                              setSanearDepObs(d.observaciones || '');
+                              setSanearDepEstado(d.estado_depuracion || 'ACTIVO');
                             }}
-                            className={`px-3 py-1.5 text-[11px] font-bold text-white rounded-xl shadow transition flex items-center gap-1.5 mx-auto cursor-pointer ${
-                              isDadoDeBaja ? 'bg-red-600 hover:bg-red-700' : 'bg-[#FE8204] hover:bg-[#e07203]'
+                            className={`px-2.5 py-1 text-[10px] font-black text-white rounded-lg shadow-sm transition-all flex items-center gap-1 mx-auto cursor-pointer ${
+                              d.estado_depuracion === 'SUELDO_NO_CATALOGADO'
+                                ? 'bg-amber-600 hover:bg-amber-700 ring-2 ring-amber-400/50'
+                                : d.estado_depuracion === 'CENTRO_SIN_USO'
+                                ? 'bg-red-600 hover:bg-red-700'
+                                : 'bg-[#FE8204] hover:bg-[#e07203]'
                             }`}
                           >
-                            <i className={`fa-solid ${isDadoDeBaja ? 'fa-pen-to-square' : 'fa-link'} text-[10px]`}></i>
-                            {isDadoDeBaja ? 'Editar Baja' : 'Vincular a CUE'}
+                            <i className="fa-solid fa-pen-to-square text-[9px]"></i>
+                            <span>Sanear / Vincular</span>
                           </button>
                         </td>
                       </tr>
-                    );
-                  })}
-                  {unlinkedResultados.length === 0 && (
-                    <tr>
-                      <td colSpan="8" className="px-3 py-8 text-center text-gray-400 font-medium italic">
-                        No hay sectores desvinculados en esta nómina.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </GlassCard>
+                    ))}
+                    {filteredDepuracion.length === 0 && (
+                      <tr>
+                        <td colSpan="9" className="px-3 py-8 text-center text-gray-400 font-medium italic">
+                          No se encontraron registros de depuración para este filtro.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination
+                currentPage={pageDepuracion}
+                totalPages={totalPagesDepuracion}
+                onPageChange={setPageDepuracion}
+                totalItems={filteredDepuracion.length}
+                itemsName="centros y sectores"
+              />
+            </GlassCard>
+          )}
 
-          {/* Registros Residuales sin Escuela */}
-          <GlassCard className="p-6">
-            <h3 className="text-sm font-black text-amber-900 flex items-center gap-2 mb-2">
-              <i className="fa-solid fa-triangle-exclamation text-amber-500"></i>
-              Registros Residuales de Escala Vieja / Desconocida sin Escuela ({unlinkedViejos.length})
-            </h3>
-            <p className="text-xs text-gray-600 mb-4">
-              Liquidaciones residuales con alícuotas históricas que no tienen vinculación con ningún establecimiento escolar.
-            </p>
+          {/* SUB-TAB 2: SECTORES SIN ESCUELA (SANEAMIENTO & VINCULACIÓN CUE) */}
+          {subTabOtrosSectores === 'saneamiento' && (
+            <GlassCard className="p-6">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <i className="fa-solid fa-link text-[#FE8204]"></i>
+                  <span>Saneamiento & Vinculación CUE ({unlinkedResultados.length})</span>
+                </h2>
+                <a
+                  href={`/api/auditoria-sueldos/exportar-excel?tab=sin_escuela&periodo=${nominaSeleccionada?.periodo || ''}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
+                  title="Descargar Otros Sectores en Excel"
+                >
+                  <i className="fa-solid fa-file-excel text-sm"></i>
+                </a>
+              </div>
 
-            <div className="overflow-x-auto max-h-80 custom-scrollbar">
-              <table className="w-full text-xs text-left text-gray-700">
-                <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200">
-                  <tr>
-                    <th className="px-3 py-2 text-center font-bold">Centro</th>
-                    <th className="px-3 py-2 text-center font-bold">Sector</th>
-                    <th className="px-3 py-2 text-center font-bold">Radio Sueldo</th>
-                    <th className="px-3 py-2 text-right font-bold">Básico A01</th>
-                    <th className="px-3 py-2 text-right font-bold">Monto A04</th>
-                    <th className="px-3 py-2 font-bold">Dictamen</th>
-                    <th className="px-3 py-2 font-bold">Decreto Aval</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredUnlinkedViejos.map((v) => (
-                    <tr key={v.id} className="hover:bg-amber-50/50">
-                      <td className="px-3 py-2 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{v.centro ?? 'S/D'}</span></td>
-                      <td className="px-3 py-2 text-center font-black text-gray-900">{v.sector}</td>
-                      <td className="px-3 py-2 text-center">
-                        <span className="px-2 py-0.5 text-[10px] font-black rounded bg-amber-100 text-amber-800 border border-amber-300">
-                          Radio {v.radio_sueldo} ({v.porcentaje_pagado}%)
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono">${v.a01_basico.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right font-mono font-bold">${v.a04_radio.toLocaleString()}</td>
-                      <td className="px-3 py-2">
-                        <select
-                          value={v.clasificacion_auditor || 'PENDIENTE'}
-                          onChange={(e) =>
-                            saveClasificacionViejo(v.id, e.target.value, v.resolucion_aval, v.notas_auditor)
-                          }
-                          className={`text-[11px] font-black rounded px-2 py-1 border focus:ring-[#FE8204] ${
-                            v.clasificacion_auditor === 'JUSTIFICADO_LEGAL'
-                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
-                              : v.clasificacion_auditor === 'ERROR_LIQUIDACION'
-                              ? 'bg-red-50 text-red-900 border-red-300'
-                              : v.clasificacion_auditor === 'CASO_ESPECIAL'
-                              ? 'bg-purple-50 text-purple-900 border-purple-300'
-                              : 'bg-white text-gray-800 border-amber-300'
-                          }`}
-                        >
-                          <option value="PENDIENTE">PENDIENTE</option>
-                          <option value="JUSTIFICADO_LEGAL">🟢 JUSTIFICADO LEGAL</option>
-                          <option value="ERROR_LIQUIDACION">🔴 ERROR LIQUIDACIÓN</option>
-                          <option value="CASO_ESPECIAL">🟣 CASO ESPECIAL</option>
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="text"
-                          defaultValue={v.resolucion_aval || ''}
-                          placeholder="Dec. o Res."
-                          onBlur={(e) =>
-                            saveClasificacionViejo(v.id, v.clasificacion_auditor || 'PENDIENTE', e.target.value, v.notas_auditor)
-                          }
-                          className="w-full text-[11px] font-semibold bg-white border border-gray-300 rounded px-2 py-1 focus:ring-[#FE8204]"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {unlinkedViejos.length === 0 && (
+              <div className="overflow-x-auto max-h-96 custom-scrollbar">
+                <table className="w-full text-xs text-left text-gray-700">
+                  <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 shadow-xs">
                     <tr>
-                      <td colSpan="6" className="px-3 py-8 text-center text-gray-400 font-medium italic">
-                        No hay registros residuales desvinculados en esta nómina.
-                      </td>
+                      <th className="px-3 py-3 text-center font-black text-white">Centro</th>
+                      <th className="px-3 py-3 font-black text-white">Nivel</th>
+                      <th className="px-3 py-3 font-black text-white">Nombre Sector</th>
+                      <th className="px-3 py-3 text-center font-black text-white">Sector</th>
+                      <th className="px-3 py-3 font-black text-white">Identificación / Gestión</th>
+                      <th className="px-3 py-3 text-center font-black text-white">Radio Sueldo</th>
+                      <th className="px-3 py-3 text-right font-black text-white">Liquidaciones</th>
+                      <th className="px-3 py-3 text-center font-black text-white">Acción Saneamiento</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </GlassCard>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {unlinkedResultados.map((s) => {
+                      const isDadoDeBaja = s.estado_gestion === 'DADO_DE_BAJA';
+                      return (
+                        <tr key={s.id} className={isDadoDeBaja ? 'bg-red-50/90 text-red-950 font-semibold border-l-4 border-l-red-500' : 'hover:bg-slate-50/50'}>
+                          <td className="px-3 py-3 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{s.centro ?? 'S/D'}</span></td>
+                          <td className={`px-3 py-3 font-extrabold ${isDadoDeBaja ? 'text-red-900' : 'text-slate-800'}`}>{s.nivel_educativo || 'S/N'}</td>
+                          <td className="px-3 py-3 font-bold">
+                            {isDadoDeBaja ? (
+                              <div className="flex items-center gap-1.5 text-red-900 font-extrabold">
+                                <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-800 border border-red-300 rounded-md uppercase font-black shrink-0">
+                                  DADO DE BAJA
+                                </span>
+                                <span>{s.nombre_establecimiento || 'Sector Desvinculado'}</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-900">{s.nombre_establecimiento || 'Sector Desvinculado'}</span>
+                            )}
+                          </td>
+                          <td className={`px-3 py-3 text-center font-black text-sm ${isDadoDeBaja ? 'text-red-950' : 'text-gray-900'}`}>{s.sector}</td>
+                          <td className={`px-3 py-3 font-medium max-w-xs truncate ${isDadoDeBaja ? 'text-red-700 font-bold' : 'text-gray-600'}`}>
+                            {s.notas_auditor || <span className="italic text-gray-400">Sin notas de investigación</span>}
+                          </td>
+                          <td className="px-3 py-3 text-center font-black">
+                            {s.radio_sueldo ? (
+                              <span className={isDadoDeBaja ? 'text-red-900' : 'text-purple-700'}>R{s.radio_sueldo} ({s.porc_pagado_mediana ?? 0}%)</span>
+                            ) : (
+                              <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]" title="No registra bonificación por zona (Radio Urbano)">R1 (0%)</span>
+                            )}
+                          </td>
+                          <td className={`px-3 py-3 text-right font-bold ${isDadoDeBaja ? 'text-red-950' : 'text-gray-900'}`}>
+                            {s.total_filas_docentes} docentes
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <button
+                              onClick={() => {
+                                setSaneamientoModalSector(s);
+                                setSaneamientoEstId('');
+                                setSaneamientoSearchTerm('');
+                                setSaneamientoObs(s.notas_auditor || '');
+                                setSaneamientoEstadoGestion(s.estado_gestion || 'EN_INVESTIGACION');
+                              }}
+                              className={`px-3 py-1.5 text-[11px] font-bold text-white rounded-xl shadow transition flex items-center gap-1.5 mx-auto cursor-pointer ${
+                                isDadoDeBaja ? 'bg-red-600 hover:bg-red-700' : 'bg-[#FE8204] hover:bg-[#e07203]'
+                              }`}
+                            >
+                              <i className={`fa-solid ${isDadoDeBaja ? 'fa-pen-to-square' : 'fa-link'} text-[10px]`}></i>
+                              {isDadoDeBaja ? 'Editar Baja' : 'Vincular a CUE'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {unlinkedResultados.length === 0 && (
+                      <tr>
+                        <td colSpan="8" className="px-3 py-8 text-center text-gray-400 font-medium italic">
+                          No hay sectores desvinculados en esta nómina.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </GlassCard>
+          )}
+
+          {/* SUB-TAB 3: REGISTROS RESIDUALES SIN ESCUELA */}
+          {subTabOtrosSectores === 'residuales' && (
+            <GlassCard className="p-6">
+              <h3 className="text-sm font-black text-amber-900 flex items-center gap-2 mb-2">
+                <i className="fa-solid fa-triangle-exclamation text-amber-500"></i>
+                Registros Residuales de Escala Vieja / Desconocida sin Escuela ({unlinkedViejos.length})
+              </h3>
+              <p className="text-xs text-gray-600 mb-4">
+                Liquidaciones residuales con alícuotas históricas que no tienen vinculación con ningún establecimiento escolar.
+              </p>
+
+              <div className="overflow-x-auto max-h-80 custom-scrollbar">
+                <table className="w-full text-xs text-left text-gray-700">
+                  <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 shadow-xs">
+                    <tr>
+                      <th className="px-3 py-3 text-center font-black text-white">Centro</th>
+                      <th className="px-3 py-3 text-center font-black text-white">Sector</th>
+                      <th className="px-3 py-3 text-center font-black text-white">Radio Sueldo</th>
+                      <th className="px-3 py-3 text-right font-black text-white">Básico A01</th>
+                      <th className="px-3 py-3 text-right font-black text-white">Monto A04</th>
+                      <th className="px-3 py-3 font-black text-white">Dictamen</th>
+                      <th className="px-3 py-3 font-black text-white">Decreto Aval</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredUnlinkedViejos.map((v) => (
+                      <tr key={v.id} className="hover:bg-amber-50/50">
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{v.centro ?? 'S/D'}</span></td>
+                        <td className="px-3 py-2 text-center font-black text-gray-900">{v.sector}</td>
+                        <td className="px-3 py-2 text-center font-black text-amber-800 text-xs">
+                          R{v.radio_sueldo} ({v.porcentaje_pagado}%)
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">${v.a01_basico.toLocaleString()}</td>
+                        <td className="px-3 py-2 text-right font-mono font-bold">${v.a04_radio.toLocaleString()}</td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={v.clasificacion_auditor || 'PENDIENTE'}
+                            onChange={(e) =>
+                              saveClasificacionViejo(v.id, e.target.value, v.resolucion_aval, v.notas_auditor)
+                            }
+                            className={`text-[11px] font-black rounded px-2 py-1 border focus:ring-[#FE8204] ${
+                              v.clasificacion_auditor === 'JUSTIFICADO_LEGAL'
+                                ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                                : v.clasificacion_auditor === 'ERROR_LIQUIDACION'
+                                ? 'bg-red-50 text-red-900 border-red-300'
+                                : v.clasificacion_auditor === 'CASO_ESPECIAL'
+                                ? 'bg-purple-50 text-purple-900 border-purple-300'
+                                : 'bg-white text-gray-800 border-amber-300'
+                            }`}
+                          >
+                            <option value="PENDIENTE">PENDIENTE</option>
+                            <option value="JUSTIFICADO_LEGAL">🟢 JUSTIFICADO LEGAL</option>
+                            <option value="ERROR_LIQUIDACION">🔴 ERROR LIQUIDACIÓN</option>
+                            <option value="CASO_ESPECIAL">🟣 CASO ESPECIAL</option>
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            defaultValue={v.resolucion_aval || ''}
+                            placeholder="Dec. o Res."
+                            onBlur={(e) =>
+                              saveClasificacionViejo(v.id, v.clasificacion_auditor || 'PENDIENTE', e.target.value, v.notas_auditor)
+                            }
+                            className="w-full text-[11px] font-semibold bg-white border border-gray-300 rounded px-2 py-1 focus:ring-[#FE8204]"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                    {unlinkedViejos.length === 0 && (
+                      <tr>
+                        <td colSpan="6" className="px-3 py-8 text-center text-gray-400 font-medium italic">
+                          No hay registros residuales desvinculados en esta nómina.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </GlassCard>
+          )}
         </div>
       )}
 
@@ -2756,18 +2814,18 @@ export default function AuditoriaSueldosIndex({
 
               <div className="overflow-y-auto border border-gray-200 rounded-2xl custom-scrollbar flex-1">
                 <table className="w-full text-xs text-left text-gray-700">
-                  <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0">
+                  <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
                     <tr>
-                      <th className="px-3 py-2.5 font-bold">CUE</th>
-                      <th className="px-3 py-2.5 font-bold">Establecimiento / Escuela</th>
-                      <th className="px-3 py-2.5 font-bold">Ámbito</th>
-                      <th className="px-3 py-2.5 text-center font-bold">Centro</th>
-                      <th className="px-3 py-2.5 text-center font-bold">Sector SIGE</th>
-                      <th className="px-3 py-2.5 text-center font-bold">Sector Sueldos</th>
-                      <th className="px-3 py-2.5 text-center font-bold">Radio SIGE</th>
-                      <th className="px-3 py-2.5 text-center font-bold">Radio Sueldo</th>
-                      <th className="px-3 py-2.5 font-bold">CUI Edificio</th>
-                      <th className="px-3 py-2.5 font-bold">Departamento</th>
+                      <th className="px-3 py-2.5 font-black text-white">CUE</th>
+                      <th className="px-3 py-2.5 font-black text-white">Establecimiento / Escuela</th>
+                      <th className="px-3 py-2.5 font-black text-white">Ámbito</th>
+                      <th className="px-3 py-2.5 text-center font-black text-white">Centro</th>
+                      <th className="px-3 py-2.5 text-center font-black text-white">Sector SIGE</th>
+                      <th className="px-3 py-2.5 text-center font-black text-white">Sector Sueldos</th>
+                      <th className="px-3 py-2.5 text-center font-black text-white">Radio SIGE</th>
+                      <th className="px-3 py-2.5 text-center font-black text-white">Radio Sueldo</th>
+                      <th className="px-3 py-2.5 font-black text-white">CUI Edificio</th>
+                      <th className="px-3 py-2.5 font-black text-white">Departamento</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -2812,9 +2870,9 @@ export default function AuditoriaSueldosIndex({
                             <span className="text-gray-400 italic">-</span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-center font-bold text-emerald-700">Radio {e.radio}</td>
-                        <td className="px-3 py-2.5 text-center font-black text-purple-700">
-                          {e.radio_sueldo ? `Radio ${e.radio_sueldo}` : '-'}
+                        <td className="px-3 py-2.5 text-center font-bold text-emerald-700">R{e.radio}</td>
+                        <td className="px-3 py-2.5 text-center font-bold text-purple-700">
+                          {e.radio_sueldo ? `R${e.radio_sueldo}` : '-'}
                         </td>
                         <td className="px-3 py-2.5 font-mono text-gray-500">
                           <div className="flex items-center gap-1.5">
@@ -2985,17 +3043,17 @@ export default function AuditoriaSueldosIndex({
             ) : (
               <div className="overflow-x-auto max-h-[400px] border border-gray-200 rounded-xl custom-scrollbar">
                 <table className="w-full text-xs text-left text-gray-700 border-collapse">
-                  <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0">
+                  <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
                     <tr>
-                      <th className="px-3 py-2.5 font-bold">CUIL</th>
-                      <th className="px-3 py-2.5 font-bold">Apellido y Nombre</th>
-                      <th className="px-3 py-2.5 text-center font-bold">Clase</th>
-                      <th className="px-3 py-2.5 text-center font-bold">Zona</th>
-                      <th className="px-3 py-2.5 text-right font-bold">Asig. Básico (A01)</th>
-                      <th className="px-3 py-2.5 text-right font-bold">Asig. Radio (A04)</th>
-                      <th className="px-3 py-2.5 text-center font-bold">% Calculado</th>
-                      <th className="px-3 py-2.5 text-center font-bold">Radio Cobrado</th>
-                      <th className="px-3 py-2.5 text-center font-bold">Estado Desvío</th>
+                      <th className="px-3 py-2.5 font-black text-white">CUIL</th>
+                      <th className="px-3 py-2.5 font-black text-white">Apellido y Nombre</th>
+                      <th className="px-3 py-2.5 text-center font-black text-white">Clase</th>
+                      <th className="px-3 py-2.5 text-center font-black text-white">Zona</th>
+                      <th className="px-3 py-2.5 text-right font-black text-white">Asig. Básico (A01)</th>
+                      <th className="px-3 py-2.5 text-right font-black text-white">Asig. Radio (A04)</th>
+                      <th className="px-3 py-2.5 text-center font-black text-white">% Calculado</th>
+                      <th className="px-3 py-2.5 text-center font-black text-white">Radio Cobrado</th>
+                      <th className="px-3 py-2.5 text-center font-black text-white">Estado Desvío</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -3180,12 +3238,12 @@ export default function AuditoriaSueldosIndex({
 
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left text-gray-700 border-collapse">
-                <thead className="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500 border-b border-slate-200">
+                <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 shadow-xs">
                   <tr>
-                    <th className="px-4 py-3 font-bold">Radio</th>
-                    <th className="px-4 py-3 font-bold">% Ley Original (Histórica)</th>
-                    <th className="px-4 py-3 font-bold">% Paritaria Vigente</th>
-                    <th className="px-4 py-3 text-right font-bold">Estado de Liquidación</th>
+                    <th className="px-4 py-3 font-black text-white">Radio</th>
+                    <th className="px-4 py-3 font-black text-white">% Ley Original (Histórica)</th>
+                    <th className="px-4 py-3 font-black text-white">% Paritaria Vigente</th>
+                    <th className="px-4 py-3 text-right font-black text-white">Estado de Liquidación</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">

@@ -8,7 +8,20 @@
 
 ## 1. Definición y Propósito
 
-El módulo de **Otros Sectores** (anteriormente *Sectores sin Escuela* / *Sectores sin Identificarse*) es una herramienta administrativa diseñada para investigar, nombrar y vincular aquellos sectores presupuestarios de la nómina salarial que inicialmente no registraban un CUE asociado en la base oficial.
+El módulo de **Otros Sectores** es una herramienta administrativa y de depuración estructurada en **3 Sub-Pestañas Especializadas** dentro de `AuditoriaSueldos/Index.jsx`:
+
+1. **🔍 Depuración de Catálogo (`depuracion`):**
+   - Cruzamiento automatizado del Catálogo Maestro Refactorizado de Centros y Sectores vs la Liquidación de Sueldos.
+   - Contiene 6 botones de filtro KPI (*Centros Sin Uso*, *No Catalogados*, *Sectores Sin Uso*, *Baja Volumetría*, *Activos*, *Todos*) y buscador interno.
+   - Incluye paginación fluida de 15 registros por página (`<Pagination>`) y botón de exportación a Excel en la misma línea del título.
+
+2. **🔗 Saneamiento & Vinculación CUE (`saneamiento`):**
+   - Agrupa los sectores activos en liquidación que carecen de establecimiento escolar (CUE) asignado en la base de datos oficial SIGE.
+   - Permite vincular el sector a un CUE escolar oficial o registrar la baja administrativa.
+
+3. **⚠️ Residuales Huérfanos (`residuales`):**
+   - Muestra exclusivamente las liquidaciones con alícuotas históricas o irregulares que no poseen CUE asociado.
+   - Permite dictaminar (Justificado Legal, Error Liquidación, Caso Especial) y cargar el decreto de aval.
 
 ---
 
@@ -17,7 +30,7 @@ El módulo de **Otros Sectores** (anteriormente *Sectores sin Escuela* / *Sector
 > [!IMPORTANT]
 > **Preservación de la Base Oficial de SIGE:**
 > * Al presionar **"Vincular a CUE"**, la acción **NO altera la tabla `modalidades`** ni modifica el sector oficial registrado para la escuela en la base administrativa de SIGE.
-> * La vista oficial de establecimientos (`/admin/establecimientos`) permanece 100% protegida e inalterada, evitando duplicados o deformaciones en la estructura física del padrón.
+> * La vista oficial de establecimientos (`/admin/establecimientos`) permanece 100% protegida e inalterada.
 > * La relación se asienta exclusivamente en el **Historial de Auditoría de Sueldos** (`auditoria_radio_resultados`), asociando el CUE destino, el radio oficial, la nota del auditor y la evaluación de discrepancia de radio.
 
 ---
@@ -32,7 +45,7 @@ sequenceDiagram
     participant API as Controlador Laravel (AuditoriaSueldosController)
     participant DB as Base de Datos SQLite
 
-    Auditor->>UI: Selecciona sector en pestaña 'Otros Sectores'
+    Auditor->>UI: Selecciona sector en sub-pestaña 'Saneamiento & Vinculación CUE'
     UI->>Auditor: Despliega Modal de Vinculación con Buscador Autocompletado (CUE o Nombre)
     Auditor->>UI: Escribe CUE o Nombre de la Escuela y la selecciona de la lista flotante
     UI->>Auditor: Muestra comparación de radios (Radio Liquidado vs Radio Oficial CUE) y alerta de discrepancia
@@ -46,19 +59,9 @@ sequenceDiagram
 
 ---
 
-## 4. Características de la Interfaz
+## 4. Estándares de Interfaz y Formato de Tabla
 
-1. **Buscador en Tiempo Real por Autocompletado:**
-   - Permite escribir el CUE de 9 dígitos (ej. `700069900` o `700031401`) o el nombre de la institución (ej. `Nicomedes`, `Kenney`).
-   - Muestra de forma instantánea una lista flotante con las escuelas coincidentes, indicando CUE, departamento y Radio SIGE oficial.
-2. **Comparación de Radios en Tiempo Real:**
-   - Al seleccionar la escuela, el modal evalúa el `Radio Liquidado en el Sector` contra el `Radio SIGE Oficial`.
-   - Si los radios difieren, despliega un aviso: `⚠️ Este sector liquida un radio distinto al CUE oficial. Se registrará la discrepancia para auditoría.`
-3. **Estados de Gestión Disponibles:**
-   - **`CONFORME`**: Para sectores pertenecientes a la escuela sin discrepancia de radio.
-   - **`EN_INVESTIGACION`**: Para sectores en proceso de análisis de expediente.
-   - **`JUSTIFICADO`**: Para sectores respaldados por norma legal o resolución.
-   - **`CORREGIDO`**: Para sectores rectificados en liquidaciones.
-   - **`PENDIENTE`**: Estado inicial sin revisar.
-4. **Traslado Automático:**
-   - Al confirmar el registro, el sector recibe su CUE y se traslada automáticamente al panel de **Seguimiento y Gestión**, donde permanece accesible para filtrado, edición y exportación a Excel.
+* **Encabezados de Tabla:** Color Naranja Institucional (`bg-[#FE8204] text-white font-black uppercase text-[11px]`).
+* **Columna de Recibos/Agentes:** Nombre oficial **`Liquidaciones`**.
+* **Badges de Centro Salarial:** Píldora naranja compacta (`98`, `19`, `80`, `63`).
+* **Borde de Tarjeta:** Contenedor blanco limpio sin bordes laterales gruesos (`GlassCard className="p-6"`).

@@ -1,7 +1,7 @@
 # Arquitectura del Sistema de Auditoría Salarial y Compensación Geográfica (EDU-Auditor)
 
 **Sistema:** EDU-Auditor — Sistema de Auditoría de Compensación Geográfica y Haberes Docentes  
-**Documento:** Especificación Técnica de Arquitectura, Modelo de Datos y Pipeline de Importación  
+**Documento:** Especificación Técnica de Arquitectura, Modelo de Datos, Pipeline y Reglas de Interfaz  
 **Ubicación:** `doc/ARCHITECTURE.md`  
 
 ---
@@ -51,50 +51,54 @@ $$\text{Identificador Unívoco de Liquidación} = \text{CENTRO} + \text{SECTOR}$
 
 ---
 
-## 3. Triangulación de Fuentes de Verdad
+## 3. Estructura de Navegación del Panel de Control (9 Pestañas)
 
-El motor de auditoría ejecuta una triangulación entre tres fuentes principales:
+La aplicación web React (`AuditoriaSueldos/Index.jsx`) se organiza en **9 pestañas principales** con navegación acordeón minimalista y sub-navegación interna:
 
-1. **Base Oficial SIGE (`database/database.sqlite`)**:
-   - `edificios`: Coordenadas geográficas, departamento, distancias y radios por ordenanza.
-   - `establecimientos`: Nombre oficial y CUE de 9 dígitos.
-   - `modalidades`: Ámbito (Público/Privado), nivel educativo y sector SIGE.
-2. **Diccionario Maestro Refactorizado (`datos_csv/CENTROS Y SECTORES EDUCACION REFACTORIZADO (3).XLSX`)**:
-   - Diccionario curado que contiene el 99,8% de coincidencia con la nómina salarial.
-   - Rescata el nombre de establecimiento u oficina, el nivel y la gestión (Oficial vs Privada) para los sectores no enlazados.
-3. **Padrón de Agentes (`datos_csv/agentes.csv`)**:
-   - Mapeo unívoco de `CUPOF` que incluye el CUE de 9 dígitos para respaldar la asignación de plazas.
+1. **`Resumen & KPIs` (`kpi`):** Tarjetas de métricas globales, desvíos y distribución por radio.
+2. **`Cruce Escuelas & Sectores` (`cruce`):** Matriz de relación principal entre escuelas SIGE y sectores de nómina.
+3. **`Escalas & Residuales` (`escala`):** Auditoría de alícuotas históricas, porcentajes irregulares y Ley Paritaria.
+4. **`Pagan MÁS` (`paga_mas`):** Sectores con sobrepago salarial respecto al radio legal en SIGE (`🔴 +1`, `🔴 +2`).
+5. **`Pagan MENOS` (`paga_menos`):** Sectores con subpago salarial respecto al radio legal en SIGE (`🟡 -1`, `🟡 -2`).
+6. **`Conflictos SIGE` (`conflictos`):** Sectores de la nómina asociados a CUEs con múltiples radios en el SIGE.
+7. **`Inconsistencia Zona` (`zonas`):** Discrepancias entre departamento registrado en haberes vs edificio oficial.
+8. **`Seguimiento & Gestión` (`tracking`):** Monitor de expedientes administrativos, dictámenes y resoluciones.
+9. **`Otros Sectores` (`sin_escuela`):** Refactorizado en **3 Sub-Pestañas Especializadas**:
+   - **🔍 Depuración de Catálogo:** Diagnóstico de Centros y Sectores sin uso en el catálogo Maestro vs Liquidación.
+   - **🔗 Saneamiento & Vinculación CUE:** Sectores en liquidación que carecen de CUE asignado para vinculación o baja.
+   - **⚠️ Residuales Huérfanos:** Registros con alícuotas históricas o irregulares sin escuela asociada.
 
 ---
 
-## 4. Pipeline de Importación Salarial (`scripts/importar_sueldos.py`)
-
-El proceso de importación automatizada ejecuta los siguientes pasos:
+## 4. Pipeline de Importación y Cálculo de Alícuotas (`scripts/importar_sueldos.py`)
 
 1. **Agregación por Mediana de Alícuota:**
    Para cada grupo `(CENTRO, SECTOR, ZONA_SUELDO)`, calcula la relación porcentaje pagado:
    $$\text{Porcentaje Pagado (\%)} = \left( \frac{\text{A04 (Radio)}}{\text{A01 (Básico)}} \right) \times 100$$
    Se extrae la **mediana estadística** para eliminar ruidos por retroactivos o descuentos.
-2. **Determinación del Radio Sueldo (1 al 7):**
-   - Radio 1: $\le 45\%$
-   - Radio 2: $46\% - 55\%$
-   - Radio 3: $56\% - 85\%$
-   - Radio 4: $86\% - 105\%$
-   - Radio 5: $106\% - 125\%$
-   - Radio 6: $126\% - 145\%$
-   - Radio 7: $> 145\%$
-3. **Cruzamiento y Clasificación:**
-   - `COINCIDE_TOTAL`: Coincide el Radio Sueldo, Radio SIGE y los radios calculados por camino/circunscripción.
-   - `COINCIDE_SIGE`: El Radio Sueldo coincide con el Radio oficial aprobado en SIGE.
-   - `PAGA_MAS_QUE_SIGE`: La nómina liquida un radio mayor al aprobado legalmente.
-   - `PAGA_MENOS_QUE_SIGE`: La nómina liquida un radio menor al aprobado legalmente.
-   - `SIN_SIGE`: Sector de nómina sin vínculo directo a una escuela en SIGE (rescata automáticamente el nombre del Diccionario Refactorizado sin generar ruido).
+
+2. **Determinación del Radio Sueldo (R1 al R7):**
+   - **R1:** $\le 45\%$
+   - **R2:** $46\% - 55\%$
+   - **R3:** $56\% - 85\%$
+   - **R4:** $86\% - 105\%$
+   - **R5:** $106\% - 125\%$
+   - **R6:** $126\% - 145\%$
+   - **R7:** $> 145\%$
+
+3. **Clasificación de Escala:**
+   - **`Ley Paritaria`**: Porcentajes oficiales vigentes ($40\%, 50\%, 60\%, 95\%, 115\%, 135\%, 155\%$).
+   - **`Ley Histórica`**: Porcentajes anteriores ($20\%, 30\%, 40\%, 80\%, 100\%, 120\%, 140\%$).
+   - **`Porcentaje Irregular`**: Porcentajes compuestos o descalibrados ($53.97\%, 104.08\%, 182.15\%$).
+
+4. **Conteo Unívoco de Agentes:**
+   - Las consultas backend agrupan por `(sector, cuil)` mediante `COUNT(DISTINCT cuil)` para garantizar el conteo exacto de **Liquidaciones** (agentes únicos afectados).
 
 ---
 
 ## 5. Mantenimiento y Calidad de Código
 
 El repositorio cuenta con pipelines automatizados de calidad:
-* **JavaScript / React (Linter):** `npm run lint` (`eslint .`) configurado con `route` global y React 18 standards.
+* **JavaScript / React (Linter):** `npm run lint` (`eslint .`) verificado con `0 errors`.
 * **PHP (Linter / Formatter):** `./vendor/bin/pint` (Laravel Pint) para cumplimiento 100% de los estándares PSR-12/Laravel.
-* **Pruebas Automatizadas Backend:** `php artisan test` (PHPUnit suite).
+* **Pruebas y Build:** `npm run build` (Vite 8 bundle compilado sin errores).
