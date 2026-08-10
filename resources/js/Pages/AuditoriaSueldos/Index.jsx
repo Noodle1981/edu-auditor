@@ -167,6 +167,7 @@ export default function AuditoriaSueldosIndex({
 
   const [depuracionSortField, setDepuracionSortField] = useState('nom_sector');
   const [depuracionSortOrder, setDepuracionSortOrder] = useState('asc');
+  const [depuracionSoloNoVinculados, setDepuracionSoloNoVinculados] = useState(false);
 
   const handleDepuracionSort = (field) => {
     if (depuracionSortField === field) {
@@ -187,6 +188,7 @@ export default function AuditoriaSueldosIndex({
   const filteredDepuracion = useMemo(() => {
     let list = depuracionList.filter(d => {
       const matchesEstado = depuracionFiltroEstado === 'TODOS' || d.estado_depuracion === depuracionFiltroEstado;
+      const matchesVinculado = !depuracionSoloNoVinculados || (!d.establecimiento_id && !d.cue_vinculado);
       const term = depuracionBusqueda.toLowerCase();
       const matchesSearch = !depuracionBusqueda ||
         (d.centro && d.centro.toString().includes(term)) ||
@@ -197,7 +199,7 @@ export default function AuditoriaSueldosIndex({
         (d.nom_establecimiento_vinculado && d.nom_establecimiento_vinculado.toLowerCase().includes(term)) ||
         (d.observaciones && d.observaciones.toLowerCase().includes(term));
 
-      return matchesEstado && matchesSearch;
+      return matchesEstado && matchesVinculado && matchesSearch;
     });
 
     if (depuracionSortField) {
@@ -219,14 +221,14 @@ export default function AuditoriaSueldosIndex({
     }
 
     return list;
-  }, [depuracionList, depuracionFiltroEstado, depuracionBusqueda, depuracionSortField, depuracionSortOrder]);
+  }, [depuracionList, depuracionFiltroEstado, depuracionBusqueda, depuracionSortField, depuracionSortOrder, depuracionSoloNoVinculados]);
 
   const PAGE_SIZE_DEPURACION = 15;
   const [pageDepuracion, setPageDepuracion] = useState(1);
 
   useEffect(() => {
     setPageDepuracion(1);
-  }, [depuracionFiltroEstado, depuracionBusqueda, depuracionSortField, depuracionSortOrder]);
+  }, [depuracionFiltroEstado, depuracionBusqueda, depuracionSortField, depuracionSortOrder, depuracionSoloNoVinculados]);
 
   const totalPagesDepuracion = Math.ceil(filteredDepuracion.length / PAGE_SIZE_DEPURACION) || 1;
   const paginatedDepuracion = useMemo(() => {
@@ -2351,15 +2353,30 @@ export default function AuditoriaSueldosIndex({
                 </button>
               </div>
 
-              {/* Búsqueda y Ordenamiento rápida de Depuración */}
-              <div className="mb-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
-                <input
-                  type="text"
-                  value={depuracionBusqueda}
-                  onChange={(e) => setDepuracionBusqueda(e.target.value)}
-                  placeholder="Buscar en depuración por centro, sector, nombre de sector, o diagnóstico..."
-                  className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2 text-xs font-semibold text-gray-900 focus:ring-[#FE8204] focus:border-[#FE8204]"
-                />
+              {/* Búsqueda, Filtro de Vinculados y Ordenamiento rápida de Depuración */}
+              <div className="mb-4 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                <div className="flex-1 flex flex-col sm:flex-row gap-3 items-center">
+                  <input
+                    type="text"
+                    value={depuracionBusqueda}
+                    onChange={(e) => setDepuracionBusqueda(e.target.value)}
+                    placeholder="Buscar en depuración por centro, sector, nombre de sector, o diagnóstico..."
+                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2 text-xs font-semibold text-gray-900 focus:ring-[#FE8204] focus:border-[#FE8204]"
+                  />
+                  <label className="flex items-center gap-2 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded-xl px-3 py-2 cursor-pointer hover:bg-gray-50 shrink-0 select-none shadow-2xs">
+                    <input
+                      type="checkbox"
+                      checked={depuracionSoloNoVinculados}
+                      onChange={(e) => setDepuracionSoloNoVinculados(e.target.checked)}
+                      className="w-4 h-4 text-[#FE8204] rounded border-gray-300 focus:ring-[#FE8204]"
+                    />
+                    <span className="whitespace-nowrap flex items-center gap-1.5">
+                      <i className="fa-solid fa-link-slash text-amber-600 text-xs"></i>
+                      Solo pendientes (sin vincular)
+                    </span>
+                  </label>
+                </div>
+
                 <div className="flex items-center gap-2 shrink-0">
                   <label className="text-xs font-bold text-gray-600 flex items-center gap-1">
                     <i className="fa-solid fa-arrow-down-a-z text-[#FE8204]"></i> Ordenar:
