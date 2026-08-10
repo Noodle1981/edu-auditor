@@ -57,10 +57,10 @@ class AuditoriaSueldosController extends Controller
             ->groupBy('sector', 'cuil')
             ->get()
             ->groupBy('sector');
-
         $resultados = DB::table('auditoria_radio_resultados as r')
             ->where('r.nomina_id', $nominaSeleccionada->id)
-            ->leftJoin('depuracion_centros_sectores as d_san', function ($join) {
+            // Solo registros que hayan sido saneados / vinculados manualmente
+            ->join('depuracion_centros_sectores as d_san', function ($join) {
                 $join->on('d_san.centro', '=', 'r.centro')
                      ->on('d_san.sector', '=', 'r.sector')
                      ->whereNotNull('d_san.establecimiento_id');
@@ -115,18 +115,12 @@ class AuditoriaSueldosController extends Controller
                 $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'v.sector');
             })
             ->leftJoin('establecimientos as e', 'e.id', '=', 'm.establecimiento_id')
-            ->leftJoin('edificios as ed', 'ed.id', '=', 'e.edificio_id')
             ->select(
                 'v.*',
-                DB::raw('COALESCE(e.nombre, "Sin Establecimiento Registrado") as nombre_establecimiento'),
-                DB::raw('e.cue as cue'),
-                DB::raw('COALESCE(ed.zona_departamento, "S/D") as departamento'),
-                DB::raw('COALESCE(m.ambito, "PUBLICO") as ambito'),
-                DB::raw('COALESCE(m.radio_sige, m.radio) as radio_sige'),
-                DB::raw('COALESCE(m.nivel_educativo, "S/N") as nivel_educativo')
+                'm.nivel_educativo',
+                DB::raw('COALESCE(e.cue, "") as cue'),
+                DB::raw('COALESCE(e.nombre, "Sin Establecimiento Registrado") as nombre_establecimiento')
             )
-            ->groupBy('v.id')
-            ->orderBy('v.sector', 'asc')
             ->get();
 
         // Deducir radio sueldo (A04) para cada registro viejo
@@ -196,28 +190,44 @@ class AuditoriaSueldosController extends Controller
             ->orderBy('e.nombre')
             ->get();
 
-        // Construimos el cruce expandido por (centro, sector) con prioridad al saneamiento manual
-        $rawResultados = DB::table('auditoria_radio_resultados as r')
-            ->where('r.nomina_id', $nominaSeleccionada->id)
-            // Saneamiento manual: si existe, usa ese establecimiento
-            ->leftJoin('depuracion_centros_sectores as d_san', function ($join) {
-                $join->on('d_san.centro', '=', 'r.centro')
-                     ->on('d_san.sector', '=', 'r.sector')
-                     ->whereNotNull('d_san.establecimiento_id');
-            })
-            ->leftJoin('establecimientos as e_san', 'e_san.id', '=', 'd_san.establecimiento_id')
-            ->leftJoin('modalidades as m_san', 'm_san.id', '=', 'd_san.modalidad_id')
-            // Fallback SIGE: establecimiento y modalidad basados en el CUE original importado
-            ->leftJoin('establecimientos as e_orig', 'e_orig.cue', '=', 'r.cue')
-            ->leftJoin('modalidades as m_orig', function ($join) {
-                $join->on('m_orig.establecimiento_id', '=', 'e_orig.id')
-                     ->on(DB::raw('CAST(m_orig.sector AS INTEGER)'), '=', 'r.sector');
-            })
-            ->leftJoin('edificios as ed_san', 'ed_san.id', '=', 'e_san.edificio_id')
-            ->leftJoin('edificios as ed_orig', 'ed_orig.id', '=', 'e_orig.edificio_id')
+        // Cruce SIGE vs Sueldos a nivel Escuela y Sector (Informativo, sin depender de centros)
+        $subqueryRadioSector = DB::table('auditoria_radio_resultados')
+            ->where('nomina_id', $nominaSeleccionada->id)
             ->select(
-                'r.id as auditoria_id',
-                'r.centro',
+                'sector',
+                DB::raw('MAX(radio_sueldo) as radio_sueldo'),
+                DB::raw('MAX(radio_circ) as radio_circ'),
+                DB::raw('MAX(radio_camino) as radio_camino'),
+                DB::raw('MAX(porc_pagado_mediana) as porc_pagado_mediana'),
+                DB::raw('MAX(escala_usada) as escala_usada'),
+                DB::raw('SUM(total_filas_docentes) as total_filas_docentes'),
+                DB::raw('MAX(estado_auditoria) as estado_auditoria'),
+                DB::raw('MAX(id) as auditoria_id')
+            )
+            ->groupBy('sector');
+
+        $cruceEscuelas = DB::table('establecimientos as e')
+            ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+            ->join('modalidades as m', 'm.establecimiento_id', '=', 'e.id')
+            ->leftJoinSub($subqueryRadioSector, 'r', function ($join) {
+                $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector');
+            })
+            ->whereNull('e.deleted_at')
+            ->whereNull('m.deleted_at')
+            ->where(function ($q) {
+                $q->whereNull('m.direccion_area')
+                  ->orWhere('m.direccion_area', '!=', 'ADMINISTRACIÓN');
+            })
+            ->select(
+                'e.id as establecimiento_id',
+                'e.cue',
+                'e.nombre as nombre_establecimiento',
+                'ed.zona_departamento as departamento',
+                'm.nivel_educativo',
+                'm.direccion_area',
+                'm.sector as sector_sige',
+                'm.radio as radio_sige',
+                'm.ambito as ambito',
                 'r.sector as sector_sueldos',
                 'r.radio_sueldo',
                 'r.radio_circ',
@@ -226,22 +236,14 @@ class AuditoriaSueldosController extends Controller
                 'r.escala_usada',
                 'r.total_filas_docentes',
                 'r.estado_auditoria',
-                DB::raw('COALESCE(e_san.id, e_orig.id) as establecimiento_id'),
-                DB::raw('COALESCE(e_san.cue, e_orig.cue, r.cue) as cue'),
-                DB::raw('COALESCE(e_san.nombre, e_orig.nombre, r.nombre_establecimiento) as nombre_establecimiento'),
-                DB::raw('COALESCE(m_san.sector, m_orig.sector) as sector_sige'),
-                DB::raw('COALESCE(m_san.radio, m_orig.radio) as radio_sige'),
-                DB::raw('COALESCE(m_san.nivel_educativo, m_orig.nivel_educativo, r.nivel_educativo) as nivel_educativo'),
-                DB::raw('COALESCE(m_san.direccion_area, m_orig.direccion_area) as direccion_area'),
-                DB::raw('COALESCE(m_san.ambito, m_orig.ambito, "PUBLICO") as ambito'),
-                DB::raw('COALESCE(ed_san.zona_departamento, ed_orig.zona_departamento, "S/D") as departamento'),
-                DB::raw('COALESCE(ed_san.distancia_camino, ed_orig.distancia_camino) as dist_camino'),
-                DB::raw('COALESCE(ed_san.dist_circunf, ed_orig.dist_circunf) as dist_circunf')
+                'r.auditoria_id',
+                'ed.distancia_camino as dist_camino',
+                'ed.dist_circunf'
             )
-            ->groupBy('r.id')
+            ->orderBy('e.nombre')
             ->get();
 
-        $cruceEscuelas = $rawResultados->map(function ($c) use ($docentesPorSector) {
+        $cruceEscuelas = $cruceEscuelas->map(function ($c) use ($docentesPorSector) {
             $total = 0;
             $desviados = 0;
             $sectorKey = intval($c->sector_sige ?: $c->sector_sueldos);

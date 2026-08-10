@@ -165,8 +165,27 @@ export default function AuditoriaSueldosIndex({
     };
   }, [resultados]);
 
+  const [depuracionSortField, setDepuracionSortField] = useState('nom_sector');
+  const [depuracionSortOrder, setDepuracionSortOrder] = useState('asc');
+
+  const handleDepuracionSort = (field) => {
+    if (depuracionSortField === field) {
+      setDepuracionSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setDepuracionSortField(field);
+      setDepuracionSortOrder('asc');
+    }
+  };
+
+  const renderDepuracionSortIcon = (field) => {
+    if (depuracionSortField !== field) return <i className="fa-solid fa-sort opacity-40 ml-1 text-[10px]"></i>;
+    return depuracionSortOrder === 'asc' 
+      ? <i className="fa-solid fa-sort-up text-white ml-1 text-xs"></i> 
+      : <i className="fa-solid fa-sort-down text-white ml-1 text-xs"></i>;
+  };
+
   const filteredDepuracion = useMemo(() => {
-    return depuracionList.filter(d => {
+    let list = depuracionList.filter(d => {
       const matchesEstado = depuracionFiltroEstado === 'TODOS' || d.estado_depuracion === depuracionFiltroEstado;
       const term = depuracionBusqueda.toLowerCase();
       const matchesSearch = !depuracionBusqueda ||
@@ -180,14 +199,34 @@ export default function AuditoriaSueldosIndex({
 
       return matchesEstado && matchesSearch;
     });
-  }, [depuracionList, depuracionFiltroEstado, depuracionBusqueda]);
+
+    if (depuracionSortField) {
+      list = [...list].sort((a, b) => {
+        let valA = a[depuracionSortField] ?? '';
+        let valB = b[depuracionSortField] ?? '';
+
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return depuracionSortOrder === 'asc' ? valA - valB : valB - valA;
+        }
+
+        valA = valA.toString().toLowerCase();
+        valB = valB.toString().toLowerCase();
+
+        if (valA < valB) return depuracionSortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return depuracionSortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return list;
+  }, [depuracionList, depuracionFiltroEstado, depuracionBusqueda, depuracionSortField, depuracionSortOrder]);
 
   const PAGE_SIZE_DEPURACION = 15;
   const [pageDepuracion, setPageDepuracion] = useState(1);
 
   useEffect(() => {
     setPageDepuracion(1);
-  }, [depuracionFiltroEstado, depuracionBusqueda]);
+  }, [depuracionFiltroEstado, depuracionBusqueda, depuracionSortField, depuracionSortOrder]);
 
   const totalPagesDepuracion = Math.ceil(filteredDepuracion.length / PAGE_SIZE_DEPURACION) || 1;
   const paginatedDepuracion = useMemo(() => {
@@ -2054,7 +2093,6 @@ export default function AuditoriaSueldosIndex({
                 <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
                   <tr>
                     <th className="px-3 py-3 font-black text-white">Establecimiento / Escuela</th>
-                    <th className="px-3 py-3 text-center font-black text-white">Centro</th>
                     <th className="px-3 py-3 text-center font-black text-white">Sector SIGE</th>
                     <th className="px-3 py-3 text-center font-black text-white">Sector Sueldos</th>
                     <th className="px-3 py-3 text-center font-black text-white">Radio SIGE</th>
@@ -2083,9 +2121,6 @@ export default function AuditoriaSueldosIndex({
                             {c.nivel_educativo && <span className="px-1 py-0.1 bg-gray-100 text-gray-700 rounded border">{c.nivel_educativo}</span>}
                             {c.departamento && <span>• {c.departamento}</span>}
                           </div>
-                        </td>
-                        <td className="px-3 py-3 text-center font-black">
-                          <span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{c.centro ?? 'S/D'}</span>
                         </td>
                         <td className="px-3 py-3 text-center font-black text-sm">
                           {isSector0 ? (
@@ -2316,30 +2351,62 @@ export default function AuditoriaSueldosIndex({
                 </button>
               </div>
 
-              {/* Búsqueda rápida de Depuración */}
-              <div className="mb-4">
+              {/* Búsqueda y Ordenamiento rápida de Depuración */}
+              <div className="mb-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
                 <input
                   type="text"
                   value={depuracionBusqueda}
                   onChange={(e) => setDepuracionBusqueda(e.target.value)}
-                  placeholder="Buscar en depuración por centro, sector, nombre o diagnóstico..."
+                  placeholder="Buscar en depuración por centro, sector, nombre de sector, o diagnóstico..."
                   className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2 text-xs font-semibold text-gray-900 focus:ring-[#FE8204] focus:border-[#FE8204]"
                 />
+                <div className="flex items-center gap-2 shrink-0">
+                  <label className="text-xs font-bold text-gray-600 flex items-center gap-1">
+                    <i className="fa-solid fa-arrow-down-a-z text-[#FE8204]"></i> Ordenar:
+                  </label>
+                  <select
+                    value={depuracionSortField}
+                    onChange={(e) => {
+                      setDepuracionSortField(e.target.value);
+                      setDepuracionSortOrder('asc');
+                    }}
+                    className="bg-white border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-bold text-gray-900 focus:ring-[#FE8204]"
+                  >
+                    <option value="nom_sector">Nombre del Sector (Alfabético)</option>
+                    <option value="nom_centro">Nombre del Centro</option>
+                    <option value="sector">Número de Sector</option>
+                    <option value="centro">Número de Centro</option>
+                    <option value="cantidad_liquidaciones">Cantidad de Liquidaciones</option>
+                    <option value="estado_depuracion">Estado Depuración</option>
+                  </select>
+                </div>
               </div>
 
               {/* Tabla de Depuración */}
               <div className="overflow-x-auto max-h-96 custom-scrollbar border rounded-xl">
                 <table className="w-full text-xs text-left text-gray-700">
-                  <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
+                  <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs select-none">
                     <tr>
-                      <th className="px-3 py-3 text-center font-black text-white">Centro</th>
-                      <th className="px-3 py-3 font-black text-white">Nombre Centro</th>
-                      <th className="px-3 py-3 text-center font-black text-white">Sector</th>
-                      <th className="px-3 py-3 font-black text-white">Nombre Sector</th>
+                      <th onClick={() => handleDepuracionSort('centro')} className="px-3 py-3 text-center font-black text-white cursor-pointer hover:bg-[#e07203]">
+                        Centro {renderDepuracionSortIcon('centro')}
+                      </th>
+                      <th onClick={() => handleDepuracionSort('nom_centro')} className="px-3 py-3 font-black text-white cursor-pointer hover:bg-[#e07203]">
+                        Nombre Centro {renderDepuracionSortIcon('nom_centro')}
+                      </th>
+                      <th onClick={() => handleDepuracionSort('sector')} className="px-3 py-3 text-center font-black text-white cursor-pointer hover:bg-[#e07203]">
+                        Sector {renderDepuracionSortIcon('sector')}
+                      </th>
+                      <th onClick={() => handleDepuracionSort('nom_sector')} className="px-3 py-3 font-black text-white cursor-pointer hover:bg-[#e07203]">
+                        Nombre Sector {renderDepuracionSortIcon('nom_sector')}
+                      </th>
                       <th className="px-3 py-3 font-black text-white">Nivel / Gestión</th>
                       <th className="px-3 py-3 font-black text-white">Establecimiento Vinculado</th>
-                      <th className="px-3 py-3 text-center font-black text-white">Liquidaciones</th>
-                      <th className="px-3 py-3 text-center font-black text-white">Estado Depuración</th>
+                      <th onClick={() => handleDepuracionSort('cantidad_liquidaciones')} className="px-3 py-3 text-center font-black text-white cursor-pointer hover:bg-[#e07203]">
+                        Liquidaciones {renderDepuracionSortIcon('cantidad_liquidaciones')}
+                      </th>
+                      <th onClick={() => handleDepuracionSort('estado_depuracion')} className="px-3 py-3 text-center font-black text-white cursor-pointer hover:bg-[#e07203]">
+                        Estado Depuración {renderDepuracionSortIcon('estado_depuracion')}
+                      </th>
                       <th className="px-3 py-3 font-black text-white">Diagnóstico / Observaciones</th>
                       <th className="px-3 py-3 text-center font-black text-white">Acción Sanación</th>
                     </tr>
