@@ -60,17 +60,31 @@ class AuditoriaSueldosController extends Controller
 
         $resultados = DB::table('auditoria_radio_resultados as r')
             ->where('r.nomina_id', $nominaSeleccionada->id)
+            ->leftJoin('depuracion_centros_sectores as d_san', function ($join) {
+                $join->on('d_san.centro', '=', 'r.centro')
+                     ->on('d_san.sector', '=', 'r.sector')
+                     ->whereNotNull('d_san.establecimiento_id');
+            })
+            ->leftJoin('establecimientos as e_san', 'e_san.id', '=', 'd_san.establecimiento_id')
+            ->leftJoin('modalidades as m_san', 'm_san.id', '=', 'd_san.modalidad_id')
             ->leftJoin('establecimientos as e', 'e.cue', '=', 'r.cue')
-            ->leftJoin('modalidades as m', 'm.establecimiento_id', '=', 'e.id')
-            ->leftJoin('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+            ->leftJoin('edificios as ed_san', 'ed_san.id', '=', 'e_san.edificio_id')
+            ->leftJoin('edificios as ed_orig', 'ed_orig.id', '=', 'e.edificio_id')
+            ->leftJoin('modalidades as m_native', function ($join) {
+                $join->on('m_native.establecimiento_id', '=', 'e.id')
+                     ->on(DB::raw('CAST(m_native.sector AS INTEGER)'), '=', 'r.sector');
+            })
+            ->leftJoin('modalidades as m_any', 'm_any.establecimiento_id', '=', 'e.id')
             ->select(
                 'r.*',
-                DB::raw('COALESCE(m.nivel_educativo, r.nivel_educativo) as nivel_educativo'),
-                DB::raw('COALESCE(e.nombre, r.nombre_establecimiento) as nombre_establecimiento'),
-                DB::raw('COALESCE(ed.zona_departamento, "S/D") as departamento'),
-                DB::raw('COALESCE(m.ambito, "PUBLICO") as ambito'),
-                'ed.distancia_camino as dist_camino',
-                'ed.dist_circunf'
+                DB::raw('COALESCE(e_san.cue, r.cue) as cue'),
+                DB::raw('COALESCE(m_san.nivel_educativo, m_native.nivel_educativo, m_any.nivel_educativo, r.nivel_educativo) as nivel_educativo'),
+                DB::raw('COALESCE(e_san.nombre, e.nombre, r.nombre_establecimiento) as nombre_establecimiento'),
+                DB::raw('COALESCE(ed_san.zona_departamento, ed_orig.zona_departamento, "S/D") as departamento'),
+                DB::raw('COALESCE(m_san.ambito, m_native.ambito, m_any.ambito, "PUBLICO") as ambito'),
+                DB::raw('COALESCE(ed_san.distancia_camino, ed_orig.distancia_camino) as dist_camino'),
+                DB::raw('COALESCE(ed_san.dist_circunf, ed_orig.dist_circunf) as dist_circunf'),
+                DB::raw('CASE WHEN d_san.id IS NULL AND m_native.id IS NOT NULL THEN 1 ELSE 0 END as es_sector_nativo')
             )
             ->groupBy('r.id')
             ->orderBy('r.sector')
@@ -172,58 +186,38 @@ class AuditoriaSueldosController extends Controller
 
         $establecimientosList = DB::table('establecimientos as e')
             ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
-            ->leftJoin('modalidades as m', 'm.establecimiento_id', '=', 'e.id')
             ->select(
                 'e.id',
                 'e.cue',
                 'e.nombre',
                 'ed.zona_departamento as departamento',
-                'ed.localidad',
-                DB::raw('MAX(m.radio) as radio')
+                'ed.localidad'
             )
-            ->groupBy('e.id')
             ->orderBy('e.nombre')
             ->get();
 
-        $subqueryRadio = DB::table('auditoria_radio_resultados')
-            ->select(
-                'sector',
-                DB::raw('MAX(centro) as centro'),
-                DB::raw('MAX(radio_sueldo) as radio_sueldo'),
-                DB::raw('MAX(radio_circ) as radio_circ'),
-                DB::raw('MAX(radio_camino) as radio_camino'),
-                DB::raw('MAX(porc_pagado_mediana) as porc_pagado_mediana'),
-                DB::raw('MAX(escala_usada) as escala_usada'),
-                DB::raw('SUM(total_filas_docentes) as total_filas_docentes'),
-                DB::raw('MAX(estado_auditoria) as estado_auditoria'),
-                DB::raw('MAX(id) as auditoria_id')
-            )
-            ->where('nomina_id', $nominaSeleccionada->id)
-            ->groupBy('sector');
-
-        $cruceEscuelas = DB::table('establecimientos as e')
-            ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
-            ->join('modalidades as m', 'm.establecimiento_id', '=', 'e.id')
-            ->leftJoinSub($subqueryRadio, 'r', function ($join) {
-                $join->on(DB::raw('CAST(m.sector AS INTEGER)'), '=', 'r.sector');
+        // Construimos el cruce expandido por (centro, sector) con prioridad al saneamiento manual
+        $rawResultados = DB::table('auditoria_radio_resultados as r')
+            ->where('r.nomina_id', $nominaSeleccionada->id)
+            // Saneamiento manual: si existe, usa ese establecimiento
+            ->leftJoin('depuracion_centros_sectores as d_san', function ($join) {
+                $join->on('d_san.centro', '=', 'r.centro')
+                     ->on('d_san.sector', '=', 'r.sector')
+                     ->whereNotNull('d_san.establecimiento_id');
             })
-            ->whereNull('e.deleted_at')
-            ->whereNull('m.deleted_at')
-            ->where(function ($q) {
-                $q->whereNull('m.direccion_area')
-                  ->orWhere('m.direccion_area', '!=', 'ADMINISTRACIÓN');
+            ->leftJoin('establecimientos as e_san', 'e_san.id', '=', 'd_san.establecimiento_id')
+            ->leftJoin('modalidades as m_san', 'm_san.id', '=', 'd_san.modalidad_id')
+            // Fallback SIGE: establecimiento y modalidad basados en el CUE original importado
+            ->leftJoin('establecimientos as e_orig', 'e_orig.cue', '=', 'r.cue')
+            ->leftJoin('modalidades as m_orig', function ($join) {
+                $join->on('m_orig.establecimiento_id', '=', 'e_orig.id')
+                     ->on(DB::raw('CAST(m_orig.sector AS INTEGER)'), '=', 'r.sector');
             })
+            ->leftJoin('edificios as ed_san', 'ed_san.id', '=', 'e_san.edificio_id')
+            ->leftJoin('edificios as ed_orig', 'ed_orig.id', '=', 'e_orig.edificio_id')
             ->select(
-                'e.id as establecimiento_id',
-                'e.cue',
-                'e.nombre as nombre_establecimiento',
-                'ed.zona_departamento as departamento',
-                'm.nivel_educativo',
-                'm.direccion_area',
-                'm.sector as sector_sige',
-                'm.radio as radio_sige',
-                'm.ambito as ambito',
-                'r.centro as centro',
+                'r.id as auditoria_id',
+                'r.centro',
                 'r.sector as sector_sueldos',
                 'r.radio_sueldo',
                 'r.radio_circ',
@@ -232,14 +226,22 @@ class AuditoriaSueldosController extends Controller
                 'r.escala_usada',
                 'r.total_filas_docentes',
                 'r.estado_auditoria',
-                'r.auditoria_id',
-                'ed.distancia_camino as dist_camino',
-                'ed.dist_circunf'
+                DB::raw('COALESCE(e_san.id, e_orig.id) as establecimiento_id'),
+                DB::raw('COALESCE(e_san.cue, e_orig.cue, r.cue) as cue'),
+                DB::raw('COALESCE(e_san.nombre, e_orig.nombre, r.nombre_establecimiento) as nombre_establecimiento'),
+                DB::raw('COALESCE(m_san.sector, m_orig.sector) as sector_sige'),
+                DB::raw('COALESCE(m_san.radio, m_orig.radio) as radio_sige'),
+                DB::raw('COALESCE(m_san.nivel_educativo, m_orig.nivel_educativo, r.nivel_educativo) as nivel_educativo'),
+                DB::raw('COALESCE(m_san.direccion_area, m_orig.direccion_area) as direccion_area'),
+                DB::raw('COALESCE(m_san.ambito, m_orig.ambito, "PUBLICO") as ambito'),
+                DB::raw('COALESCE(ed_san.zona_departamento, ed_orig.zona_departamento, "S/D") as departamento'),
+                DB::raw('COALESCE(ed_san.distancia_camino, ed_orig.distancia_camino) as dist_camino'),
+                DB::raw('COALESCE(ed_san.dist_circunf, ed_orig.dist_circunf) as dist_circunf')
             )
-            ->orderBy('e.nombre')
+            ->groupBy('r.id')
             ->get();
 
-        $cruceEscuelas = $cruceEscuelas->map(function ($c) use ($docentesPorSector) {
+        $cruceEscuelas = $rawResultados->map(function ($c) use ($docentesPorSector) {
             $total = 0;
             $desviados = 0;
             $sectorKey = intval($c->sector_sige ?: $c->sector_sueldos);
@@ -351,10 +353,18 @@ class AuditoriaSueldosController extends Controller
             'registros_escala_vieja' => $linkedViejos->count(),
         ];
 
-        $depuracionCentros = DB::table('depuracion_centros_sectores')
-            ->orderBy('estado_depuracion', 'asc')
-            ->orderBy('centro', 'asc')
-            ->orderBy('sector', 'asc')
+        $depuracionCentros = DB::table('depuracion_centros_sectores as d')
+            ->leftJoin('establecimientos as e', 'e.id', '=', 'd.establecimiento_id')
+            ->leftJoin('modalidades as m', 'm.id', '=', 'd.modalidad_id')
+            ->select(
+                'd.*',
+                'e.cue as cue_vinculado',
+                'e.nombre as nom_establecimiento_vinculado',
+                'm.nivel_educativo as nivel_educativo_vinculado'
+            )
+            ->orderBy('d.estado_depuracion', 'asc')
+            ->orderBy('d.centro', 'asc')
+            ->orderBy('d.sector', 'asc')
             ->get();
 
         return Inertia::render('AuditoriaSueldos/Index', [
@@ -497,11 +507,23 @@ class AuditoriaSueldosController extends Controller
     /**
      * Sanear / vincular o actualizar observaciones de un registro de depuración (Centro / Sector).
      */
+    public function getModalidadesPorEstablecimiento($establecimientoId)
+    {
+        $modalidades = DB::table('modalidades')
+            ->where('establecimiento_id', $establecimientoId)
+            ->select('id', 'sector', 'nivel_educativo', 'radio', 'radio_sige', 'direccion_area')
+            ->orderBy('nivel_educativo')
+            ->get();
+
+        return response()->json($modalidades);
+    }
+
     public function sanearDepuracion(Request $request)
     {
         $request->validate([
             'id' => 'required|integer|exists:depuracion_centros_sectores,id',
             'establecimiento_id' => 'nullable|exists:establecimientos,id',
+            'modalidad_id' => 'nullable|exists:modalidades,id',
             'estado_depuracion' => 'nullable|string',
             'observaciones' => 'nullable|string',
         ]);
@@ -509,19 +531,26 @@ class AuditoriaSueldosController extends Controller
         $item = DepuracionCentroSector::findOrFail($request->input('id'));
 
         $estId = $request->input('establecimiento_id');
+        $modId = $request->input('modalidad_id');
         $nuevoEstado = $request->input('estado_depuracion');
         $obs = $request->input('observaciones');
 
         if ($estId) {
             $est = DB::table('establecimientos')->where('id', $estId)->first();
             if ($est) {
-                // Vincular o crear modalidad
-                $modalidad = DB::table('modalidades')
-                    ->where('sector', $item->sector)
-                    ->first();
+                $modTarget = null;
+                if ($modId) {
+                    $modTarget = DB::table('modalidades')->where('id', $modId)->first();
+                }
 
-                if (! $modalidad) {
-                    DB::table('modalidades')->insert([
+                if (! $modTarget) {
+                    $modTarget = DB::table('modalidades')
+                        ->where('sector', $item->sector)
+                        ->first();
+                }
+
+                if (! $modTarget) {
+                    $newModId = DB::table('modalidades')->insertGetId([
                         'establecimiento_id' => $est->id,
                         'sector' => $item->sector,
                         'radio' => 1,
@@ -530,18 +559,23 @@ class AuditoriaSueldosController extends Controller
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
+                    $modId = $newModId;
                 } else {
                     DB::table('modalidades')
-                        ->where('id', $modalidad->id)
+                        ->where('id', $modTarget->id)
                         ->update([
                             'establecimiento_id' => $est->id,
                             'updated_at' => now(),
                         ]);
+                    $modId = $modTarget->id;
                 }
 
-                $item->nom_centro = $est->nombre;
+                $nivelStr = ($modTarget && isset($modTarget->nivel_educativo)) ? " — Nivel: {$modTarget->nivel_educativo}" : '';
+
+                $item->establecimiento_id = $est->id;
+                $item->modalidad_id = $modId;
                 $item->estado_depuracion = 'ACTIVO';
-                $item->observaciones = "Saneado y vinculado a CUE {$est->cue} ({$est->nombre}). ".($obs ? "Notas: {$obs}" : '');
+                $item->observaciones = "Saneado y vinculado a CUE {$est->cue} ({$est->nombre}){$nivelStr}. ".($obs ? "Notas: {$obs}" : '');
             }
         } else {
             if ($nuevoEstado) {
@@ -554,9 +588,22 @@ class AuditoriaSueldosController extends Controller
 
         $item->save();
 
+        // Obtener registro refrescado con datos de la escuela para reactualizar el listado en frontend
+        $updatedItem = DB::table('depuracion_centros_sectores as d')
+            ->leftJoin('establecimientos as e', 'e.id', '=', 'd.establecimiento_id')
+            ->leftJoin('modalidades as m', 'm.id', '=', 'd.modalidad_id')
+            ->select(
+                'd.*',
+                'e.cue as cue_vinculado',
+                'e.nombre as nom_establecimiento_vinculado',
+                'm.nivel_educativo as nivel_educativo_vinculado'
+            )
+            ->where('d.id', $item->id)
+            ->first();
+
         return response()->json([
             'message' => 'Registro de depuración actualizado correctamente',
-            'item' => $item,
+            'item' => $updatedItem,
         ]);
     }
 
@@ -619,7 +666,7 @@ class AuditoriaSueldosController extends Controller
         } elseif ($tab === 'conflictos') {
             $lastColLetter = 'L';
         } elseif ($tab === 'paga_mas' || $tab === 'paga_menos' || $tab === 'tracking' || $tab === 'gestion') {
-            $lastColLetter = 'O';
+            $lastColLetter = 'P';
         } elseif ($tab === 'zonas') {
             $lastColLetter = 'M';
         } elseif ($tab === 'sin_escuela') {
@@ -951,25 +998,31 @@ class AuditoriaSueldosController extends Controller
             }
         } elseif ($tab === 'paga_mas' || $tab === 'paga_menos' || $tab === 'tracking' || $tab === 'gestion') {
             $headers = [
-                'Centro', 'Sector', 'CUE', 'Establecimiento / Escuela',
+                'Centro', 'Sector', 'CUE', 'Establecimiento / Escuela', 'Tipo de Vínculo',
                 'Radio SIGE', 'Radio Sueldo', 'Coincide SIGE vs Sueldo',
                 'Porcentaje Pagado', 'Ley / Escala Aplicada',
                 'Radio Circunferencia', 'Radio Camino', 'Distancia Camino',
                 'Personal Afectado', 'Estado Gestión', 'Notas / Observaciones',
             ];
             $sheet->fromArray($headers, null, 'A'.$startRow);
-            $sheet->getStyle('A4:O4')->applyFromArray($headerStyle);
+            $sheet->getStyle('A4:P4')->applyFromArray($headerStyle);
             $sheet->getRowDimension(4)->setRowHeight(24);
 
             $query = DB::table('auditoria_radio_resultados as r')
                 ->where('r.nomina_id', $nominaId)
                 ->leftJoin('establecimientos as e', 'e.cue', '=', 'r.cue')
                 ->leftJoin('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+                ->leftJoin('modalidades as m_native', function ($join) {
+                    $join->on('m_native.establecimiento_id', '=', 'e.id')
+                         ->on(DB::raw('CAST(m_native.sector AS INTEGER)'), '=', 'r.sector');
+                })
                 ->select(
                     'r.*',
                     'ed.distancia_camino as dist_camino',
-                    'ed.dist_circunf'
-                );
+                    'ed.dist_circunf',
+                    DB::raw('CASE WHEN m_native.id IS NOT NULL THEN 1 ELSE 0 END as es_sector_nativo')
+                )
+                ->groupBy('r.id');
 
             if ($tab === 'paga_mas') {
                 $query->whereNotNull('r.cue')->where('r.cue', '!=', '')->where('r.estado_auditoria', 'PAGA_MAS_QUE_SIGE');
@@ -1019,26 +1072,27 @@ class AuditoriaSueldosController extends Controller
                 $sheet->setCellValue('B'.$r, $item->sector);
                 $sheet->setCellValue('C'.$r, $item->cue ?? 'S/D');
                 $sheet->setCellValue('D'.$r, $item->nombre_establecimiento ?? 'Sin Registro en SIGE');
-                $sheet->setCellValue('E'.$r, $rSige ? 'Radio '.$rSige : '-');
-                $sheet->setCellValue('F'.$r, $rSueldo ? 'Radio '.$rSueldo : '-');
-                $sheet->setCellValue('G'.$r, $coincideSige);
-                $sheet->setCellValue('H'.$r, $item->porc_pagado_mediana ? $item->porc_pagado_mediana.'%' : '-');
-                $sheet->setCellValue('I'.$r, $escala);
-                $sheet->setCellValue('J'.$r, $coincideCirc);
-                $sheet->setCellValue('K'.$r, $coincideCamino);
-                $sheet->setCellValue('L'.$r, $distText);
-                $sheet->setCellValue('M'.$r, $item->total_filas_docentes ?? 0);
-                $sheet->setCellValue('N'.$r, $item->estado_gestion);
-                $sheet->setCellValue('O'.$r, $item->notes_auditor ?? $item->notas_auditor ?? '');
+                $sheet->setCellValue('E'.$r, empty($item->es_sector_nativo) ? 'Asociación Manual' : 'Oficial SIGE');
+                $sheet->setCellValue('F'.$r, $rSige ? 'Radio '.$rSige : '-');
+                $sheet->setCellValue('G'.$r, $rSueldo ? 'Radio '.$rSueldo : '-');
+                $sheet->setCellValue('H'.$r, $coincideSige);
+                $sheet->setCellValue('I'.$r, $item->porc_pagado_mediana ? $item->porc_pagado_mediana.'%' : '-');
+                $sheet->setCellValue('J'.$r, $escala);
+                $sheet->setCellValue('K'.$r, $coincideCirc);
+                $sheet->setCellValue('L'.$r, $coincideCamino);
+                $sheet->setCellValue('M'.$r, $distText);
+                $sheet->setCellValue('N'.$r, $item->total_filas_docentes ?? 0);
+                $sheet->setCellValue('O'.$r, $item->estado_gestion);
+                $sheet->setCellValue('P'.$r, $item->notes_auditor ?? $item->notas_auditor ?? '');
 
-                $sheet->getStyle('A'.$r.':O'.$r)->applyFromArray([
+                $sheet->getStyle('A'.$r.':P'.$r)->applyFromArray([
                     'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE2E8F0']]],
                     'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
                 ]);
                 $sheet->getStyle('A'.$r.':C'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('E'.$r.':L'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getStyle('M'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                $sheet->getStyle('N'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('E'.$r.':M'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('N'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle('O'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 $r++;
             }
         } elseif ($tab === 'zonas') {

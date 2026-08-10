@@ -21,12 +21,16 @@ class DepuracionCentroSector extends Model
         'cantidad_liquidaciones',
         'estado_depuracion',
         'observaciones',
+        'establecimiento_id',
+        'modalidad_id',
     ];
 
     protected $casts = [
         'centro' => 'integer',
         'sector' => 'integer',
         'cantidad_liquidaciones' => 'integer',
+        'establecimiento_id' => 'integer',
+        'modalidad_id' => 'integer',
     ];
 
     // Scopes de filtrado para consultas limpias

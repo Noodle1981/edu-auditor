@@ -103,6 +103,34 @@ def ejecutar_auditoria():
 
     # 3. Clasificación de Depuración
     print("\n[3/5] Ejecutando algoritmo de taxonomía y depuración...")
+    
+    # Cargar saneamientos existentes desde la base de datos para preservarlos
+    existing_saneamientos = {}
+    if os.path.exists(f_db):
+        try:
+            conn = sqlite3.connect(f_db)
+            cursor = conn.cursor()
+            # Validar si existe la columna establecimiento_id antes de consultar
+            cursor.execute("PRAGMA table_info(depuracion_centros_sectores)")
+            cols = [r[1] for r in cursor.fetchall()]
+            if 'establecimiento_id' in cols:
+                has_mod = 'modalidad_id' in cols
+                select_query = "SELECT centro, sector, estado_depuracion, observaciones, establecimiento_id" + (", modalidad_id" if has_mod else ", NULL as modalidad_id") + " FROM depuracion_centros_sectores WHERE establecimiento_id IS NOT NULL"
+                cursor.execute(select_query)
+                for row in cursor.fetchall():
+                    c, s, est, obs, est_id, mod_id = row[0], row[1], row[2], row[3], row[4], row[5]
+                    existing_saneamientos[(c, s)] = {
+                        'estado_depuracion': est,
+                        'observaciones': obs,
+                        'establecimiento_id': est_id,
+                        'modalidad_id': mod_id
+                    }
+            conn.close()
+            if existing_saneamientos:
+                print(f"   -> Cargados {len(existing_saneamientos)} saneamientos previos para preservar.")
+        except Exception as e:
+            print(f"   -> No se pudieron cargar saneamientos anteriores ({e})")
+
     registros_depuracion = []
     ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -110,18 +138,27 @@ def ejecutar_auditoria():
     for (c, s), m_info in master_dict.items():
         liq = sueldo_counts.get((c, s), 0)
 
-        if c not in sueldo_centros:
-            estado = 'CENTRO_SIN_USO'
-            obs = f"El Centro {c} ({m_info['nom_centro']}) no registra liquidaciones de sueldo en el período."
-        elif liq == 0:
-            estado = 'SECTOR_SIN_USO'
-            obs = f"El Sector {s} ({m_info['nom_sector']}) en Centro {c} no tuvo liquidaciones en el período."
-        elif 1 <= liq <= 3:
-            estado = 'BAJA_VOLUMETRÍA'
-            obs = f"Actividad anómala / muy baja: sólo {liq} liquidación(es) en el mes."
+        ext_saneamiento = existing_saneamientos.get((c, s))
+        if ext_saneamiento:
+            estado = ext_saneamiento['estado_depuracion']
+            obs = ext_saneamiento['observaciones']
+            est_id = ext_saneamiento['establecimiento_id']
+            mod_id = ext_saneamiento.get('modalidad_id')
         else:
-            estado = 'ACTIVO'
-            obs = f"Uso normal: {liq} liquidaciones en el mes."
+            est_id = None
+            mod_id = None
+            if c not in sueldo_centros:
+                estado = 'CENTRO_SIN_USO'
+                obs = f"El Centro {c} ({m_info['nom_centro']}) no registra liquidaciones de sueldo en el período."
+            elif liq == 0:
+                estado = 'SECTOR_SIN_USO'
+                obs = f"El Sector {s} ({m_info['nom_sector']}) en Centro {c} no tuvo liquidaciones en el período."
+            elif 1 <= liq <= 3:
+                estado = 'BAJA_VOLUMETRÍA'
+                obs = f"Actividad anómala / muy baja: sólo {liq} liquidación(es) en el mes."
+            else:
+                estado = 'ACTIVO'
+                obs = f"Uso normal: {liq} liquidaciones en el mes."
 
         registros_depuracion.append({
             'centro': c,
@@ -133,6 +170,8 @@ def ejecutar_auditoria():
             'cantidad_liquidaciones': liq,
             'estado_depuracion': estado,
             'observaciones': obs,
+            'establecimiento_id': est_id,
+            'modalidad_id': mod_id,
             'created_at': ahora,
             'updated_at': ahora
         })
@@ -142,8 +181,18 @@ def ejecutar_auditoria():
     for (c, s), liq in sueldo_counts.items():
         if (c, s) not in master_dict:
             sueldo_no_catalogados += 1
-            estado = 'SUELDO_NO_CATALOGADO'
-            obs = f"ATENCIÓN: Se registraron {liq} haberes pero la combinación (Centro {c}, Sector {s}) NO existe en el catálogo maestro."
+            ext_saneamiento = existing_saneamientos.get((c, s))
+            if ext_saneamiento:
+                estado = ext_saneamiento['estado_depuracion']
+                obs = ext_saneamiento['observaciones']
+                est_id = ext_saneamiento['establecimiento_id']
+                mod_id = ext_saneamiento.get('modalidad_id')
+            else:
+                est_id = None
+                mod_id = None
+                estado = 'SUELDO_NO_CATALOGADO'
+                obs = f"ATENCIÓN: Se registraron {liq} haberes pero la combinación (Centro {c}, Sector {s}) NO existe en el catálogo maestro."
+            
             registros_depuracion.append({
                 'centro': c,
                 'sector': s,
@@ -154,6 +203,8 @@ def ejecutar_auditoria():
                 'cantidad_liquidaciones': liq,
                 'estado_depuracion': estado,
                 'observaciones': obs,
+                'establecimiento_id': est_id,
+                'modalidad_id': mod_id,
                 'created_at': ahora,
                 'updated_at': ahora
             })
@@ -183,6 +234,8 @@ def ejecutar_auditoria():
         cantidad_liquidaciones INTEGER DEFAULT 0,
         estado_depuracion TEXT NOT NULL,
         observaciones TEXT,
+        establecimiento_id INTEGER,
+        modalidad_id INTEGER,
         created_at TIMESTAMP,
         updated_at TIMESTAMP
     )
@@ -193,10 +246,10 @@ def ejecutar_auditoria():
     cursor.executemany("""
     INSERT INTO depuracion_centros_sectores (
         centro, sector, nom_centro, nom_sector, nivel, gestion,
-        cantidad_liquidaciones, estado_depuracion, observaciones, created_at, updated_at
+        cantidad_liquidaciones, estado_depuracion, observaciones, establecimiento_id, modalidad_id, created_at, updated_at
     ) VALUES (
         :centro, :sector, :nom_centro, :nom_sector, :nivel, :gestion,
-        :cantidad_liquidaciones, :estado_depuracion, :observaciones, :created_at, :updated_at
+        :cantidad_liquidaciones, :estado_depuracion, :observaciones, :establecimiento_id, :modalidad_id, :created_at, :updated_at
     )
     """, registros_depuracion)
 

@@ -35,6 +35,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/api/auditoria-sueldos/viejo/{id}', [AuditoriaSueldosController::class, 'updateClasificacionViejo']);
     Route::post('/api/auditoria-sueldos/sanear-sector', [AuditoriaSueldosController::class, 'sanearSector']);
     Route::post('/api/auditoria-sueldos/sanear-depuracion', [AuditoriaSueldosController::class, 'sanearDepuracion']);
+    Route::get('/api/auditoria-sueldos/modalidades-por-establecimiento/{establecimientoId}', [AuditoriaSueldosController::class, 'getModalidadesPorEstablecimiento']);
     Route::get('/api/auditoria-sueldos/sector-docentes', [AuditoriaSueldosController::class, 'obtenerDocentesSector'])->name('auditoria-sueldos.sector-docentes');
 
     Route::get('/auditoria-automatizada', [AgenteController::class, 'auditoriaAutomatizadaPage'])->name('auditoria-automatizada');

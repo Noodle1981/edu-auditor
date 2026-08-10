@@ -50,10 +50,34 @@ export default function AuditoriaSueldosIndex({
 
   const [sanearDepuracionModalItem, setSanearDepuracionModalItem] = useState(null);
   const [sanearDepEstId, setSanearDepEstId] = useState('');
+  const [sanearDepModalidadId, setSanearDepModalidadId] = useState('');
+  const [sanearDepModalidades, setSanearDepModalidades] = useState([]);
+  const [sanearDepLoadingModalidades, setSanearDepLoadingModalidades] = useState(false);
   const [sanearDepSearchTerm, setSanearDepSearchTerm] = useState('');
   const [sanearDepObs, setSanearDepObs] = useState('');
   const [sanearDepEstado, setSanearDepEstado] = useState('');
   const [sanearDepSubmitting, setSanearDepSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!sanearDepEstId) {
+      setSanearDepModalidades([]);
+      setSanearDepModalidadId('');
+      return;
+    }
+    setSanearDepLoadingModalidades(true);
+    fetch(`/api/auditoria-sueldos/modalidades-por-establecimiento/${sanearDepEstId}`)
+      .then(res => res.json())
+      .then(data => {
+        setSanearDepModalidades(data || []);
+        if (data && data.length === 1) {
+          setSanearDepModalidadId(data[0].id.toString());
+        } else {
+          setSanearDepModalidadId('');
+        }
+      })
+      .catch(err => console.error(err))
+      .finally(() => setSanearDepLoadingModalidades(false));
+  }, [sanearDepEstId]);
 
   // States y Callback para la Auditoría Individual de Docentes
   const [modalDocentesSector, setModalDocentesSector] = useState(null);
@@ -150,6 +174,8 @@ export default function AuditoriaSueldosIndex({
         (d.sector && d.sector.toString().includes(term)) ||
         (d.nom_centro && d.nom_centro.toLowerCase().includes(term)) ||
         (d.nom_sector && d.nom_sector.toLowerCase().includes(term)) ||
+        (d.cue_vinculado && d.cue_vinculado.toString().includes(term)) ||
+        (d.nom_establecimiento_vinculado && d.nom_establecimiento_vinculado.toLowerCase().includes(term)) ||
         (d.observaciones && d.observaciones.toLowerCase().includes(term));
 
       return matchesEstado && matchesSearch;
@@ -183,6 +209,7 @@ export default function AuditoriaSueldosIndex({
         body: JSON.stringify({
           id: sanearDepuracionModalItem.id,
           establecimiento_id: sanearDepEstId || null,
+          modalidad_id: sanearDepModalidadId || null,
           estado_depuracion: sanearDepEstado || null,
           observaciones: sanearDepObs
         })
@@ -192,7 +219,6 @@ export default function AuditoriaSueldosIndex({
         const data = await res.json();
         setDepuracionList(prev => prev.map(item => item.id === sanearDepuracionModalItem.id ? data.item : item));
         setSanearDepuracionModalItem(null);
-        alert('Registro de depuración saneado correctamente.');
       } else {
         alert('Ocurrió un error al actualizar la depuración.');
       }
@@ -1435,8 +1461,18 @@ export default function AuditoriaSueldosIndex({
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {pagaMasList.map((item) => (
-                  <tr key={item.id} className="hover:bg-red-50/50">
-                    <td className="px-3 py-3 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{item.centro ?? 'S/D'}</span></td>
+                  <tr key={item.id} className={`hover:bg-red-50/50 ${!item.es_sector_nativo ? 'bg-amber-50/30' : ''}`}>
+                    <td className="px-3 py-3 text-center">
+                      {item.es_sector_nativo === 1 ? (
+                        <span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">
+                          {item.centro ?? 'S/D'}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-lg bg-white text-[#FE8204] border border-[#FE8204]/40 font-black text-xs inline-block" title="Establecimiento con vinculación de sector manual">
+                          {item.centro ?? 'S/D'}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3">
                       <div className="font-extrabold text-gray-950 max-w-xs truncate">
@@ -1450,6 +1486,15 @@ export default function AuditoriaSueldosIndex({
                           </span>
                         )}
                         {item.departamento && <span>• {item.departamento}</span>}
+                        {item.es_sector_nativo === 1 ? (
+                          <span className="px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded border border-emerald-200 font-extrabold text-[9px] uppercase tracking-wide">
+                            SIGE Oficial
+                          </span>
+                        ) : (
+                          <span className="px-1 py-0.2 bg-amber-50 text-amber-700 rounded border border-amber-200 font-extrabold text-[9px] uppercase tracking-wide" title="Sector asociado manualmente al CUE en la auditoría">
+                            Asociación Manual
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-3 py-3 text-center font-black text-gray-700">R{item.radio_sige || '-'}</td>
@@ -1571,8 +1616,18 @@ export default function AuditoriaSueldosIndex({
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {pagaMenosList.map((item) => (
-                  <tr key={item.id} className="hover:bg-blue-50/50">
-                    <td className="px-3 py-3 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{item.centro ?? 'S/D'}</span></td>
+                  <tr key={item.id} className={`hover:bg-blue-50/50 ${!item.es_sector_nativo ? 'bg-amber-50/30' : ''}`}>
+                    <td className="px-3 py-3 text-center">
+                      {item.es_sector_nativo === 1 ? (
+                        <span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">
+                          {item.centro ?? 'S/D'}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-lg bg-white text-[#FE8204] border border-[#FE8204]/40 font-black text-xs inline-block" title="Establecimiento con vinculación de sector manual">
+                          {item.centro ?? 'S/D'}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3">
                       <div className="font-extrabold text-gray-950 max-w-xs truncate">
@@ -1586,6 +1641,15 @@ export default function AuditoriaSueldosIndex({
                           </span>
                         )}
                         {item.departamento && <span>• {item.departamento}</span>}
+                        {item.es_sector_nativo === 1 ? (
+                          <span className="px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded border border-emerald-200 font-extrabold text-[9px] uppercase tracking-wide">
+                            SIGE Oficial
+                          </span>
+                        ) : (
+                          <span className="px-1 py-0.2 bg-amber-50 text-amber-700 rounded border border-amber-200 font-extrabold text-[9px] uppercase tracking-wide" title="Sector asociado manualmente al CUE en la auditoría">
+                            Asociación Manual
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-3 py-3 text-center font-black text-gray-700">R{item.radio_sige || '-'}</td>
@@ -1704,14 +1768,33 @@ export default function AuditoriaSueldosIndex({
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {zonasInconsistentesList.map((item) => (
-                  <tr key={item.id} className="hover:bg-purple-50/50">
-                    <td className="px-3 py-3 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{item.centro ?? 'S/D'}</span></td>
+                  <tr key={item.id} className={`hover:bg-purple-50/50 ${!item.es_sector_nativo ? 'bg-amber-50/30' : ''}`}>
+                    <td className="px-3 py-3 text-center">
+                      {item.es_sector_nativo === 1 ? (
+                        <span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">
+                          {item.centro ?? 'S/D'}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-lg bg-white text-[#FE8204] border border-[#FE8204]/40 font-black text-xs inline-block" title="Establecimiento con vinculación de sector manual">
+                          {item.centro ?? 'S/D'}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3">
                       <div className="font-extrabold text-gray-950 max-w-xs truncate">{item.nombre_establecimiento || 'No Registrado'}</div>
                       <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-500">
                         {item.cue && <span>CUE: {item.cue}</span>}
                         {item.departamento && <span>• {item.departamento}</span>}
+                        {item.es_sector_nativo === 1 ? (
+                          <span className="px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded border border-emerald-200 font-extrabold text-[9px] uppercase tracking-wide">
+                            SIGE Oficial
+                          </span>
+                        ) : (
+                          <span className="px-1 py-0.2 bg-amber-50 text-amber-700 rounded border border-amber-200 font-extrabold text-[9px] uppercase tracking-wide" title="Sector asociado manualmente al CUE en la auditoría">
+                            Asociación Manual
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-3 py-3 text-center font-bold text-red-600">{item.zona_sueldo}</td>
@@ -1785,8 +1868,18 @@ export default function AuditoriaSueldosIndex({
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paginatedTracking.map((item) => (
-                  <tr key={item.id} className="hover:bg-emerald-50/50">
-                    <td className="px-3 py-3 text-center"><span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">{item.centro ?? 'S/D'}</span></td>
+                  <tr key={item.id} className={`hover:bg-emerald-50/50 ${!item.es_sector_nativo ? 'bg-amber-50/30' : ''}`}>
+                    <td className="px-3 py-3 text-center">
+                      {item.es_sector_nativo === 1 ? (
+                        <span className="px-2 py-0.5 rounded-lg bg-[#FE8204] text-white font-black text-xs inline-block">
+                          {item.centro ?? 'S/D'}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-lg bg-white text-[#FE8204] border border-[#FE8204]/40 font-black text-xs inline-block" title="Establecimiento con vinculación de sector manual">
+                          {item.centro ?? 'S/D'}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-center font-black text-gray-900">{item.sector}</td>
                     <td className="px-3 py-3">
                       <div className="font-extrabold text-gray-950 max-w-xs truncate">
@@ -1800,6 +1893,15 @@ export default function AuditoriaSueldosIndex({
                           </span>
                         )}
                         {item.departamento && <span>• {item.departamento}</span>}
+                        {item.es_sector_nativo === 1 ? (
+                          <span className="px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded border border-emerald-200 font-extrabold text-[9px] uppercase tracking-wide">
+                            SIGE Oficial
+                          </span>
+                        ) : (
+                          <span className="px-1 py-0.2 bg-amber-50 text-amber-700 rounded border border-amber-200 font-extrabold text-[9px] uppercase tracking-wide" title="Sector asociado manualmente al CUE en la auditoría">
+                            Asociación Manual
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-3 py-3 text-center font-black text-gray-700">R{item.radio_sige || '-'}</td>
@@ -2235,6 +2337,7 @@ export default function AuditoriaSueldosIndex({
                       <th className="px-3 py-3 text-center font-black text-white">Sector</th>
                       <th className="px-3 py-3 font-black text-white">Nombre Sector</th>
                       <th className="px-3 py-3 font-black text-white">Nivel / Gestión</th>
+                      <th className="px-3 py-3 font-black text-white">Establecimiento Vinculado</th>
                       <th className="px-3 py-3 text-center font-black text-white">Liquidaciones</th>
                       <th className="px-3 py-3 text-center font-black text-white">Estado Depuración</th>
                       <th className="px-3 py-3 font-black text-white">Diagnóstico / Observaciones</th>
@@ -2250,6 +2353,23 @@ export default function AuditoriaSueldosIndex({
                         <td className="px-3 py-2.5 font-semibold text-gray-800">{d.nom_sector || 'S/D'}</td>
                         <td className="px-3 py-2.5 text-gray-600 font-medium">
                           {d.nivel || 'S/N'} {d.gestion ? `(${d.gestion})` : ''}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {d.cue_vinculado ? (
+                            <div>
+                              <div className="font-extrabold text-slate-950 leading-tight">{d.nom_establecimiento_vinculado}</div>
+                              <div className="text-[10px] text-gray-500 font-semibold mt-0.5 flex items-center gap-1.5">
+                                <span>CUE: {d.cue_vinculado}</span>
+                                {d.nivel_educativo_vinculado && (
+                                  <span className="px-1.5 py-0.2 text-[9px] font-black bg-purple-100 text-purple-800 rounded border border-purple-200 uppercase">
+                                    {d.nivel_educativo_vinculado}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 italic">No Vinculado</span>
+                          )}
                         </td>
                         <td className="px-3 py-2.5 text-center font-black text-sm">
                           {d.cantidad_liquidaciones}
@@ -2278,7 +2398,8 @@ export default function AuditoriaSueldosIndex({
                           <button
                             onClick={() => {
                               setSanearDepuracionModalItem(d);
-                              setSanearDepEstId('');
+                              setSanearDepEstId(d.establecimiento_id ? d.establecimiento_id.toString() : '');
+                              setSanearDepModalidadId(d.modalidad_id ? d.modalidad_id.toString() : '');
                               setSanearDepSearchTerm('');
                               setSanearDepObs(d.observaciones || '');
                               setSanearDepEstado(d.estado_depuracion || 'ACTIVO');
@@ -2299,7 +2420,7 @@ export default function AuditoriaSueldosIndex({
                     ))}
                     {filteredDepuracion.length === 0 && (
                       <tr>
-                        <td colSpan="9" className="px-3 py-8 text-center text-gray-400 font-medium italic">
+                        <td colSpan="10" className="px-3 py-8 text-center text-gray-400 font-medium italic">
                           No se encontraron registros de depuración para este filtro.
                         </td>
                       </tr>
@@ -2955,6 +3076,37 @@ export default function AuditoriaSueldosIndex({
                     ))}
                 </select>
               </div>
+
+              {sanearDepEstId && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                    <span>Nivel / Modalidad Educativa:</span>
+                    {sanearDepLoadingModalidades && (
+                      <span className="text-[10px] text-[#FE8204] font-medium animate-pulse flex items-center gap-1">
+                        <i className="fa-solid fa-spinner animate-spin"></i> Cargando niveles...
+                      </span>
+                    )}
+                  </label>
+                  {sanearDepModalidades.length > 0 ? (
+                    <select
+                      value={sanearDepModalidadId}
+                      onChange={(e) => setSanearDepModalidadId(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-[#FE8204]"
+                    >
+                      <option value="">-- Seleccionar Nivel / Modalidad --</option>
+                      {sanearDepModalidades.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          Nivel: {m.nivel_educativo || 'GENERAL'} {m.direccion_area ? `(${m.direccion_area})` : ''} | Sector SIGE: {m.sector} | Radio: R{m.radio_sige ?? m.radio ?? 'S/D'}
+                        </option>
+                      ))}
+                    </select>
+                  ) : !sanearDepLoadingModalidades ? (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2 font-medium">
+                      ⚠️ Esta escuela no posee niveles cargados previamente en el catálogo de modalidades. Se creará un vínculo general.
+                    </p>
+                  ) : null}
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Estado Depuración:</label>
