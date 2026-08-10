@@ -124,10 +124,9 @@ export default function AuditoriaSueldosIndex({
     const centroSinUso = depuracionList.filter(d => d.estado_depuracion === 'CENTRO_SIN_USO').length;
     const sectorSinUso = depuracionList.filter(d => d.estado_depuracion === 'SECTOR_SIN_USO').length;
     const noCatalogado = depuracionList.filter(d => d.estado_depuracion === 'SUELDO_NO_CATALOGADO').length;
-    const bajaVolumetria = depuracionList.filter(d => d.estado_depuracion === 'BAJA_VOLUMETRÍA').length;
-    const activos = depuracionList.filter(d => d.estado_depuracion === 'ACTIVO').length;
+    const activos = depuracionList.filter(d => d.estado_depuracion === 'ACTIVO' || d.estado_depuracion === 'BAJA_VOLUMETRÍA').length;
 
-    return { total, centroSinUso, sectorSinUso, noCatalogado, bajaVolumetria, activos };
+    return { total, centroSinUso, sectorSinUso, noCatalogado, activos };
   }, [depuracionList]);
 
   const statusDistribution = useMemo(() => {
@@ -2329,18 +2328,6 @@ export default function AuditoriaSueldosIndex({
                 </button>
 
                 <button
-                  onClick={() => setDepuracionFiltroEstado('BAJA_VOLUMETRÍA')}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    depuracionFiltroEstado === 'BAJA_VOLUMETRÍA'
-                      ? 'bg-sky-600 text-white border-sky-600 shadow-md font-bold'
-                      : 'bg-sky-50 text-sky-900 border-sky-200 hover:bg-sky-100'
-                  }`}
-                >
-                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🔵 Baja Volumetría</div>
-                  <div className="text-lg font-black">{depuracionStats.bajaVolumetria}</div>
-                </button>
-
-                <button
                   onClick={() => setDepuracionFiltroEstado('ACTIVO')}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                     depuracionFiltroEstado === 'ACTIVO'
@@ -2468,10 +2455,7 @@ export default function AuditoriaSueldosIndex({
                           {d.estado_depuracion === 'SECTOR_SIN_USO' && (
                             <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-yellow-100 text-yellow-900 border border-yellow-300">🟡 SECTOR SIN USO</span>
                           )}
-                          {d.estado_depuracion === 'BAJA_VOLUMETRÍA' && (
-                            <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-sky-100 text-sky-900 border border-sky-300">🔵 BAJA VOLUMETRÍA</span>
-                          )}
-                          {d.estado_depuracion === 'ACTIVO' && (
+                          {(d.estado_depuracion === 'ACTIVO' || d.estado_depuracion === 'BAJA_VOLUMETRÍA') && (
                             <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300">🟢 ACTIVO</span>
                           )}
                         </td>
@@ -3203,7 +3187,6 @@ export default function AuditoriaSueldosIndex({
                   <option value="SUELDO_NO_CATALOGADO">⚠️ SUELDO NO CATALOGADO</option>
                   <option value="SECTOR_SIN_USO">🟡 SECTOR SIN USO</option>
                   <option value="CENTRO_SIN_USO">🔴 CENTRO SIN USO</option>
-                  <option value="BAJA_VOLUMETRÍA">🔵 BAJA VOLUMETRÍA</option>
                 </select>
               </div>
 

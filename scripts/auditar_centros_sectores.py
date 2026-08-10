@@ -153,12 +153,9 @@ def ejecutar_auditoria():
             elif liq == 0:
                 estado = 'SECTOR_SIN_USO'
                 obs = f"El Sector {s} ({m_info['nom_sector']}) en Centro {c} no tuvo liquidaciones en el período."
-            elif 1 <= liq <= 3:
-                estado = 'BAJA_VOLUMETRÍA'
-                obs = f"Actividad anómala / muy baja: sólo {liq} liquidación(es) en el mes."
             else:
                 estado = 'ACTIVO'
-                obs = f"Uso normal: {liq} liquidaciones en el mes."
+                obs = f"Uso normal: {liq} liquidación(es) en el mes."
 
         registros_depuracion.append({
             'centro': c,
@@ -268,7 +265,6 @@ def ejecutar_auditoria():
             df_result[df_result['estado_depuracion'] == 'CENTRO_SIN_USO'].to_excel(writer, sheet_name='Centros Sin Uso', index=False)
             df_result[df_result['estado_depuracion'] == 'SUELDO_NO_CATALOGADO'].to_excel(writer, sheet_name='Sueldos No Catalogados', index=False)
             df_result[df_result['estado_depuracion'] == 'SECTOR_SIN_USO'].to_excel(writer, sheet_name='Sectores Sin Uso', index=False)
-            df_result[df_result['estado_depuracion'] == 'BAJA_VOLUMETRÍA'].to_excel(writer, sheet_name='Baja Volumetría', index=False)
         print(f"   -> Reporte Excel generado exitosamente.")
     except Exception as e:
         print(f"   -> AVISO: No se pudo sobrescribir el Excel ({e}). Si está abierto en Excel, ciérrelo para actualizarlo.")
