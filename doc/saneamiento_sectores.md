@@ -28,10 +28,12 @@ El módulo de **Otros Sectores** es una herramienta administrativa y de depuraci
 ## 2. Principio Fundamental: Aislamiento del Padrón Oficial SIGE
 
 > [!IMPORTANT]
-> **Preservación de la Base Oficial de SIGE:**
-> * Al presionar **"Vincular a CUE"**, la acción **NO altera la tabla `modalidades`** ni modifica el sector oficial registrado para la escuela en la base administrativa de SIGE.
-> * La vista oficial de establecimientos (`/admin/establecimientos`) permanece 100% protegida e inalterada.
-> * La relación se asienta exclusivamente en el **Historial de Auditoría de Sueldos** (`auditoria_radio_resultados`), asociando el CUE destino, el radio oficial, la nota del auditor y la evaluación de discrepancia de radio.
+> **Preservación de la Base Oficial de SIGE y Evitación de Desapariciones:**
+> * Al presionar **"Vincular a CUE"** en el panel de auditoría, la acción busca o crea una modalidad para el sector **exclusivamente dentro del establecimiento destino** (`establecimiento_id`).
+> * **Salvaguarda contra la pérdida de escuelas:** Bajo ninguna circunstancia el sistema reasignará (o "robará") una modalidad existente que pertenezca a otra escuela. Si la escuela destino no posee ese sector, se crea una modalidad nueva. Esto evita dejar a la escuela de origen con 0 modalidades públicas, lo que causaría que desaparezca de los mapas y búsquedas.
+> * Toda la operación en el backend se procesa dentro de una transacción de base de datos (`DB::transaction`) para asegurar consistencia transaccional y evitar registros huérfanos.
+> * En la vista oficial de establecimientos (`/admin/establecimientos`), si se intenta modificar un sector manualmente y el nuevo valor difiere del original, la interfaz de usuario presentará un cartel de advertencia de confirmación antes de guardar, e incluirá un botón rápido `∅` para resetear el sector a `0` (sin sector) de forma limpia.
+> * Las relaciones y el estado de la auditoría se asientan exclusivamente en el **Historial de Auditoría de Sueldos** (`auditoria_radio_resultados`), asociando el CUE destino, el radio oficial, la nota del auditor y la evaluación de discrepancia de radio.
 
 ---
 

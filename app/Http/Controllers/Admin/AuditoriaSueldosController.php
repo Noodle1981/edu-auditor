@@ -57,6 +57,15 @@ class AuditoriaSueldosController extends Controller
             ->groupBy('sector', 'cuil')
             ->get()
             ->groupBy('sector');
+
+        $docentesPorCentroSector = DB::table('nomina_sueldo_registros')
+            ->select('centro', 'sector', 'cuil', DB::raw('MAX(radio_deducido) as radio_deducido'))
+            ->where('nomina_id', $nominaSeleccionada->id)
+            ->whereNotNull('cuil')
+            ->groupBy('centro', 'sector', 'cuil')
+            ->get()
+            ->groupBy(fn($item) => $item->centro . '-' . $item->sector);
+
         $resultados = DB::table('auditoria_radio_resultados as r')
             ->where('r.nomina_id', $nominaSeleccionada->id)
             ->leftJoin('depuracion_centros_sectores as d_san', function ($join) {
@@ -89,10 +98,10 @@ class AuditoriaSueldosController extends Controller
             ->orderBy('r.sector')
             ->get();
 
-        $resultados = $resultados->map(function ($r) use ($docentesPorSector) {
+        $resultados = $resultados->map(function ($r) use ($docentesPorCentroSector) {
             $total = 0;
             $desviados = 0;
-            $sectorDocentes = $docentesPorSector->get($r->sector);
+            $sectorDocentes = $docentesPorCentroSector->get($r->centro . '-' . $r->sector);
             if ($sectorDocentes) {
                 $total = $sectorDocentes->count();
                 if ($r->radio_sige !== null && intval($r->radio_sige) > 0) {
@@ -471,7 +480,18 @@ class AuditoriaSueldosController extends Controller
         $estadoGestion = $request->input('estado_gestion', 'EN_INVESTIGACION');
 
         $est = $estId ? DB::table('establecimientos')->where('id', $estId)->first() : null;
-        $estRadio = $estId ? DB::table('modalidades')->where('establecimiento_id', $estId)->value('radio') : null;
+        $estRadio = $estId ? DB::table('modalidades')->where('establecimiento_id', $estId)->max('radio') : null;
+
+        $nominaId = null;
+        if ($recordId) {
+            $recordObj = DB::table('auditoria_radio_resultados')->where('id', $recordId)->first();
+            if ($recordObj) {
+                $nominaId = $recordObj->nomina_id;
+            }
+        } else {
+            // fallback al periodo mas reciente
+            $nominaId = DB::table('nominas_sueldos')->orderBy('periodo', 'desc')->value('id');
+        }
 
         $query = DB::table('auditoria_radio_resultados');
         if ($recordId) {
@@ -480,6 +500,9 @@ class AuditoriaSueldosController extends Controller
             $query->where('sector', $sector);
             if ($centro !== null) {
                 $query->where('centro', $centro);
+            }
+            if ($nominaId) {
+                $query->where('nomina_id', $nominaId);
             }
         }
 
@@ -500,7 +523,7 @@ class AuditoriaSueldosController extends Controller
             }
         }
 
-        // Registrar vínculo ÚNICAMENTE en el historial de auditoría (preservando padrón oficial SIGE)
+        // Registrar vínculo ÚNICAMENTE en el historial de la nómina correspondiente
         $updateData = [
             'estado_gestion' => $estadoGestion,
         ];
@@ -556,66 +579,73 @@ class AuditoriaSueldosController extends Controller
         $nuevoEstado = $request->input('estado_depuracion');
         $obs = $request->input('observaciones');
 
-        if ($estId) {
-            $est = DB::table('establecimientos')->where('id', $estId)->first();
-            if ($est) {
-                $modTarget = null;
-                if ($modId) {
-                    $modTarget = DB::table('modalidades')->where('id', $modId)->first();
-                }
+        DB::transaction(function () use ($estId, $modId, $item, $nuevoEstado, $obs) {
+            if ($estId) {
+                $est = DB::table('establecimientos')->where('id', $estId)->first();
+                if ($est) {
+                    $modTarget = null;
+                    if ($modId) {
+                        $modTarget = DB::table('modalidades')->where('id', $modId)->first();
+                    }
 
-                if (! $modTarget) {
-                    $modTarget = DB::table('modalidades')
-                        ->where('sector', $item->sector)
-                        ->first();
-                }
+                    if (! $modTarget) {
+                        // Buscar SOLO dentro del establecimiento destino para no "robar"
+                        // la modalidad de otra escuela (lo que causaría que esa escuela
+                        // se quede sin modalidades y desaparezca de las búsquedas).
+                        $modTarget = DB::table('modalidades')
+                            ->where('establecimiento_id', $est->id)
+                            ->where('sector', $item->sector)
+                            ->first();
+                    }
 
-                if (! $modTarget) {
-                    $newModId = DB::table('modalidades')->insertGetId([
-                        'establecimiento_id' => $est->id,
-                        'sector' => $item->sector,
-                        'radio' => 1,
-                        'direccion_area' => 'CONVENIO',
-                        'nivel_educativo' => 'GENERAL',
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                    $modId = $newModId;
-                } else {
-                    DB::table('modalidades')
-                        ->where('id', $modTarget->id)
-                        ->update([
+                    if (! $modTarget) {
+                        // Si el establecimiento destino no tiene este sector,
+                        // crear una modalidad nueva. Nunca mover/robar la de otra escuela.
+                        $newModId = DB::table('modalidades')->insertGetId([
                             'establecimiento_id' => $est->id,
+                            'sector' => $item->sector,
+                            'radio' => 1,
+                            'direccion_area' => 'CONVENIO',
+                            'nivel_educativo' => 'GENERAL',
+                            'created_at' => now(),
                             'updated_at' => now(),
                         ]);
-                    $modId = $modTarget->id;
+                        $modId = $newModId;
+                    } else {
+                        // La modalidad ya existe en el establecimiento destino,
+                        // solo actualizar la marca de tiempo.
+                        DB::table('modalidades')
+                            ->where('id', $modTarget->id)
+                            ->update([
+                                'updated_at' => now(),
+                            ]);
+                        $modId = $modTarget->id;
+                    }
+
+                    $item->establecimiento_id = $est->id;
+                    $item->modalidad_id = $modId;
+                    if ($nuevoEstado) {
+                        $item->estado_depuracion = $nuevoEstado;
+                    } else {
+                        $item->estado_depuracion = 'ACTIVO';
+                    }
+                    if ($obs !== null) {
+                        $item->observaciones = $obs;
+                    }
                 }
-
-                $nivelStr = ($modTarget && isset($modTarget->nivel_educativo)) ? " — Nivel: {$modTarget->nivel_educativo}" : '';
-
-                $item->establecimiento_id = $est->id;
-                $item->modalidad_id = $modId;
+            } else {
+                $item->establecimiento_id = null;
+                $item->modalidad_id = null;
                 if ($nuevoEstado) {
                     $item->estado_depuracion = $nuevoEstado;
-                } else {
-                    $item->estado_depuracion = 'ACTIVO';
                 }
                 if ($obs !== null) {
                     $item->observaciones = $obs;
                 }
             }
-        } else {
-            $item->establecimiento_id = null;
-            $item->modalidad_id = null;
-            if ($nuevoEstado) {
-                $item->estado_depuracion = $nuevoEstado;
-            }
-            if ($obs !== null) {
-                $item->observaciones = $obs;
-            }
-        }
 
-        $item->save();
+            $item->save();
+        });
 
         // Obtener registro refrescado con datos de la escuela para reactualizar el listado en frontend
         $updatedItem = DB::table('depuracion_centros_sectores as d')

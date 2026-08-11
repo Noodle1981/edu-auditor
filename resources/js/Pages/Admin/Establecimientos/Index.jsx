@@ -824,8 +824,23 @@ function EditModalidadModal({
 
     if (!modalidad) return null;
 
+    const sectorOriginal = modalidad?.sector ?? '';
+    const sectorCambio = String(data.sector).trim() !== String(sectorOriginal).trim();
+
     const submit = (e) => {
         e.preventDefault();
+        if (sectorCambio) {
+            const sectorAntes = sectorOriginal !== '' ? sectorOriginal : '(sin sector)';
+            const sectorDespues = data.sector !== '' ? data.sector : '0 (sin sector)';
+            const ok = window.confirm(
+                `⚠️ Estás cambiando el Sector de esta modalidad.\n\n` +
+                `  Antes:  ${sectorAntes}\n` +
+                `  Ahora:  ${sectorDespues}\n\n` +
+                `Si este sector pertenece a otra escuela, ese vínculo puede quedar desactualizado.\n` +
+                `¿Confirmás el cambio?`
+            );
+            if (!ok) return;
+        }
         patch(route('admin.establecimientos.update', modalidad.id), {
             onSuccess: () => {
                 onClose();
@@ -986,12 +1001,32 @@ function EditModalidadModal({
                             onChange={(v) => setData('radio', v)}
                             error={errors.radio}
                         />
-                        <ModalInput
-                            label="Sector"
-                            value={data.sector}
-                            onChange={(v) => setData('sector', v)}
-                            error={errors.sector}
-                        />
+                        <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-gray-700">Sector</span>
+                                {sectorCambio && (
+                                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-700">
+                                        ⚠ Modificado
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex gap-1">
+                                <ModalInput
+                                    label=""
+                                    value={data.sector}
+                                    onChange={(v) => setData('sector', v)}
+                                    error={errors.sector}
+                                />
+                                <button
+                                    type="button"
+                                    title="Dejar sin sector (0)"
+                                    onClick={() => setData('sector', '0')}
+                                    className="mt-0.5 shrink-0 rounded-lg border border-gray-300 bg-gray-50 px-2 text-[10px] font-black text-gray-400 hover:border-red-300 hover:bg-red-50 hover:text-red-500"
+                                >
+                                    ∅
+                                </button>
+                            </div>
+                        </div>
                         <ModalInput
                             label="Zona"
                             value={data.letra_zona}
