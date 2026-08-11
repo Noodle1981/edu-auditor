@@ -3356,6 +3356,115 @@ export default function AuditoriaSueldosIndex({
                 </select>
               </div>
 
+              {/* Anexos / CUEs Adicionales que usan este Sector */}
+              <div className="space-y-2 border-t pt-3 mt-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-700 uppercase flex items-center gap-1.5">
+                    <i className="fa-solid fa-code-branch text-[#FE8204]"></i>
+                    Anexos / CUEs Adicionales que usan este Sector:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddAnexoSearch(!showAddAnexoSearch)}
+                    className="px-2.5 py-1 text-[10px] font-black text-white bg-[#FE8204] hover:bg-[#e07203] rounded-lg shadow-xs transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-plus"></i> Agregar Anexo
+                  </button>
+                </div>
+
+                {showAddAnexoSearch && (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <div className="text-[11px] font-bold text-slate-800">Buscar CUE o Nombre de Anexo:</div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={anexoSearchTerm}
+                        onChange={(e) => setAnexoSearchTerm(e.target.value)}
+                        placeholder="Escriba CUE o nombre..."
+                        className="w-full text-xs font-semibold bg-white border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-[#FE8204]"
+                      />
+                    </div>
+                    {anexoSearchTerm.trim().length >= 2 && (
+                      <div className="max-h-40 overflow-y-auto bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 shadow-lg">
+                        {establecimientosList
+                          .filter(est =>
+                            (est.cue && est.cue.toString().includes(anexoSearchTerm.toLowerCase().trim())) ||
+                            (est.nombre && est.nombre.toLowerCase().includes(anexoSearchTerm.toLowerCase().trim())) ||
+                            (est.departamento && est.departamento.toLowerCase().includes(anexoSearchTerm.toLowerCase().trim()))
+                          )
+                          .slice(0, 10)
+                          .map(anx => {
+                            const radioAnxDifiere = anx.radio !== null && sanearDepuracionModalItem && Number(anx.radio) !== Number(sanearDepuracionModalItem.radio_sueldo || 1);
+                            return (
+                              <button
+                                key={anx.id}
+                                type="button"
+                                onClick={() => {
+                                  if (!saneamientoAnexos.some(a => a.id === anx.id)) {
+                                    setSaneamientoAnexos([...saneamientoAnexos, anx]);
+                                  }
+                                  setAnexoSearchTerm('');
+                                  setShowAddAnexoSearch(false);
+                                }}
+                                className="w-full text-left p-2.5 hover:bg-orange-50 transition flex items-center justify-between gap-2 cursor-pointer"
+                              >
+                                <div>
+                                  <div className="font-bold text-xs text-gray-900">{anx.nombre}</div>
+                                  <div className="text-[11px] text-gray-500 font-medium">CUE: <b className="font-mono">{anx.cue}</b> • {anx.departamento}</div>
+                                </div>
+                                <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                  radioAnxDifiere ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-200'
+                                }`}>
+                                  Radio SIGE {anx.radio ?? 'S/D'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {saneamientoAnexos.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {saneamientoAnexos.map((anx) => {
+                      const radioAnxDifiere = anx.radio !== null && sanearDepuracionModalItem && Number(anx.radio) !== Number(sanearDepuracionModalItem.radio_sueldo || 1);
+                      return (
+                        <div key={anx.id} className="p-2.5 bg-orange-50/60 border border-orange-200 rounded-xl flex items-center justify-between gap-2 text-xs">
+                          <div>
+                            <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                              <i className="fa-solid fa-code-branch text-[#FE8204]"></i>
+                              <span>Anexo: {anx.nombre}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-700 font-medium mt-0.5 flex flex-wrap items-center gap-2">
+                              <span>CUE: <b className="font-mono text-slate-900">{anx.cue}</b></span>
+                              <span>• Radio SIGE: <b>Radio {anx.radio ?? 'S/D'}</b></span>
+                              {radioAnxDifiere && (
+                                <span className="px-1.5 py-0.2 text-[9px] font-black bg-amber-200 text-amber-950 border border-amber-400 rounded uppercase">
+                                  ⚠️ Radio Incompatible
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSaneamientoAnexos(saneamientoAnexos.filter(a => a.id !== anx.id))}
+                            className="text-rose-600 hover:text-rose-800 text-xs font-bold p-1 cursor-pointer"
+                            title="Quitar Anexo"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-400 italic">
+                    Sin anexos adicionales vinculados. Haz clic en &quot;+ Agregar Anexo&quot; si este sector también es usado por otros anexos/edificios.
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones / Dictamen de Auditoría:</label>
                 <textarea
