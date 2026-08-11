@@ -49,6 +49,7 @@ export default function AuditoriaSueldosIndex({
   const [filtroDepto, setFiltroDepto] = useState('');
   const [filtroAmbito, setFiltroAmbito] = useState('');
   const [filtroRadio, setFiltroRadio] = useState('');
+  const [filtroOrigen, setFiltroOrigen] = useState(''); // '' = Todos, 'MANUAL' = Solo Asociaciones Manuales, 'OFICIAL' = Solo SIGE Oficial
   const [pageCruce, setPageCruce] = useState(1);
   const [pageTracking, setPageTracking] = useState(1);
   const [pageEscala, setPageEscala] = useState(1);
@@ -471,8 +472,11 @@ export default function AuditoriaSueldosIndex({
     const matchesDepto = !filtroDepto || item.departamento === filtroDepto;
     const matchesAmbito = !filtroAmbito || item.ambito === filtroAmbito;
     const matchesRadio = !filtroRadio || Number(item.radio_sige) === Number(filtroRadio) || Number(item.radio_sueldo) === Number(filtroRadio);
+    const matchesOrigen = !filtroOrigen ||
+      (filtroOrigen === 'MANUAL' && item.es_sector_nativo === 0) ||
+      (filtroOrigen === 'OFICIAL' && item.es_sector_nativo === 1);
 
-    return matchesSearch && matchesNivel && matchesGestion && matchesAuditoria && matchesDepto && matchesAmbito && matchesRadio;
+    return matchesSearch && matchesNivel && matchesGestion && matchesAuditoria && matchesDepto && matchesAmbito && matchesRadio && matchesOrigen;
   });
 
   const linkedResultados = useMemo(() => filteredResultados.filter(item => item.cue !== null), [filteredResultados]);
@@ -1142,6 +1146,18 @@ export default function AuditoriaSueldosIndex({
                 ))}
               </select>
             )}
+
+            {activeTab !== 'cruce' && activeTab !== 'escala' && activeTab !== 'sin_escuela' && (
+              <select
+                value={filtroOrigen}
+                onChange={(e) => setFiltroOrigen(e.target.value)}
+                className="text-xs font-semibold bg-gray-50 border border-gray-300 text-gray-700 rounded-xl px-2.5 py-1.5 focus:ring-[#FE8204] cursor-pointer shrink-0"
+              >
+                <option value="">Origen Vinculación</option>
+                <option value="MANUAL">🟠 Solo Asociaciones Manuales</option>
+                <option value="OFICIAL">🟢 Solo SIGE Oficial</option>
+              </select>
+            )}
           </div>
         </div>
       )}
@@ -1564,15 +1580,29 @@ export default function AuditoriaSueldosIndex({
                 Sectores donde la liquidación de haberes abona un porcentaje superior al fijado administrativamente.
               </p>
             </div>
-            <a
-              href={`/api/auditoria-sueldos/exportar-excel?tab=paga_mas&periodo=${nominaSeleccionada?.periodo || ''}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
-              title="Descargar establecimientos que pagan más en Excel"
-            >
-              <i className="fa-solid fa-file-excel text-sm"></i>
-            </a>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setFiltroOrigen(filtroOrigen === 'MANUAL' ? '' : 'MANUAL')}
+                className={`px-3 py-2 rounded-xl font-bold text-xs transition border cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  filtroOrigen === 'MANUAL'
+                    ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                    : 'bg-white hover:bg-amber-50 text-amber-900 border-amber-300'
+                }`}
+              >
+                <i className={`fa-solid ${filtroOrigen === 'MANUAL' ? 'fa-hand-pointer text-white' : 'fa-filter text-amber-600'}`}></i>
+                <span>{filtroOrigen === 'MANUAL' ? 'Mostrando: Solo Manuales' : 'Filtrar Solo Manuales'}</span>
+              </button>
+              <a
+                href={`/api/auditoria-sueldos/exportar-excel?tab=paga_mas&periodo=${nominaSeleccionada?.periodo || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
+                title="Descargar establecimientos que pagan más en Excel"
+              >
+                <i className="fa-solid fa-file-excel text-sm"></i>
+              </a>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -1719,15 +1749,29 @@ export default function AuditoriaSueldosIndex({
                 Sectores donde los docentes perciben una bonificación inferior al radio oficial asignado a la escuela.
               </p>
             </div>
-            <a
-              href={`/api/auditoria-sueldos/exportar-excel?tab=paga_menos&periodo=${nominaSeleccionada?.periodo || ''}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
-              title="Descargar establecimientos que pagan menos en Excel"
-            >
-              <i className="fa-solid fa-file-excel text-sm"></i>
-            </a>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setFiltroOrigen(filtroOrigen === 'MANUAL' ? '' : 'MANUAL')}
+                className={`px-3 py-2 rounded-xl font-bold text-xs transition border cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  filtroOrigen === 'MANUAL'
+                    ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                    : 'bg-white hover:bg-amber-50 text-amber-900 border-amber-300'
+                }`}
+              >
+                <i className={`fa-solid ${filtroOrigen === 'MANUAL' ? 'fa-hand-pointer text-white' : 'fa-filter text-amber-600'}`}></i>
+                <span>{filtroOrigen === 'MANUAL' ? 'Mostrando: Solo Manuales' : 'Filtrar Solo Manuales'}</span>
+              </button>
+              <a
+                href={`/api/auditoria-sueldos/exportar-excel?tab=paga_menos&periodo=${nominaSeleccionada?.periodo || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
+                title="Descargar establecimientos que pagan menos en Excel"
+              >
+                <i className="fa-solid fa-file-excel text-sm"></i>
+              </a>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
