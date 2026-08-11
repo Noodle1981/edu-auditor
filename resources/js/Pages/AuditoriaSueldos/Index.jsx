@@ -254,6 +254,15 @@ export default function AuditoriaSueldosIndex({
     if (!sanearDepuracionModalItem) return;
     setSanearDepSubmitting(true);
     try {
+      let finalObs = sanearDepObs;
+      if (saneamientoAnexos.length > 0) {
+        const anexosInfo = saneamientoAnexos.map(a => {
+          const radioAnxDifiere = a.radio !== null && sanearDepuracionModalItem && Number(a.radio) !== Number(sanearDepuracionModalItem.radio_sueldo || 1);
+          return `Anexo CUE ${a.cue} (${a.nombre}) [Radio SIGE: R${a.radio ?? 'S/D'}${radioAnxDifiere ? ' - ⚠️ Discrepancia Radio' : ''}]`;
+        }).join('; ');
+        finalObs = `[Anexos Vinculados: ${anexosInfo}] ${sanearDepObs ? `Notas: ${sanearDepObs}` : ''}`;
+      }
+
       const token = getCsrfToken();
       const res = await fetch('/api/auditoria-sueldos/sanear-depuracion', {
         method: 'POST',
@@ -266,7 +275,7 @@ export default function AuditoriaSueldosIndex({
           establecimiento_id: sanearDepEstId || null,
           modalidad_id: sanearDepModalidadId || null,
           estado_depuracion: sanearDepEstado || null,
-          observaciones: sanearDepObs
+          observaciones: finalObs
         })
       });
 
@@ -274,6 +283,8 @@ export default function AuditoriaSueldosIndex({
         const data = await res.json();
         setDepuracionList(prev => prev.map(item => item.id === sanearDepuracionModalItem.id ? data.item : item));
         setSanearDepuracionModalItem(null);
+        setSaneamientoAnexos([]);
+        setShowAddAnexoSearch(false);
       } else {
         alert('Ocurrió un error al actualizar la depuración.');
       }
@@ -293,7 +304,6 @@ export default function AuditoriaSueldosIndex({
   const [estadoGestionInput, setEstadoGestionInput] = useState('PENDIENTE');
   const [updating, setUpdating] = useState(false);
 
-  // State for sector saneamiento
   const [saneamientoModalSector, setSaneamientoModalSector] = useState(null);
   const [saneamientoEstId, setSaneamientoEstId] = useState('');
   const [saneamientoSearchTerm, setSaneamientoSearchTerm] = useState('');
@@ -301,6 +311,11 @@ export default function AuditoriaSueldosIndex({
   const [saneamientoEstadoGestion, setSaneamientoEstadoGestion] = useState('EN_INVESTIGACION');
   const [sanearSubmitting, setSanearSubmitting] = useState(false);
   const [conflictosModalData, setConflictosModalData] = useState(null);
+
+  // Anexos adicionales en saneamiento
+  const [saneamientoAnexos, setSaneamientoAnexos] = useState([]);
+  const [showAddAnexoSearch, setShowAddAnexoSearch] = useState(false);
+  const [anexoSearchTerm, setAnexoSearchTerm] = useState('');
 
   const linkedViejos = useMemo(() => viejosList.filter(v => v.nombre_establecimiento !== 'Sin Establecimiento Registrado' && v.cue), [viejosList]);
   const unlinkedViejos = useMemo(() => viejosList.filter(v => v.nombre_establecimiento === 'Sin Establecimiento Registrado' || !v.cue), [viejosList]);
@@ -719,6 +734,15 @@ export default function AuditoriaSueldosIndex({
     }
     setSanearSubmitting(true);
     try {
+      let finalObs = saneamientoObs;
+      if (saneamientoAnexos.length > 0) {
+        const anexosInfo = saneamientoAnexos.map(a => {
+          const radioAnxDifiere = a.radio !== null && saneamientoModalSector && Number(a.radio) !== Number(saneamientoModalSector.radio_sueldo || 1);
+          return `Anexo CUE ${a.cue} (${a.nombre}) [Radio SIGE: R${a.radio ?? 'S/D'}${radioAnxDifiere ? ' - ⚠️ Discrepancia Radio' : ''}]`;
+        }).join('; ');
+        finalObs = `[Anexos Vinculados: ${anexosInfo}] ${saneamientoObs ? `Notas: ${saneamientoObs}` : ''}`;
+      }
+
       const token = getCsrfToken();
       const res = await fetch('/api/auditoria-sueldos/sanear-sector', {
         method: 'POST',
@@ -733,7 +757,7 @@ export default function AuditoriaSueldosIndex({
           sector: sectorVal,
           centro: saneamientoModalSector?.centro,
           establecimiento_id: saneamientoEstId || null,
-          observacion: saneamientoObs,
+          observacion: finalObs,
           estado_gestion: saneamientoEstadoGestion
         })
       });
@@ -743,6 +767,8 @@ export default function AuditoriaSueldosIndex({
         setSaneamientoEstId('');
         setSaneamientoSearchTerm('');
         setSaneamientoObs('');
+        setSaneamientoAnexos([]);
+        setShowAddAnexoSearch(false);
         setSaneamientoEstadoGestion('EN_INVESTIGACION');
         const targetTab = (saneamientoEstadoGestion === 'DADO_DE_BAJA' || !saneamientoEstId) ? 'sin_escuela' : 'tracking';
         setActiveTab(targetTab);
@@ -2897,6 +2923,115 @@ export default function AuditoriaSueldosIndex({
                     <option value="CORREGIDO">CORREGIDO EN NÓMINA</option>
                     <option value="PENDIENTE">PENDIENTE</option>
                   </select>
+                </div>
+
+                {/* Anexos / CUEs Adicionales que usan este Sector */}
+                <div className="space-y-2 border-t pt-3 mt-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-gray-700 uppercase flex items-center gap-1.5">
+                      <i className="fa-solid fa-code-branch text-[#FE8204]"></i>
+                      Anexos / CUEs Adicionales que usan este Sector:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddAnexoSearch(!showAddAnexoSearch)}
+                      className="px-2.5 py-1 text-[10px] font-black text-white bg-[#FE8204] hover:bg-[#e07203] rounded-lg shadow-xs transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <i className="fa-solid fa-plus"></i> Agregar Anexo
+                    </button>
+                  </div>
+
+                  {showAddAnexoSearch && (
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                      <div className="text-[11px] font-bold text-slate-800">Buscar CUE o Nombre de Anexo:</div>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={anexoSearchTerm}
+                          onChange={(e) => setAnexoSearchTerm(e.target.value)}
+                          placeholder="Escriba CUE o nombre..."
+                          className="w-full text-xs font-semibold bg-white border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-[#FE8204]"
+                        />
+                      </div>
+                      {anexoSearchTerm.trim().length >= 2 && (
+                        <div className="max-h-40 overflow-y-auto bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 shadow-lg">
+                          {establecimientosList
+                            .filter(est =>
+                              (est.cue && est.cue.toString().includes(anexoSearchTerm.toLowerCase().trim())) ||
+                              (est.nombre && est.nombre.toLowerCase().includes(anexoSearchTerm.toLowerCase().trim())) ||
+                              (est.departamento && est.departamento.toLowerCase().includes(anexoSearchTerm.toLowerCase().trim()))
+                            )
+                            .slice(0, 10)
+                            .map(anx => {
+                              const radioAnxDifiere = anx.radio !== null && saneamientoModalSector && Number(anx.radio) !== Number(saneamientoModalSector.radio_sueldo);
+                              return (
+                                <button
+                                  key={anx.id}
+                                  type="button"
+                                  onClick={() => {
+                                    if (!saneamientoAnexos.some(a => a.id === anx.id)) {
+                                      setSaneamientoAnexos([...saneamientoAnexos, anx]);
+                                    }
+                                    setAnexoSearchTerm('');
+                                    setShowAddAnexoSearch(false);
+                                  }}
+                                  className="w-full text-left p-2.5 hover:bg-orange-50 transition flex items-center justify-between gap-2 cursor-pointer"
+                                >
+                                  <div>
+                                    <div className="font-bold text-xs text-gray-900">{anx.nombre}</div>
+                                    <div className="text-[11px] text-gray-500 font-medium">CUE: <b className="font-mono">{anx.cue}</b> • {anx.departamento}</div>
+                                  </div>
+                                  <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                    radioAnxDifiere ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-200'
+                                  }`}>
+                                    Radio SIGE {anx.radio ?? 'S/D'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {saneamientoAnexos.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {saneamientoAnexos.map((anx) => {
+                        const radioAnxDifiere = anx.radio !== null && saneamientoModalSector && Number(anx.radio) !== Number(saneamientoModalSector.radio_sueldo);
+                        return (
+                          <div key={anx.id} className="p-2.5 bg-orange-50/60 border border-orange-200 rounded-xl flex items-center justify-between gap-2 text-xs">
+                            <div>
+                              <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                                <i className="fa-solid fa-code-branch text-[#FE8204]"></i>
+                                <span>Anexo: {anx.nombre}</span>
+                              </div>
+                              <div className="text-[11px] text-slate-700 font-medium mt-0.5 flex flex-wrap items-center gap-2">
+                                <span>CUE: <b className="font-mono text-slate-900">{anx.cue}</b></span>
+                                <span>• Radio SIGE: <b>Radio {anx.radio ?? 'S/D'}</b></span>
+                                {radioAnxDifiere && (
+                                  <span className="px-1.5 py-0.2 text-[9px] font-black bg-amber-200 text-amber-950 border border-amber-400 rounded uppercase">
+                                    ⚠️ Radio Incompatible
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSaneamientoAnexos(saneamientoAnexos.filter(a => a.id !== anx.id))}
+                              className="text-rose-600 hover:text-rose-800 text-xs font-bold p-1 cursor-pointer"
+                              title="Quitar Anexo"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-gray-400 italic">
+                      Sin anexos adicionales vinculados. Haz clic en &quot;+ Agregar Anexo&quot; si este sector también es usado por otros anexos/edificios.
+                    </p>
+                  )}
                 </div>
 
                 <div>
