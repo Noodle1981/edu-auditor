@@ -178,14 +178,20 @@ class AuditoriaSueldosController extends Controller
             ->orderBy('sector')
             ->get();
 
+        $subqueryEstRadio = DB::table('modalidades')
+            ->select('establecimiento_id', DB::raw('MAX(radio) as radio'))
+            ->groupBy('establecimiento_id');
+
         $establecimientosList = DB::table('establecimientos as e')
             ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+            ->leftJoinSub($subqueryEstRadio, 'm_rad', 'm_rad.establecimiento_id', '=', 'e.id')
             ->select(
                 'e.id',
                 'e.cue',
                 'e.nombre',
                 'ed.zona_departamento as departamento',
-                'ed.localidad'
+                'ed.localidad',
+                'm_rad.radio'
             )
             ->orderBy('e.nombre')
             ->get();
