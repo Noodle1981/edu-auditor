@@ -59,11 +59,9 @@ class AuditoriaSueldosController extends Controller
             ->groupBy('sector');
         $resultados = DB::table('auditoria_radio_resultados as r')
             ->where('r.nomina_id', $nominaSeleccionada->id)
-            // Solo registros que hayan sido saneados / vinculados manualmente
-            ->join('depuracion_centros_sectores as d_san', function ($join) {
+            ->leftJoin('depuracion_centros_sectores as d_san', function ($join) {
                 $join->on('d_san.centro', '=', 'r.centro')
-                     ->on('d_san.sector', '=', 'r.sector')
-                     ->whereNotNull('d_san.establecimiento_id');
+                     ->on('d_san.sector', '=', 'r.sector');
             })
             ->leftJoin('establecimientos as e_san', 'e_san.id', '=', 'd_san.establecimiento_id')
             ->leftJoin('modalidades as m_san', 'm_san.id', '=', 'd_san.modalidad_id')
@@ -80,6 +78,7 @@ class AuditoriaSueldosController extends Controller
                 DB::raw('COALESCE(e_san.cue, r.cue) as cue'),
                 DB::raw('COALESCE(m_san.nivel_educativo, m_native.nivel_educativo, m_any.nivel_educativo, r.nivel_educativo) as nivel_educativo'),
                 DB::raw('COALESCE(e_san.nombre, e.nombre, r.nombre_establecimiento) as nombre_establecimiento'),
+                DB::raw('COALESCE(m_san.radio, m_native.radio, m_any.radio, r.radio_sige) as radio_sige'),
                 DB::raw('COALESCE(ed_san.zona_departamento, ed_orig.zona_departamento, "S/D") as departamento'),
                 DB::raw('COALESCE(m_san.ambito, m_native.ambito, m_any.ambito, "PUBLICO") as ambito'),
                 DB::raw('COALESCE(ed_san.distancia_camino, ed_orig.distancia_camino) as dist_camino'),
@@ -106,6 +105,20 @@ class AuditoriaSueldosController extends Controller
             }
             $r->total_docentes_individuales = $total;
             $r->docentes_desviados = $desviados;
+
+            // Recalcular estado de auditoría basándose en la vinculación manual realizada por el auditor
+            if ($r->radio_sueldo !== null && $r->radio_sige !== null) {
+                $rSueldo = (float) $r->radio_sueldo;
+                $rSige = (float) $r->radio_sige;
+                if ($rSueldo > $rSige) {
+                    $r->estado_auditoria = 'PAGA_MAS_QUE_SIGE';
+                } elseif ($rSueldo < $rSige) {
+                    $r->estado_auditoria = 'PAGA_MENOS_QUE_SIGE';
+                } else {
+                    $r->estado_auditoria = 'COINCIDE_SIGE';
+                }
+            }
+
             return $r;
         });
 
