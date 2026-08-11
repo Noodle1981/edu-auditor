@@ -577,7 +577,7 @@ class AuditoriaSueldosController extends Controller
                 $item->establecimiento_id = $est->id;
                 $item->modalidad_id = $modId;
                 $item->estado_depuracion = 'ACTIVO';
-                $item->observaciones = "Saneado y vinculado a CUE {$est->cue} ({$est->nombre}){$nivelStr}. ".($obs ? "Notas: {$obs}" : '');
+                $item->observaciones = $obs ? $obs : ($item->observaciones ?: '');
             }
         } else {
             if ($nuevoEstado) {

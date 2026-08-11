@@ -12,8 +12,8 @@ El módulo de **Otros Sectores** es una herramienta administrativa y de depuraci
 
 1. **🔍 Depuración de Catálogo (`depuracion`):**
    - Cruzamiento automatizado del Catálogo Maestro Refactorizado de Centros y Sectores vs la Liquidación de Sueldos.
-   - Contiene 6 botones de filtro KPI (*Centros Sin Uso*, *No Catalogados*, *Sectores Sin Uso*, *Baja Volumetría*, *Activos*, *Todos*) y buscador interno.
-   - Incluye paginación fluida de 15 registros por página (`<Pagination>`) y botón de exportación a Excel en la misma línea del título.
+   - Contiene 4 botones métricos inline (*🔴 Centros Sin Uso*, *⚠️ No Catalogados*, *🟡 Sectores Sin Uso*, *🟢 Activos*) directamente en la línea de título, maximizando el espacio vertical útil.
+   - Incluye paginación fluida de 17 registros por página (`<Pagination>`), filtrado de observaciones limpias (removiendo prefijos redundantes y permitiendo formato multilínea sin cortar texto) y exportación a Excel.
 
 2. **🔗 Saneamiento & Vinculación CUE (`saneamiento`):**
    - Agrupa los sectores activos en liquidación que carecen de establecimiento escolar (CUE) asignado en la base de datos oficial SIGE.

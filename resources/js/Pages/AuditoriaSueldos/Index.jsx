@@ -14,6 +14,21 @@ const isAdministrativeLevel = (nivel) => {
   return ADMIN_NIVELES.some((keyword) => n.includes(keyword));
 };
 
+const cleanObservaciones = (obs) => {
+  if (!obs) return '';
+  let text = obs;
+  if (text.includes('Notas:')) {
+    const parts = text.split('Notas:');
+    text = parts[parts.length - 1].trim();
+  } else if (text.includes('Saneado y vinculado a CUE')) {
+    const pos = text.indexOf('.');
+    if (pos !== -1) {
+      text = text.substring(pos + 1).trim();
+    }
+  }
+  return text || obs;
+};
+
 export default function AuditoriaSueldosIndex({
   nominaSeleccionada = null,
   resultados = [],
@@ -222,7 +237,7 @@ export default function AuditoriaSueldosIndex({
     return list;
   }, [depuracionList, depuracionFiltroEstado, depuracionBusqueda, depuracionSortField, depuracionSortOrder, depuracionSoloNoVinculados]);
 
-  const PAGE_SIZE_DEPURACION = 15;
+  const PAGE_SIZE_DEPURACION = 17;
   const [pageDepuracion, setPageDepuracion] = useState(1);
 
   useEffect(() => {
@@ -935,6 +950,62 @@ export default function AuditoriaSueldosIndex({
             </>
           )}
         </button>
+
+        {/* Sub-pestañas inline para Otros Sectores */}
+        {activeTab === 'sin_escuela' && (
+          <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-slate-300 shrink-0">
+            <button
+              onClick={() => setSubTabOtrosSectores('depuracion')}
+              className={`py-2 px-3.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                subTabOtrosSectores === 'depuracion'
+                  ? 'bg-[#FE8204] text-white shadow-md shadow-[#FE8204]/20 border border-[#FE8204]'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-xs'
+              }`}
+            >
+              <i className={`fa-solid fa-filter-circle-dollar text-sm ${subTabOtrosSectores === 'depuracion' ? 'text-white' : 'text-[#FE8204]'}`}></i>
+              <span>Depuración de Catálogo</span>
+              <span className={`px-2 py-0.5 text-[10px] rounded-full font-black ${
+                subTabOtrosSectores === 'depuracion' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
+              }`}>
+                {depuracionStats.total}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setSubTabOtrosSectores('saneamiento')}
+              className={`py-2 px-3.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                subTabOtrosSectores === 'saneamiento'
+                  ? 'bg-[#FE8204] text-white shadow-md shadow-[#FE8204]/20 border border-[#FE8204]'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-xs'
+              }`}
+            >
+              <i className={`fa-solid fa-link text-sm ${subTabOtrosSectores === 'saneamiento' ? 'text-white' : 'text-[#FE8204]'}`}></i>
+              <span>Saneamiento & Vinculación CUE</span>
+              <span className={`px-2 py-0.5 text-[10px] rounded-full font-black ${
+                subTabOtrosSectores === 'saneamiento' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
+              }`}>
+                {unlinkedResultados.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setSubTabOtrosSectores('residuales')}
+              className={`py-2 px-3.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                subTabOtrosSectores === 'residuales'
+                  ? 'bg-[#FE8204] text-white shadow-md shadow-[#FE8204]/20 border border-[#FE8204]'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-xs'
+              }`}
+            >
+              <i className={`fa-solid fa-triangle-exclamation text-sm ${subTabOtrosSectores === 'residuales' ? 'text-white' : 'text-amber-500'}`}></i>
+              <span>Residuales Huérfanos</span>
+              <span className={`px-2 py-0.5 text-[10px] rounded-full font-black ${
+                subTabOtrosSectores === 'residuales' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800 border border-amber-200'
+              }`}>
+                {unlinkedViejos.length}
+              </span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Global Filter Bar for Tables (Single Line) */}
@@ -2203,68 +2274,91 @@ export default function AuditoriaSueldosIndex({
       {/* TAB: SECTORES SIN IDENTIFICARSE (INVESTIGACIÓN & DEPURACIÓN DE CENTROS/SECTORES) */}
       {activeTab === 'sin_escuela' && (
         <div className="space-y-6">
-          {/* Sub-Navegación Interna para Otros Sectores */}
-          <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200 shadow-xs mb-4">
-            <button
-              onClick={() => setSubTabOtrosSectores('depuracion')}
-              className={`flex-1 min-w-[200px] py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                subTabOtrosSectores === 'depuracion'
-                  ? 'bg-[#FE8204] text-white shadow-md shadow-[#FE8204]/20 border border-[#FE8204]'
-                  : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <i className={`fa-solid fa-filter-circle-dollar text-sm ${subTabOtrosSectores === 'depuracion' ? 'text-white' : 'text-[#FE8204]'}`}></i>
-              <span>Depuración de Catálogo</span>
-              <span className={`px-2 py-0.5 text-[10px] rounded-full font-black ${
-                subTabOtrosSectores === 'depuracion' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
-              }`}>
-                {depuracionStats.total}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setSubTabOtrosSectores('saneamiento')}
-              className={`flex-1 min-w-[200px] py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                subTabOtrosSectores === 'saneamiento'
-                  ? 'bg-[#FE8204] text-white shadow-md shadow-[#FE8204]/20 border border-[#FE8204]'
-                  : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <i className={`fa-solid fa-link text-sm ${subTabOtrosSectores === 'saneamiento' ? 'text-white' : 'text-[#FE8204]'}`}></i>
-              <span>Saneamiento & Vinculación CUE</span>
-              <span className={`px-2 py-0.5 text-[10px] rounded-full font-black ${
-                subTabOtrosSectores === 'saneamiento' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
-              }`}>
-                {unlinkedResultados.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setSubTabOtrosSectores('residuales')}
-              className={`flex-1 min-w-[200px] py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                subTabOtrosSectores === 'residuales'
-                  ? 'bg-[#FE8204] text-white shadow-md shadow-[#FE8204]/20 border border-[#FE8204]'
-                  : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-              }`}
-            >
-              <i className={`fa-solid fa-triangle-exclamation text-sm ${subTabOtrosSectores === 'residuales' ? 'text-white' : 'text-amber-500'}`}></i>
-              <span>Residuales Huérfanos</span>
-              <span className={`px-2 py-0.5 text-[10px] rounded-full font-black ${
-                subTabOtrosSectores === 'residuales' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800 border border-amber-200'
-              }`}>
-                {unlinkedViejos.length}
-              </span>
-            </button>
-          </div>
-
           {/* SUB-TAB 1: DEPURACIÓN DE CENTROS Y SECTORES (MAESTRO VS SUELDOS) */}
           {subTabOtrosSectores === 'depuracion' && (
             <GlassCard className="p-6">
-              <div className="flex items-center justify-between gap-4 mb-4">
-                <h2 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
-                  <i className="fa-solid fa-filter-circle-dollar text-[#FE8204]"></i>
-                  <span>Depuración & Diagnóstico de Centros y Sectores Sin Uso ({depuracionStats.total})</span>
-                </h2>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
+                    <i className="fa-solid fa-filter-circle-dollar text-[#FE8204]"></i>
+                    <span>Depuración & Diagnóstico de Centros y Sectores Sin Uso ({depuracionStats.total})</span>
+                  </h2>
+
+                  {/* Filtros métricos inline (icono + valor) */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => setDepuracionFiltroEstado(depuracionFiltroEstado === 'CENTRO_SIN_USO' ? 'TODOS' : 'CENTRO_SIN_USO')}
+                      className={`py-1 px-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                        depuracionFiltroEstado === 'CENTRO_SIN_USO'
+                          ? 'bg-red-600 text-white shadow-xs border border-red-600'
+                          : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                      }`}
+                      title="Centros Sin Uso"
+                    >
+                      <i className={`fa-solid fa-circle text-[10px] ${depuracionFiltroEstado === 'CENTRO_SIN_USO' ? 'text-white' : 'text-red-500'}`}></i>
+                      <span>Centros Sin Uso</span>
+                      <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-black ${
+                        depuracionFiltroEstado === 'CENTRO_SIN_USO' ? 'bg-white/20 text-white' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {depuracionStats.centroSinUso}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => setDepuracionFiltroEstado(depuracionFiltroEstado === 'SUELDO_NO_CATALOGADO' ? 'TODOS' : 'SUELDO_NO_CATALOGADO')}
+                      className={`py-1 px-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                        depuracionFiltroEstado === 'SUELDO_NO_CATALOGADO'
+                          ? 'bg-amber-600 text-white shadow-xs border border-amber-600'
+                          : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
+                      }`}
+                      title="No Catalogados"
+                    >
+                      <i className={`fa-solid fa-triangle-exclamation text-xs ${depuracionFiltroEstado === 'SUELDO_NO_CATALOGADO' ? 'text-white' : 'text-amber-500'}`}></i>
+                      <span>No Catalogados</span>
+                      <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-black ${
+                        depuracionFiltroEstado === 'SUELDO_NO_CATALOGADO' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {depuracionStats.noCatalogado}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => setDepuracionFiltroEstado(depuracionFiltroEstado === 'SECTOR_SIN_USO' ? 'TODOS' : 'SECTOR_SIN_USO')}
+                      className={`py-1 px-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                        depuracionFiltroEstado === 'SECTOR_SIN_USO'
+                          ? 'bg-yellow-600 text-white shadow-xs border border-yellow-600'
+                          : 'bg-yellow-50 text-yellow-800 hover:bg-yellow-100 border border-yellow-200'
+                      }`}
+                      title="Sectores Sin Uso"
+                    >
+                      <i className={`fa-solid fa-circle text-[10px] ${depuracionFiltroEstado === 'SECTOR_SIN_USO' ? 'text-white' : 'text-yellow-400'}`}></i>
+                      <span>Sectores Sin Uso</span>
+                      <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-black ${
+                        depuracionFiltroEstado === 'SECTOR_SIN_USO' ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-900'
+                      }`}>
+                        {depuracionStats.sectorSinUso}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => setDepuracionFiltroEstado(depuracionFiltroEstado === 'ACTIVO' ? 'TODOS' : 'ACTIVO')}
+                      className={`py-1 px-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                        depuracionFiltroEstado === 'ACTIVO'
+                          ? 'bg-emerald-600 text-white shadow-xs border border-emerald-600'
+                          : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                      }`}
+                      title="Activos"
+                    >
+                      <i className={`fa-solid fa-circle text-[10px] ${depuracionFiltroEstado === 'ACTIVO' ? 'text-white' : 'text-emerald-500'}`}></i>
+                      <span>Activos</span>
+                      <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-black ${
+                        depuracionFiltroEstado === 'ACTIVO' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {depuracionStats.activos}
+                      </span>
+                    </button>
+                  </div>
+                </div>
 
                 <a
                   href="/api/auditoria-sueldos/exportar-depuracion-excel"
@@ -2275,69 +2369,6 @@ export default function AuditoriaSueldosIndex({
                 >
                   <i className="fa-solid fa-file-excel text-sm"></i>
                 </a>
-              </div>
-
-              {/* KPI Sub-Filtros para Depuración */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
-                <button
-                  onClick={() => setDepuracionFiltroEstado('TODOS')}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    depuracionFiltroEstado === 'TODOS'
-                      ? 'bg-gray-900 text-white border-gray-900 shadow-md font-bold'
-                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">TODOS</div>
-                  <div className="text-lg font-black">{depuracionStats.total}</div>
-                </button>
-
-                <button
-                  onClick={() => setDepuracionFiltroEstado('CENTRO_SIN_USO')}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    depuracionFiltroEstado === 'CENTRO_SIN_USO'
-                      ? 'bg-red-600 text-white border-red-600 shadow-md font-bold'
-                      : 'bg-red-50 text-red-900 border-red-200 hover:bg-red-100'
-                  }`}
-                >
-                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🔴 Centros Sin Uso</div>
-                  <div className="text-lg font-black">{depuracionStats.centroSinUso}</div>
-                </button>
-
-                <button
-                  onClick={() => setDepuracionFiltroEstado('SUELDO_NO_CATALOGADO')}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    depuracionFiltroEstado === 'SUELDO_NO_CATALOGADO'
-                      ? 'bg-amber-600 text-white border-amber-600 shadow-md font-bold'
-                      : 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100'
-                  }`}
-                >
-                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">⚠️ No Catalogados</div>
-                  <div className="text-lg font-black">{depuracionStats.noCatalogado}</div>
-                </button>
-
-                <button
-                  onClick={() => setDepuracionFiltroEstado('SECTOR_SIN_USO')}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    depuracionFiltroEstado === 'SECTOR_SIN_USO'
-                      ? 'bg-yellow-600 text-white border-yellow-600 shadow-md font-bold'
-                      : 'bg-yellow-50 text-yellow-900 border-yellow-200 hover:bg-yellow-100'
-                  }`}
-                >
-                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🟡 Sectores Sin Uso</div>
-                  <div className="text-lg font-black">{depuracionStats.sectorSinUso}</div>
-                </button>
-
-                <button
-                  onClick={() => setDepuracionFiltroEstado('ACTIVO')}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    depuracionFiltroEstado === 'ACTIVO'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md font-bold'
-                      : 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100'
-                  }`}
-                >
-                  <div className="text-[10px] font-black uppercase tracking-wider opacity-80">🟢 Activos</div>
-                  <div className="text-lg font-black">{depuracionStats.activos}</div>
-                </button>
               </div>
 
               {/* Búsqueda, Filtro de Vinculados y Ordenamiento rápida de Depuración */}
@@ -2387,49 +2418,49 @@ export default function AuditoriaSueldosIndex({
               </div>
 
               {/* Tabla de Depuración */}
-              <div className="overflow-x-auto max-h-96 custom-scrollbar border rounded-xl">
+              <div className="overflow-x-auto max-h-[650px] custom-scrollbar border border-slate-200 rounded-xl">
                 <table className="w-full text-xs text-left text-gray-700">
-                  <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs select-none">
+                  <thead className="text-[10px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs select-none whitespace-nowrap">
                     <tr>
-                      <th onClick={() => handleDepuracionSort('centro')} className="px-3 py-3 text-center font-black text-white cursor-pointer hover:bg-[#e07203]">
+                      <th onClick={() => handleDepuracionSort('centro')} className="px-2.5 py-2.5 text-center font-black text-white cursor-pointer hover:bg-[#e07203] whitespace-nowrap">
                         Centro {renderDepuracionSortIcon('centro')}
                       </th>
-                      <th onClick={() => handleDepuracionSort('nom_centro')} className="px-3 py-3 font-black text-white cursor-pointer hover:bg-[#e07203]">
+                      <th onClick={() => handleDepuracionSort('nom_centro')} className="px-2.5 py-2.5 font-black text-white cursor-pointer hover:bg-[#e07203] whitespace-nowrap">
                         Nombre Centro {renderDepuracionSortIcon('nom_centro')}
                       </th>
-                      <th onClick={() => handleDepuracionSort('sector')} className="px-3 py-3 text-center font-black text-white cursor-pointer hover:bg-[#e07203]">
+                      <th onClick={() => handleDepuracionSort('sector')} className="px-2.5 py-2.5 text-center font-black text-white cursor-pointer hover:bg-[#e07203] whitespace-nowrap">
                         Sector {renderDepuracionSortIcon('sector')}
                       </th>
-                      <th onClick={() => handleDepuracionSort('nom_sector')} className="px-3 py-3 font-black text-white cursor-pointer hover:bg-[#e07203]">
+                      <th onClick={() => handleDepuracionSort('nom_sector')} className="px-2.5 py-2.5 font-black text-white cursor-pointer hover:bg-[#e07203] whitespace-nowrap">
                         Nombre Sector {renderDepuracionSortIcon('nom_sector')}
                       </th>
-                      <th className="px-3 py-3 font-black text-white">Nivel / Gestión</th>
-                      <th className="px-3 py-3 font-black text-white">Establecimiento Vinculado</th>
-                      <th onClick={() => handleDepuracionSort('cantidad_liquidaciones')} className="px-3 py-3 text-center font-black text-white cursor-pointer hover:bg-[#e07203]">
+                      <th className="px-2.5 py-2.5 font-black text-white whitespace-nowrap">Nivel / Gestión</th>
+                      <th className="px-2.5 py-2.5 font-black text-white whitespace-nowrap">Establecimiento Vinculado</th>
+                      <th onClick={() => handleDepuracionSort('cantidad_liquidaciones')} className="px-2.5 py-2.5 text-center font-black text-white cursor-pointer hover:bg-[#e07203] whitespace-nowrap">
                         Liquidaciones {renderDepuracionSortIcon('cantidad_liquidaciones')}
                       </th>
-                      <th onClick={() => handleDepuracionSort('estado_depuracion')} className="px-3 py-3 text-center font-black text-white cursor-pointer hover:bg-[#e07203]">
+                      <th onClick={() => handleDepuracionSort('estado_depuracion')} className="px-2.5 py-2.5 text-center font-black text-white cursor-pointer hover:bg-[#e07203] whitespace-nowrap">
                         Estado Depuración {renderDepuracionSortIcon('estado_depuracion')}
                       </th>
-                      <th className="px-3 py-3 font-black text-white">Diagnóstico / Observaciones</th>
-                      <th className="px-3 py-3 text-center font-black text-white">Acción Sanación</th>
+                      <th className="px-2.5 py-2.5 font-black text-white whitespace-nowrap">Diagnóstico / Observaciones</th>
+                      <th className="px-2.5 py-2.5 text-center font-black text-white whitespace-nowrap">Acción</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-200 text-[11px]">
                     {paginatedDepuracion.map((d) => (
                       <tr key={`dep-${d.centro}-${d.sector}-${d.id}`} className="hover:bg-slate-50">
-                        <td className="px-3 py-2.5 text-center font-black text-slate-900 bg-slate-100 rounded-lg">{d.centro}</td>
-                        <td className="px-3 py-2.5 font-bold text-gray-900">{d.nom_centro || 'S/D'}</td>
-                        <td className="px-3 py-2.5 text-center font-black text-gray-900">{d.sector}</td>
-                        <td className="px-3 py-2.5 font-semibold text-gray-800">{d.nom_sector || 'S/D'}</td>
-                        <td className="px-3 py-2.5 text-gray-600 font-medium">
+                        <td className="px-2.5 py-2 text-center font-black text-slate-900 bg-slate-100/80 rounded-lg whitespace-nowrap">{d.centro}</td>
+                        <td className="px-2.5 py-2 font-bold text-gray-900 whitespace-nowrap">{d.nom_centro || 'S/D'}</td>
+                        <td className="px-2.5 py-2 text-center font-black text-gray-900 whitespace-nowrap">{d.sector}</td>
+                        <td className="px-2.5 py-2 font-semibold text-gray-800 whitespace-nowrap">{d.nom_sector || 'S/D'}</td>
+                        <td className="px-2.5 py-2 text-gray-600 font-medium whitespace-nowrap">
                           {d.nivel || 'S/N'} {d.gestion ? `(${d.gestion})` : ''}
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-2.5 py-2">
                           {d.cue_vinculado ? (
                             <div>
                               <div className="font-extrabold text-slate-950 leading-tight">{d.nom_establecimiento_vinculado}</div>
-                              <div className="text-[10px] text-gray-500 font-semibold mt-0.5 flex items-center gap-1.5">
+                              <div className="text-[10px] text-gray-500 font-semibold mt-0.5 flex items-center gap-1.5 whitespace-nowrap">
                                 <span>CUE: {d.cue_vinculado}</span>
                                 {d.nivel_educativo_vinculado && (
                                   <span className="px-1.5 py-0.2 text-[9px] font-black bg-purple-100 text-purple-800 rounded border border-purple-200 uppercase">
@@ -2439,40 +2470,40 @@ export default function AuditoriaSueldosIndex({
                               </div>
                             </div>
                           ) : (
-                            <span className="text-gray-400 italic">No Vinculado</span>
+                            <span className="text-gray-400 italic whitespace-nowrap">No Vinculado</span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-center font-black text-sm">
+                        <td className="px-2.5 py-2 text-center font-black text-xs whitespace-nowrap">
                           {d.cantidad_liquidaciones}
                         </td>
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-2.5 py-2 text-center whitespace-nowrap">
                           {d.estado_depuracion === 'CENTRO_SIN_USO' && (
-                            <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-red-100 text-red-800 border border-red-300">🔴 CENTRO SIN USO</span>
+                            <span className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-red-100 text-red-800 border border-red-300 inline-flex items-center gap-1 whitespace-nowrap">🔴 CENTRO SIN USO</span>
                           )}
                           {d.estado_depuracion === 'SUELDO_NO_CATALOGADO' && (
-                            <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-amber-100 text-amber-900 border border-amber-300">⚠️ NO CATALOGADO</span>
+                            <span className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1 whitespace-nowrap">⚠️ NO CATALOGADO</span>
                           )}
                           {d.estado_depuracion === 'SECTOR_SIN_USO' && (
-                            <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-yellow-100 text-yellow-900 border border-yellow-300">🟡 SECTOR SIN USO</span>
+                            <span className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-yellow-100 text-yellow-900 border border-yellow-300 inline-flex items-center gap-1 whitespace-nowrap">🟡 SECTOR SIN USO</span>
                           )}
                           {(d.estado_depuracion === 'ACTIVO' || d.estado_depuracion === 'BAJA_VOLUMETRÍA') && (
-                            <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300">🟢 ACTIVO</span>
+                            <span className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1 whitespace-nowrap">🟢 ACTIVO</span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5 font-medium text-gray-600 text-[11px]">
-                          {d.observaciones}
+                        <td className="px-2.5 py-2 font-medium text-gray-600 text-[11px] max-w-[280px] xl:max-w-[400px] whitespace-normal leading-snug break-words">
+                          {cleanObservaciones(d.observaciones)}
                         </td>
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-2.5 py-2 text-center whitespace-nowrap">
                           <button
                             onClick={() => {
                               setSanearDepuracionModalItem(d);
                               setSanearDepEstId(d.establecimiento_id ? d.establecimiento_id.toString() : '');
                               setSanearDepModalidadId(d.modalidad_id ? d.modalidad_id.toString() : '');
                               setSanearDepSearchTerm('');
-                              setSanearDepObs(d.observaciones || '');
+                              setSanearDepObs(cleanObservaciones(d.observaciones));
                               setSanearDepEstado(d.estado_depuracion || 'ACTIVO');
                             }}
-                            className={`px-2.5 py-1 text-[10px] font-black text-white rounded-lg shadow-sm transition-all flex items-center gap-1 mx-auto cursor-pointer ${
+                            className={`px-2.5 py-1 text-[10px] font-black text-white rounded-lg shadow-sm transition-all inline-flex items-center gap-1 cursor-pointer whitespace-nowrap ${
                               d.estado_depuracion === 'SUELDO_NO_CATALOGADO'
                                 ? 'bg-amber-600 hover:bg-amber-700 ring-2 ring-amber-400/50'
                                 : d.estado_depuracion === 'CENTRO_SIN_USO'
