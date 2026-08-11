@@ -582,14 +582,22 @@ class AuditoriaSueldosController extends Controller
 
                 $item->establecimiento_id = $est->id;
                 $item->modalidad_id = $modId;
-                $item->estado_depuracion = 'ACTIVO';
-                $item->observaciones = $obs ? $obs : ($item->observaciones ?: '');
+                if ($nuevoEstado) {
+                    $item->estado_depuracion = $nuevoEstado;
+                } else {
+                    $item->estado_depuracion = 'ACTIVO';
+                }
+                if ($obs !== null) {
+                    $item->observaciones = $obs;
+                }
             }
         } else {
+            $item->establecimiento_id = null;
+            $item->modalidad_id = null;
             if ($nuevoEstado) {
                 $item->estado_depuracion = $nuevoEstado;
             }
-            if ($obs) {
+            if ($obs !== null) {
                 $item->observaciones = $obs;
             }
         }
