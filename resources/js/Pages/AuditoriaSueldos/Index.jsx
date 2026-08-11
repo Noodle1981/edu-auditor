@@ -478,13 +478,109 @@ export default function AuditoriaSueldosIndex({
   const linkedResultados = useMemo(() => filteredResultados.filter(item => item.cue !== null), [filteredResultados]);
   const unlinkedResultados = useMemo(() => filteredResultados.filter(item => item.cue === null), [filteredResultados]);
 
-  const pagaMasList = useMemo(() => linkedResultados.filter(
-    (item) => item.estado_auditoria === 'PAGA_MAS_QUE_SIGE'
-  ), [linkedResultados]);
+  const pagaMasList = useMemo(() => {
+    const fromResultados = linkedResultados.filter(
+      (item) => item.estado_auditoria === 'PAGA_MAS_QUE_SIGE'
+    );
+    const fromCruce = cruceEscuelas.filter(c => {
+      if (!c.cue || c.radio_sige === null || c.radio_sueldo === null) return false;
+      return Number(c.radio_sueldo) > Number(c.radio_sige);
+    }).map(c => ({
+      id: `cruce-${c.establecimiento_id}-${c.sector_sige || c.sector_sueldos}`,
+      centro: c.centro || 98,
+      sector: c.sector_sige || c.sector_sueldos,
+      cue: c.cue,
+      nombre_establecimiento: c.nombre_establecimiento,
+      nivel_educativo: c.nivel_educativo || 'GENERAL',
+      departamento: c.departamento || 'S/D',
+      ambito: c.ambito || 'PUBLICO',
+      radio_sige: c.radio_sige,
+      radio_sueldo: c.radio_sueldo,
+      porc_pagado_mediana: c.porc_pagado_mediana,
+      escala_usada: c.escala_usada || 'LEY PARITARIA',
+      radio_circ: c.radio_circ,
+      radio_camino: c.radio_camino,
+      dist_camino: c.dist_camino,
+      docentes_desviados: c.docentes_desviados || 0,
+      total_filas_docentes: c.total_filas_docentes || 0,
+      estado_gestion: c.estado_gestion || 'PENDIENTE',
+      estado_auditoria: 'PAGA_MAS_QUE_SIGE',
+      es_sector_nativo: 1
+    }));
 
-  const pagaMenosList = useMemo(() => linkedResultados.filter(
-    (item) => item.estado_auditoria === 'PAGA_MENOS_QUE_SIGE'
-  ), [linkedResultados]);
+    const combined = [...fromResultados];
+    fromCruce.forEach(item => {
+      const exists = combined.some(r => String(r.cue) === String(item.cue) && Number(r.sector) === Number(item.sector));
+      if (!exists) {
+        combined.push(item);
+      }
+    });
+
+    return combined.filter(item => {
+      const term = search.toLowerCase();
+      const matchesSearch = !search ||
+        (item.centro && item.centro.toString().includes(term)) ||
+        (item.sector && item.sector.toString().includes(term)) ||
+        (item.nombre_establecimiento && item.nombre_establecimiento.toLowerCase().includes(term)) ||
+        (item.cue && item.cue.toString().includes(term));
+      const matchesDepto = !filtroDepto || item.departamento === filtroDepto;
+      const matchesAmbito = !filtroAmbito || item.ambito === filtroAmbito;
+      const matchesRadio = !filtroRadio || Number(item.radio_sige) === Number(filtroRadio) || Number(item.radio_sueldo) === Number(filtroRadio);
+      return matchesSearch && matchesDepto && matchesAmbito && matchesRadio;
+    });
+  }, [linkedResultados, cruceEscuelas, search, filtroDepto, filtroAmbito, filtroRadio]);
+
+  const pagaMenosList = useMemo(() => {
+    const fromResultados = linkedResultados.filter(
+      (item) => item.estado_auditoria === 'PAGA_MENOS_QUE_SIGE'
+    );
+    const fromCruce = cruceEscuelas.filter(c => {
+      if (!c.cue || c.radio_sige === null || c.radio_sueldo === null) return false;
+      return Number(c.radio_sueldo) < Number(c.radio_sige);
+    }).map(c => ({
+      id: `cruce-${c.establecimiento_id}-${c.sector_sige || c.sector_sueldos}`,
+      centro: c.centro || 98,
+      sector: c.sector_sige || c.sector_sueldos,
+      cue: c.cue,
+      nombre_establecimiento: c.nombre_establecimiento,
+      nivel_educativo: c.nivel_educativo || 'GENERAL',
+      departamento: c.departamento || 'S/D',
+      ambito: c.ambito || 'PUBLICO',
+      radio_sige: c.radio_sige,
+      radio_sueldo: c.radio_sueldo,
+      porc_pagado_mediana: c.porc_pagado_mediana,
+      escala_usada: c.escala_usada || 'LEY PARITARIA',
+      radio_circ: c.radio_circ,
+      radio_camino: c.radio_camino,
+      dist_camino: c.dist_camino,
+      docentes_desviados: c.docentes_desviados || 0,
+      total_filas_docentes: c.total_filas_docentes || 0,
+      estado_gestion: c.estado_gestion || 'PENDIENTE',
+      estado_auditoria: 'PAGA_MENOS_QUE_SIGE',
+      es_sector_nativo: 1
+    }));
+
+    const combined = [...fromResultados];
+    fromCruce.forEach(item => {
+      const exists = combined.some(r => String(r.cue) === String(item.cue) && Number(r.sector) === Number(item.sector));
+      if (!exists) {
+        combined.push(item);
+      }
+    });
+
+    return combined.filter(item => {
+      const term = search.toLowerCase();
+      const matchesSearch = !search ||
+        (item.centro && item.centro.toString().includes(term)) ||
+        (item.sector && item.sector.toString().includes(term)) ||
+        (item.nombre_establecimiento && item.nombre_establecimiento.toLowerCase().includes(term)) ||
+        (item.cue && item.cue.toString().includes(term));
+      const matchesDepto = !filtroDepto || item.departamento === filtroDepto;
+      const matchesAmbito = !filtroAmbito || item.ambito === filtroAmbito;
+      const matchesRadio = !filtroRadio || Number(item.radio_sige) === Number(filtroRadio) || Number(item.radio_sueldo) === Number(filtroRadio);
+      return matchesSearch && matchesDepto && matchesAmbito && matchesRadio;
+    });
+  }, [linkedResultados, cruceEscuelas, search, filtroDepto, filtroAmbito, filtroRadio]);
 
   const zonasInconsistentesList = useMemo(() => linkedResultados.filter(
     (item) => !item.coincide_zona && item.zona_sige
