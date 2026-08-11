@@ -83,7 +83,7 @@ class AuditoriaSueldosController extends Controller
                 DB::raw('COALESCE(m_san.ambito, m_native.ambito, m_any.ambito, "PUBLICO") as ambito'),
                 DB::raw('COALESCE(ed_san.distancia_camino, ed_orig.distancia_camino) as dist_camino'),
                 DB::raw('COALESCE(ed_san.dist_circunf, ed_orig.dist_circunf) as dist_circunf'),
-                DB::raw('CASE WHEN d_san.id IS NULL AND m_native.id IS NOT NULL THEN 1 ELSE 0 END as es_sector_nativo')
+                DB::raw('CASE WHEN d_san.establecimiento_id IS NOT NULL THEN 0 ELSE 1 END as es_sector_nativo')
             )
             ->groupBy('r.id')
             ->orderBy('r.sector')
