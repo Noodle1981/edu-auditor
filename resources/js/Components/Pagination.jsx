@@ -6,8 +6,7 @@ export const Pagination = ({
   currentPage,
   totalPages,
   onPageChange,
-  totalItems,
-  itemsName = 'registros'
+  totalItems
 }) => {
   // Compute derived current and total pages for Inertia links if not passed explicitly
   let derivedCurrentPage = currentPage;
@@ -89,28 +88,41 @@ export const Pagination = ({
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-white/40 border border-gray-100 rounded-3xl shadow-sm backdrop-blur-md w-full">
         {totalItems !== undefined ? (
           <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-            Total: <span className="text-gray-900">{totalItems.toLocaleString('es-AR')}</span> {itemsName}
+            Total: <span className="text-gray-900">{totalItems.toLocaleString('es-AR')}</span>
           </span>
         ) : <div />}
 
         <div className="flex items-center gap-1.5 flex-wrap justify-center">
           {links.map((link, idx) => {
-            let label = link.label
-              .replace('&laquo;', '')
-              .replace('&raquo;', '')
-              .replace('Previous', 'Ant')
-              .replace('Next', 'Sig')
-              .replace('Anterior', 'Ant')
-              .replace('Siguiente', 'Sig')
-              .trim();
+            const isPrevious = idx === 0 || 
+                               link.label.toLowerCase().includes('prev') || 
+                               link.label.toLowerCase().includes('ant') || 
+                               link.label.includes('&laquo;');
+                               
+            const isNext = idx === links.length - 1 || 
+                           link.label.toLowerCase().includes('next') || 
+                           link.label.toLowerCase().includes('sig') || 
+                           link.label.includes('&raquo;');
+
+            let content;
+            if (isPrevious) {
+              content = <i className="fas fa-chevron-left"></i>;
+            } else if (isNext) {
+              content = <i className="fas fa-chevron-right"></i>;
+            } else {
+              content = link.label
+                .replace('&laquo;', '')
+                .replace('&raquo;', '')
+                .trim();
+            }
 
             if (!link.url) {
               return (
                 <span
                   key={idx}
-                  className="px-3.5 py-1.5 text-xs font-black text-gray-400 bg-gray-50/80 rounded-xl border border-gray-100 opacity-50 cursor-not-allowed"
+                  className="px-3.5 py-1.5 text-xs font-black text-gray-400 bg-gray-50/80 rounded-xl border border-gray-100 opacity-50 cursor-not-allowed flex items-center justify-center min-w-9 h-9"
                 >
-                  {label}
+                  {content}
                 </span>
               );
             }
@@ -121,13 +133,13 @@ export const Pagination = ({
                 href={link.url}
                 preserveScroll
                 preserveState
-                className={`px-3.5 py-1.5 text-xs font-black rounded-xl transition-all ${
+                className={`px-3.5 py-1.5 text-xs font-black rounded-xl transition-all flex items-center justify-center min-w-9 h-9 cursor-pointer ${
                   link.active
                     ? 'bg-[#FE8204] text-white shadow-md shadow-[#FE8204]/30'
                     : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-100'
                 }`}
               >
-                {label}
+                {content}
               </Link>
             );
           })}
@@ -177,7 +189,7 @@ export const Pagination = ({
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-white/40 border border-gray-100 rounded-3xl shadow-sm backdrop-blur-md w-full">
       {totalItems !== undefined ? (
         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-          Total: <span className="text-gray-900">{totalItems.toLocaleString('es-AR')}</span> {itemsName}
+          Total: <span className="text-gray-900">{totalItems.toLocaleString('es-AR')}</span>
         </span>
       ) : <div />}
 
