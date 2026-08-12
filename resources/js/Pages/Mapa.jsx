@@ -11,7 +11,7 @@ import SIAMELayout from '../Layouts/SIAMELayout';
 import Modal from '../Components/Modal';
 import axios from 'axios';
 
-import { getTheoreticalRadio } from './MapView';
+import { getTheoreticalRadio } from '../Utils/mapHelpers';
 
 // Lazy-load the heavy map component (Leaflet + react-leaflet) — split into its own chunk
 const MapView = lazy(() => import('./MapView'));

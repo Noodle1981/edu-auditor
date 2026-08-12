@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import SIAMELayout from '../Layouts/SIAMELayout';
-import { getTheoreticalRadio } from './MapView';
+import { getTheoreticalRadio } from '../Utils/mapHelpers';
 
 const MapView = lazy(() => import('./MapView'));
 
@@ -10,7 +10,10 @@ export default function MapaSueldos({ edificios = [] }) {
   const user = props.auth?.user;
   const isAdmin = user && user.role === 'admin';
 
-  const edificiosArray = Array.isArray(edificios) ? edificios : [];
+  const edificiosArray = useMemo(
+    () => (Array.isArray(edificios) ? edificios : []),
+    [edificios]
+  );
 
   // State Filters
   const [activeFilters, setActiveFilters] = useState({ publico: true, privado: false });

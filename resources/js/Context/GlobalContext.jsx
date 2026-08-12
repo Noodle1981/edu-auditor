@@ -34,6 +34,7 @@ export const GlobalProvider = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useGlobal = () => {
   const context = useContext(GlobalContext);
   if (!context) {
