@@ -38,7 +38,8 @@ export default function AuditoriaSueldosIndex({
   cruceEscuelas = [],
   kpis = {},
   centrosBreakdown = [],
-  depuracionCentros = []
+  depuracionCentros = [],
+  sectoresDistintos = []
 }) {
   const [activeTab, setActiveTab] = useState('kpi');
   const [search, setSearch] = useState('');
@@ -53,6 +54,7 @@ export default function AuditoriaSueldosIndex({
   const [pageCruce, setPageCruce] = useState(1);
   const [pageTracking, setPageTracking] = useState(1);
   const [pageEscala, setPageEscala] = useState(1);
+  const [pageSectoresDistintos, setPageSectoresDistintos] = useState(1);
   const PAGE_SIZE = 50;
   const PAGE_SIZE_ESCALA = 10;
 
@@ -595,6 +597,33 @@ export default function AuditoriaSueldosIndex({
     setPageEscala(1);
   }, [search, filtroDepto, filtroAmbito, filtroRadio]);
 
+  const filteredSectoresDistintos = useMemo(() => {
+    const term = search.toLowerCase();
+    return (sectoresDistintos || []).filter((item) => {
+      return (
+        !search ||
+        (item.centro && item.centro.toString().includes(term)) ||
+        (item.sector_sueldos && item.sector_sueldos.toString().includes(term)) ||
+        (item.sectores_sige && item.sectores_sige.toString().includes(term)) ||
+        (item.nombre_establecimiento && item.nombre_establecimiento.toLowerCase().includes(term)) ||
+        (item.localidad && item.localidad.toLowerCase().includes(term)) ||
+        (item.departamento && item.departamento.toLowerCase().includes(term)) ||
+        (item.cue && item.cue.toString().includes(term)) ||
+        (item.observaciones && item.observaciones.toLowerCase().includes(term))
+      );
+    });
+  }, [sectoresDistintos, search]);
+
+  useEffect(() => {
+    setPageSectoresDistintos(1);
+  }, [search]);
+
+  const totalPagesSectoresDistintos = Math.ceil(filteredSectoresDistintos.length / PAGE_SIZE) || 1;
+  const paginatedSectoresDistintos = useMemo(() => {
+    const start = (pageSectoresDistintos - 1) * PAGE_SIZE;
+    return filteredSectoresDistintos.slice(start, start + PAGE_SIZE);
+  }, [filteredSectoresDistintos, pageSectoresDistintos]);
+
   const cruceStats = useMemo(() => {
     let coincide = 0;
     let noCoincide = 0;
@@ -956,6 +985,28 @@ export default function AuditoriaSueldosIndex({
               <span>Seguimiento & Gestión</span>
               <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
                 {linkedResultados.length}
+              </span>
+            </>
+          )}
+        </button>
+
+        {/* TAB: SECTORES DISTINTOS */}
+        <button
+          id="tab-btn-sectores-distintos"
+          onClick={() => setActiveTab('sectores_distintos')}
+          className={`py-2 transition-all duration-300 shrink-0 flex items-center justify-center cursor-pointer rounded-xl ${
+            activeTab === 'sectores_distintos'
+              ? 'px-4 bg-[#FE8204] text-white border border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-black text-xs gap-2'
+              : 'w-9 h-9 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-xs'
+          }`}
+          title="Sectores Distintos"
+        >
+          <i className={`fa-solid fa-shuffle text-sm ${activeTab === 'sectores_distintos' ? 'text-white' : 'text-orange-500'}`}></i>
+          {activeTab === 'sectores_distintos' && (
+            <>
+              <span>Sectores Distintos</span>
+              <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
+                {sectoresDistintos.length}
               </span>
             </>
           )}
@@ -2340,6 +2391,114 @@ export default function AuditoriaSueldosIndex({
             />
           </GlassCard>
         </div>
+      )}
+
+      {/* TAB: SECTORES DISTINTOS */}
+      {activeTab === 'sectores_distintos' && (
+        <GlassCard className="p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-base font-black text-orange-950 flex items-center gap-2">
+                <i className="fa-solid fa-shuffle text-orange-600"></i>
+                Establecimientos con Sectores de Pago Distintos a SIGE ({filteredSectoresDistintos.length})
+              </h2>
+              <p className="text-xs text-gray-600">
+                Sectores que fueron saneados y vinculados a un sector de cobro real diferente al que figura en el padrón de SIGE.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <a
+                href={`/api/auditoria-sueldos/exportar-excel?tab=sectores_distintos&periodo=${nominaSeleccionada?.periodo || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all flex items-center justify-center cursor-pointer shrink-0"
+                title="Descargar sectores distintos en Excel"
+              >
+                <i className="fa-solid fa-file-excel text-sm"></i>
+              </a>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left text-gray-700">
+              <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 shadow-xs">
+                <tr>
+                  <th className="px-3 py-3 text-center font-black text-white">Centro</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Sector Pago</th>
+                  <th className="px-3 py-3 font-black text-white">Establecimiento / Escuela</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Sector(es) SIGE</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Nivel Educativo</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Departamento</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Localidad</th>
+                  <th className="px-3 py-3 text-right font-black text-white">Liquidaciones</th>
+                  <th className="px-3 py-3 font-black text-white">Observación de Saneamiento</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {paginatedSectoresDistintos.map((item) => (
+                  <tr key={item.depuracion_id} className="hover:bg-orange-50/30">
+                    <td className="px-3 py-3 text-center">
+                      <span className="px-2 py-0.5 rounded-lg bg-white text-[#FE8204] border border-[#FE8204]/40 font-black text-xs inline-block">
+                        {item.centro ?? 'S/D'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <span className="px-2 py-0.5 rounded-lg bg-orange-100 text-orange-800 border border-orange-200 font-black text-xs inline-block">
+                        {item.sector_sueldos}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="font-extrabold text-gray-950 max-w-xs truncate">
+                        {item.nombre_establecimiento || 'No Registrado'}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-500">
+                        {item.cue && <span>CUE: {item.cue}</span>}
+                        {item.cui && <span>• CUI: {item.cui}</span>}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 font-black text-xs inline-block">
+                        {item.sectores_sige ?? '-'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-center font-semibold text-gray-700">
+                      {item.nivel_educativo ?? '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center font-semibold text-gray-700">
+                      {item.departamento ?? 'S/D'}
+                    </td>
+                    <td className="px-3 py-3 text-center font-semibold text-gray-700">
+                      {item.localidad ?? '-'}
+                    </td>
+                    <td className="px-3 py-3 text-right font-black text-emerald-700">
+                      {item.cantidad_liquidaciones}
+                    </td>
+                    <td className="px-3 py-3">
+                      <p className="text-gray-600 max-w-xs truncate" title={item.observaciones}>
+                        {cleanObservaciones(item.observaciones) || <span className="text-gray-400 italic">Sin observaciones</span>}
+                      </p>
+                    </td>
+                  </tr>
+                ))}
+                {filteredSectoresDistintos.length === 0 && (
+                  <tr>
+                    <td colSpan="9" className="text-center py-8 text-gray-400 italic">
+                      No se encontraron establecimientos saneados con sectores distintos.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <Pagination
+            currentPage={pageSectoresDistintos}
+            totalPages={totalPagesSectoresDistintos}
+            onPageChange={setPageSectoresDistintos}
+            totalItems={filteredSectoresDistintos.length}
+            itemsName="sectores distintos"
+          />
+        </GlassCard>
       )}
 
       {/* TAB: SECTORES SIN IDENTIFICARSE (INVESTIGACIÓN & DEPURACIÓN DE CENTROS/SECTORES) */}
