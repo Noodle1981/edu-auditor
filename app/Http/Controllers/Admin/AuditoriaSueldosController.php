@@ -388,7 +388,6 @@ class AuditoriaSueldosController extends Controller
             ->whereNotNull('d.establecimiento_id')
             ->join('establecimientos as e', 'e.id', '=', 'd.establecimiento_id')
             ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
-            ->leftJoin('modalidades as m', 'm.id', '=', 'd.modalidad_id')
             ->join('modalidades as m_sige', function ($join) {
                 $join->on('m_sige.establecimiento_id', '=', 'e.id')
                      ->whereRaw('CAST(m_sige.sector AS TEXT) != CAST(d.sector AS TEXT)')
@@ -412,7 +411,9 @@ class AuditoriaSueldosController extends Controller
                 'ed.zona_departamento as departamento',
                 'ed.localidad',
                 DB::raw("GROUP_CONCAT(DISTINCT m_sige.sector) as sectores_sige"),
-                'm.nivel_educativo'
+                // Nivel educativo viene de las modalidades SIGE reales del establecimiento,
+                // no del vínculo de depuracion (que puede ser null tras el fix de sanearDepuracion).
+                DB::raw("GROUP_CONCAT(DISTINCT m_sige.nivel_educativo) as nivel_educativo")
             )
             ->groupBy(
                 'd.id',
@@ -428,8 +429,7 @@ class AuditoriaSueldosController extends Controller
                 'e.nombre',
                 'ed.cui',
                 'ed.zona_departamento',
-                'ed.localidad',
-                'm.nivel_educativo'
+                'ed.localidad'
             )
             ->orderBy('d.sector')
             ->get();

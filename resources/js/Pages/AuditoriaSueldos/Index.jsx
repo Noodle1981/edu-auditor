@@ -3558,7 +3558,7 @@ export default function AuditoriaSueldosIndex({
                     </select>
                   ) : !sanearDepLoadingModalidades ? (
                     <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2 font-medium">
-                      ⚠️ Esta escuela no posee niveles cargados previamente en el catálogo de modalidades. Se creará un vínculo general.
+                      ⚠️ Esta escuela no posee niveles/modalidades cargados previamente. El vínculo se registrará a nivel de CUE sin asociar modalidad específica.
                     </p>
                   ) : null}
                 </div>
