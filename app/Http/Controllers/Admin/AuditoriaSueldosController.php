@@ -396,13 +396,14 @@ class AuditoriaSueldosController extends Controller
                      ->whereRaw("m_sige.sector != '0'");
             })
             ->select(
-                'd.id as depuracion_id',
+                // Agrupamos por escuela + sector de sueldos para no repetir filas por centro.
+                // Cada fila = 1 escuela + 1 sector de pago distinto (con todos sus centros unificados).
+                DB::raw("MIN(d.id) as depuracion_id"),
                 'd.sector as sector_sueldos',
-                'd.centro',
-                'd.nom_sector as nom_sector_sueldos',
-                'd.nom_centro',
-                'd.cantidad_liquidaciones',
-                'd.observaciones',
+                DB::raw("GROUP_CONCAT(DISTINCT d.centro ORDER BY d.centro ASC) as centros"),
+                DB::raw("GROUP_CONCAT(DISTINCT d.nom_centro ORDER BY d.centro ASC) as nom_centros"),
+                DB::raw("SUM(d.cantidad_liquidaciones) as cantidad_liquidaciones"),
+                DB::raw("MAX(d.observaciones) as observaciones"),
                 'd.estado_depuracion',
                 'e.id as establecimiento_id',
                 'e.cue',
@@ -416,13 +417,7 @@ class AuditoriaSueldosController extends Controller
                 DB::raw("GROUP_CONCAT(DISTINCT m_sige.nivel_educativo) as nivel_educativo")
             )
             ->groupBy(
-                'd.id',
                 'd.sector',
-                'd.centro',
-                'd.nom_sector',
-                'd.nom_centro',
-                'd.cantidad_liquidaciones',
-                'd.observaciones',
                 'd.estado_depuracion',
                 'e.id',
                 'e.cue',
@@ -431,6 +426,7 @@ class AuditoriaSueldosController extends Controller
                 'ed.zona_departamento',
                 'ed.localidad'
             )
+            ->orderBy('e.nombre')
             ->orderBy('d.sector')
             ->get();
 
@@ -1321,40 +1317,32 @@ class AuditoriaSueldosController extends Controller
                 })
                 ->select(
                     'd.sector as sector_sueldos',
-                    'd.centro',
-                    'd.nom_sector as nom_sector_sueldos',
-                    'd.nom_centro',
-                    'd.cantidad_liquidaciones',
-                    'd.observaciones',
+                    DB::raw("GROUP_CONCAT(DISTINCT d.centro ORDER BY d.centro ASC) as centros"),
+                    DB::raw("SUM(d.cantidad_liquidaciones) as cantidad_liquidaciones"),
+                    DB::raw("MAX(d.observaciones) as observaciones"),
                     'e.cue',
                     'e.nombre as nombre_establecimiento',
                     'ed.cui',
                     'ed.zona_departamento as departamento',
                     'ed.localidad',
                     DB::raw("GROUP_CONCAT(DISTINCT m_sige.sector) as sectores_sige"),
-                    'm.nivel_educativo'
+                    DB::raw("GROUP_CONCAT(DISTINCT m_sige.nivel_educativo) as nivel_educativo")
                 )
                 ->groupBy(
-                    'd.id',
                     'd.sector',
-                    'd.centro',
-                    'd.nom_sector',
-                    'd.nom_centro',
-                    'd.cantidad_liquidaciones',
-                    'd.observaciones',
                     'e.cue',
                     'e.nombre',
                     'ed.cui',
                     'ed.zona_departamento',
-                    'ed.localidad',
-                    'm.nivel_educativo'
+                    'ed.localidad'
                 )
+                ->orderBy('e.nombre')
                 ->orderBy('d.sector')
                 ->get();
 
             $r = 5;
             foreach ($rows as $item) {
-                $sheet->setCellValue('A'.$r, $item->centro ?? 'S/D');
+                $sheet->setCellValue('A'.$r, $item->centros ?? 'S/D');
                 $sheet->setCellValue('B'.$r, $item->sector_sueldos);
                 $sheet->setCellValue('C'.$r, $item->cue ?? 'S/D');
                 $sheet->setCellValue('D'.$r, $item->nombre_establecimiento ?? 'Sin Registro');

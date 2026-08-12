@@ -602,6 +602,7 @@ export default function AuditoriaSueldosIndex({
     return (sectoresDistintos || []).filter((item) => {
       return (
         !search ||
+        (item.centros && item.centros.toString().includes(term)) ||
         (item.centro && item.centro.toString().includes(term)) ||
         (item.sector_sueldos && item.sector_sueldos.toString().includes(term)) ||
         (item.sectores_sige && item.sectores_sige.toString().includes(term)) ||
@@ -2423,7 +2424,7 @@ export default function AuditoriaSueldosIndex({
             <table className="w-full text-xs text-left text-gray-700">
               <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 shadow-xs">
                 <tr>
-                  <th className="px-3 py-3 text-center font-black text-white">Centro</th>
+                  <th className="px-3 py-3 text-center font-black text-white">Centro(s)</th>
                   <th className="px-3 py-3 text-center font-black text-white">Sector Pago</th>
                   <th className="px-3 py-3 font-black text-white">Establecimiento / Escuela</th>
                   <th className="px-3 py-3 text-center font-black text-white">Sector(es) SIGE</th>
@@ -2439,7 +2440,7 @@ export default function AuditoriaSueldosIndex({
                   <tr key={item.depuracion_id} className="hover:bg-orange-50/30">
                     <td className="px-3 py-3 text-center">
                       <span className="px-2 py-0.5 rounded-lg bg-white text-[#FE8204] border border-[#FE8204]/40 font-black text-xs inline-block">
-                        {item.centro ?? 'S/D'}
+                        {item.centros ?? item.centro ?? 'S/D'}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-center">
