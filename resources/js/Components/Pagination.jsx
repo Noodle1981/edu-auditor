@@ -1,4 +1,5 @@
-import { Link } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
+import { Link, router } from '@inertiajs/react';
 
 export const Pagination = ({
   links,
@@ -8,17 +9,89 @@ export const Pagination = ({
   totalItems,
   itemsName = 'registros'
 }) => {
+  // Compute derived current and total pages for Inertia links if not passed explicitly
+  let derivedCurrentPage = currentPage;
+  let derivedTotalPages = totalPages;
+
+  if (links && Array.isArray(links)) {
+    const activeLink = links.find(l => l.active);
+    if (activeLink && !derivedCurrentPage) {
+      derivedCurrentPage = parseInt(activeLink.label, 10) || 1;
+    }
+    if (!derivedTotalPages) {
+      const pageNumLinks = links
+        .map(l => parseInt(l.label, 10))
+        .filter(n => !isNaN(n));
+      if (pageNumLinks.length > 0) {
+        derivedTotalPages = Math.max(...pageNumLinks);
+      }
+    }
+  }
+
+  const activePage = derivedCurrentPage || 1;
+  const maxPages = derivedTotalPages || 1;
+
+  const [inputPage, setInputPage] = useState(activePage);
+
+  useEffect(() => {
+    setInputPage(activePage);
+  }, [activePage]);
+
+  const handleJumpSubmit = (e) => {
+    e?.preventDefault();
+    const target = parseInt(inputPage, 10);
+    if (isNaN(target) || target < 1 || target > maxPages) {
+      setInputPage(activePage);
+      return;
+    }
+
+    if (onPageChange) {
+      onPageChange(target);
+    } else if (links && Array.isArray(links)) {
+      const sampleLink = links.find(l => l.url);
+      if (sampleLink) {
+        const urlObj = new URL(sampleLink.url, window.location.href);
+        urlObj.searchParams.set('page', target);
+        router.get(urlObj.pathname + urlObj.search, {}, { preserveScroll: true, preserveState: true });
+      }
+    }
+  };
+
+  // Helper for rendering the Jump Form
+  const renderJumpForm = () => (
+    <form onSubmit={handleJumpSubmit} className="flex items-center gap-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider shrink-0">
+      <span>Ir a pág.</span>
+      <input
+        type="number"
+        min="1"
+        max={maxPages}
+        value={inputPage}
+        onChange={(e) => setInputPage(e.target.value)}
+        onBlur={handleJumpSubmit}
+        className="w-14 text-center bg-white border border-gray-300 rounded-xl px-1.5 py-1 font-black text-gray-900 shadow-xs focus:ring-[#FE8204] focus:border-[#FE8204] text-xs cursor-pointer"
+      />
+      <span>de <span className="text-gray-900">{maxPages}</span></span>
+      <button
+        type="submit"
+        className="ml-1 px-2.5 py-1 text-[11px] font-black uppercase text-white bg-[#FE8204] hover:bg-[#e07203] rounded-xl shadow-xs transition-all cursor-pointer active:scale-95"
+        title="Ir a página"
+      >
+        Ir
+      </button>
+    </form>
+  );
+
   // If Inertia/Laravel Paginator links array is passed:
   if (links && Array.isArray(links)) {
     if (links.length <= 3 && totalItems === undefined) return null;
 
     return (
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-white/40 border border-gray-100 rounded-3xl shadow-sm backdrop-blur-md w-full">
-        {totalItems !== undefined && (
+        {totalItems !== undefined ? (
           <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
             Total: <span className="text-gray-900">{totalItems.toLocaleString('es-AR')}</span> {itemsName}
           </span>
-        )}
+        ) : <div />}
 
         <div className="flex items-center gap-1.5 flex-wrap justify-center">
           {links.map((link, idx) => {
@@ -59,6 +132,8 @@ export const Pagination = ({
             );
           })}
         </div>
+
+        {renderJumpForm()}
       </div>
     );
   }
@@ -100,11 +175,11 @@ export const Pagination = ({
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-4 py-3 bg-white/40 border border-gray-100 rounded-3xl shadow-sm backdrop-blur-md w-full">
-      {totalItems !== undefined && (
+      {totalItems !== undefined ? (
         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
           Total: <span className="text-gray-900">{totalItems.toLocaleString('es-AR')}</span> {itemsName}
         </span>
-      )}
+      ) : <div />}
 
       <div className="flex items-center gap-2">
         <button
@@ -149,9 +224,7 @@ export const Pagination = ({
         </button>
       </div>
 
-      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-        Pág. <span className="text-gray-900">{currentPage}</span> de <span className="text-gray-900">{totalPages || 1}</span>
-      </span>
+      {renderJumpForm()}
     </div>
   );
 };
