@@ -383,6 +383,57 @@ class AuditoriaSueldosController extends Controller
             'registros_escala_vieja' => $linkedViejos->count(),
         ];
 
+        $sectoresDistintos = DB::table('depuracion_centros_sectores as d')
+            ->where('d.estado_depuracion', 'ACTIVO')
+            ->whereNotNull('d.establecimiento_id')
+            ->join('establecimientos as e', 'e.id', '=', 'd.establecimiento_id')
+            ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+            ->leftJoin('modalidades as m', 'm.id', '=', 'd.modalidad_id')
+            ->join('modalidades as m_sige', function ($join) {
+                $join->on('m_sige.establecimiento_id', '=', 'e.id')
+                     ->whereRaw('CAST(m_sige.sector AS TEXT) != CAST(d.sector AS TEXT)')
+                     ->whereNotNull('m_sige.sector')
+                     ->whereRaw("m_sige.sector != ''")
+                     ->whereRaw("m_sige.sector != '0'");
+            })
+            ->select(
+                'd.id as depuracion_id',
+                'd.sector as sector_sueldos',
+                'd.centro',
+                'd.nom_sector as nom_sector_sueldos',
+                'd.nom_centro',
+                'd.cantidad_liquidaciones',
+                'd.observaciones',
+                'd.estado_depuracion',
+                'e.id as establecimiento_id',
+                'e.cue',
+                'e.nombre as nombre_establecimiento',
+                'ed.cui',
+                'ed.zona_departamento as departamento',
+                'ed.localidad',
+                DB::raw("GROUP_CONCAT(DISTINCT m_sige.sector) as sectores_sige"),
+                'm.nivel_educativo'
+            )
+            ->groupBy(
+                'd.id',
+                'd.sector',
+                'd.centro',
+                'd.nom_sector',
+                'd.nom_centro',
+                'd.cantidad_liquidaciones',
+                'd.observaciones',
+                'd.estado_depuracion',
+                'e.id',
+                'e.cue',
+                'e.nombre',
+                'ed.cui',
+                'ed.zona_departamento',
+                'ed.localidad',
+                'm.nivel_educativo'
+            )
+            ->orderBy('d.sector')
+            ->get();
+
         $depuracionCentros = DB::table('depuracion_centros_sectores as d')
             ->leftJoin('establecimientos as e', 'e.id', '=', 'd.establecimiento_id')
             ->leftJoin('modalidades as m', 'm.id', '=', 'd.modalidad_id')
@@ -409,6 +460,7 @@ class AuditoriaSueldosController extends Controller
             'kpis' => $kpis,
             'centrosBreakdown' => $centrosBreakdown,
             'depuracionCentros' => $depuracionCentros,
+            'sectoresDistintos' => $sectoresDistintos,
         ]);
     }
 
@@ -585,45 +637,30 @@ class AuditoriaSueldosController extends Controller
                 if ($est) {
                     $modTarget = null;
                     if ($modId) {
-                        $modTarget = DB::table('modalidades')->where('id', $modId)->first();
+                        // Si el usuario pasó explícitamente una modalidad, verificar que pertenece al establecimiento
+                        $modTarget = DB::table('modalidades')
+                            ->where('id', $modId)
+                            ->where('establecimiento_id', $est->id)
+                            ->first();
                     }
 
                     if (! $modTarget) {
-                        // Buscar SOLO dentro del establecimiento destino para no "robar"
-                        // la modalidad de otra escuela (lo que causaría que esa escuela
-                        // se quede sin modalidades y desaparezca de las búsquedas).
+                        // Buscar si el establecimiento destino ya tiene una modalidad con ese sector exacto.
+                        // Solo usar esa modalidad como vínculo (no crear ninguna nueva).
                         $modTarget = DB::table('modalidades')
                             ->where('establecimiento_id', $est->id)
                             ->where('sector', $item->sector)
                             ->first();
                     }
 
-                    if (! $modTarget) {
-                        // Si el establecimiento destino no tiene este sector,
-                        // crear una modalidad nueva. Nunca mover/robar la de otra escuela.
-                        $newModId = DB::table('modalidades')->insertGetId([
-                            'establecimiento_id' => $est->id,
-                            'sector' => $item->sector,
-                            'radio' => 1,
-                            'direccion_area' => 'CONVENIO',
-                            'nivel_educativo' => 'GENERAL',
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ]);
-                        $modId = $newModId;
-                    } else {
-                        // La modalidad ya existe en el establecimiento destino,
-                        // solo actualizar la marca de tiempo.
-                        DB::table('modalidades')
-                            ->where('id', $modTarget->id)
-                            ->update([
-                                'updated_at' => now(),
-                            ]);
-                        $modId = $modTarget->id;
-                    }
-
+                    // IMPORTANTE: Si no existe una modalidad con ese sector en el establecimiento
+                    // destino, NO fabricamos una falsa (CONVENIO/GENERAL/radio=1).
+                    // El vínculo se establece a nivel de establecimiento (CUE) para poder
+                    // identificar el cobro; la modalidad_id queda null cuando no hay coincidencia exacta.
+                    // Esto preserva la integridad del catálogo oficial de modalidades.
                     $item->establecimiento_id = $est->id;
-                    $item->modalidad_id = $modId;
+                    $item->modalidad_id = $modTarget ? $modTarget->id : null;
+
                     if ($nuevoEstado) {
                         $item->estado_depuracion = $nuevoEstado;
                     } else {
@@ -714,7 +751,6 @@ class AuditoriaSueldosController extends Controller
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Determine column count and last column letter dynamically
         $lastColLetter = 'K';
         if ($tab === 'kpi') {
             $lastColLetter = 'I';
@@ -730,6 +766,8 @@ class AuditoriaSueldosController extends Controller
             $lastColLetter = 'M';
         } elseif ($tab === 'sin_escuela') {
             $lastColLetter = 'G';
+        } elseif ($tab === 'sectores_distintos') {
+            $lastColLetter = 'K';
         }
 
         // Banner superior oficial para autoridades
@@ -1260,6 +1298,83 @@ class AuditoriaSueldosController extends Controller
                 $sheet->getStyle('F'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
                 $r++;
             }
+        } elseif ($tab === 'sectores_distintos') {
+            $headers = [
+                'Centro', 'Sector Pago', 'CUE', 'Establecimiento', 'CUI', 'Sector(es) SIGE', 'Nivel Educativo', 'Departamento', 'Localidad', 'Cantidad Liquidaciones', 'Observaciones'
+            ];
+            $sheet->fromArray($headers, null, 'A'.$startRow);
+            $sheet->getStyle('A4:K4')->applyFromArray($headerStyle);
+            $sheet->getRowDimension(4)->setRowHeight(24);
+
+            $rows = DB::table('depuracion_centros_sectores as d')
+                ->where('d.estado_depuracion', 'ACTIVO')
+                ->whereNotNull('d.establecimiento_id')
+                ->join('establecimientos as e', 'e.id', '=', 'd.establecimiento_id')
+                ->join('edificios as ed', 'ed.id', '=', 'e.edificio_id')
+                ->leftJoin('modalidades as m', 'm.id', '=', 'd.modalidad_id')
+                ->join('modalidades as m_sige', function ($join) {
+                    $join->on('m_sige.establecimiento_id', '=', 'e.id')
+                         ->whereRaw('CAST(m_sige.sector AS TEXT) != CAST(d.sector AS TEXT)')
+                         ->whereNotNull('m_sige.sector')
+                         ->whereRaw("m_sige.sector != ''")
+                         ->whereRaw("m_sige.sector != '0'");
+                })
+                ->select(
+                    'd.sector as sector_sueldos',
+                    'd.centro',
+                    'd.nom_sector as nom_sector_sueldos',
+                    'd.nom_centro',
+                    'd.cantidad_liquidaciones',
+                    'd.observaciones',
+                    'e.cue',
+                    'e.nombre as nombre_establecimiento',
+                    'ed.cui',
+                    'ed.zona_departamento as departamento',
+                    'ed.localidad',
+                    DB::raw("GROUP_CONCAT(DISTINCT m_sige.sector) as sectores_sige"),
+                    'm.nivel_educativo'
+                )
+                ->groupBy(
+                    'd.id',
+                    'd.sector',
+                    'd.centro',
+                    'd.nom_sector',
+                    'd.nom_centro',
+                    'd.cantidad_liquidaciones',
+                    'd.observaciones',
+                    'e.cue',
+                    'e.nombre',
+                    'ed.cui',
+                    'ed.zona_departamento',
+                    'ed.localidad',
+                    'm.nivel_educativo'
+                )
+                ->orderBy('d.sector')
+                ->get();
+
+            $r = 5;
+            foreach ($rows as $item) {
+                $sheet->setCellValue('A'.$r, $item->centro ?? 'S/D');
+                $sheet->setCellValue('B'.$r, $item->sector_sueldos);
+                $sheet->setCellValue('C'.$r, $item->cue ?? 'S/D');
+                $sheet->setCellValue('D'.$r, $item->nombre_establecimiento ?? 'Sin Registro');
+                $sheet->setCellValue('E'.$r, $item->cui ?? '-');
+                $sheet->setCellValue('F'.$r, $item->sectores_sige ?? '-');
+                $sheet->setCellValue('G'.$r, $item->nivel_educativo ?? '-');
+                $sheet->setCellValue('H'.$r, $item->departamento ?? 'S/D');
+                $sheet->setCellValue('I'.$r, $item->localidad ?? '-');
+                $sheet->setCellValue('J'.$r, $item->cantidad_liquidaciones ?? 0);
+                $sheet->setCellValue('K'.$r, $item->observaciones ?? '');
+
+                $sheet->getStyle('A'.$r.':K'.$r)->applyFromArray([
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFE2E8F0']]],
+                    'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                $sheet->getStyle('A'.$r.':C'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('E'.$r.':I'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('J'.$r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $r++;
+            }
         } else {
             $sheet->setCellValue('A4', 'Pestaña no válida o sin datos para exportar.');
         }
@@ -1288,6 +1403,8 @@ class AuditoriaSueldosController extends Controller
             $filename = 'Escalas_residuales_'.$nominaSeleccionada->periodo.'.xlsx';
         } elseif ($tab === 'sin_escuela') {
             $filename = 'Auditoria_Sectores_Sin_Escuela_'.$nominaSeleccionada->periodo.'.xlsx';
+        } elseif ($tab === 'sectores_distintos') {
+            $filename = 'Auditoria_Sectores_Distintos_'.$nominaSeleccionada->periodo.'.xlsx';
         } else {
             $filename = 'auditoria_'.$tab.'_'.$nominaSeleccionada->periodo.'.xlsx';
         }
