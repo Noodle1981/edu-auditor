@@ -3271,7 +3271,7 @@ export default function AuditoriaSueldosIndex({
                   Listado de Potenciales Jubilaciones (Régimen Docente por Personas Únicas)
                 </h3>
                 <p className="text-xs text-gray-600 mt-0.5">
-                  Personal con edad &ge; 57 (Mujeres) o &ge; 60 (Hombres) o antigüedad &ge; 25 años con liquidación de haberes.
+                  Personal con edad &ge; 57 (Mujeres) o &ge; 60 (Hombres) <b>y con antigüedad &ge; 25 años</b> con liquidación de haberes.
                 </p>
               </div>
 

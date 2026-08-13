@@ -1487,9 +1487,8 @@ class AuditoriaSueldosController extends Controller
                     (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 57)
                     OR
                     (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) NOT IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 60)
-                    OR
-                    (n.antiguedad_anios >= 25)
                 )
+                AND (n.antiguedad_anios >= 25)
             ");
 
         if ($search) {
@@ -1567,9 +1566,8 @@ class AuditoriaSueldosController extends Controller
                     (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 57)
                     OR
                     (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) NOT IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 60)
-                    OR
-                    (n.antiguedad_anios >= 25)
                 )
+                AND (n.antiguedad_anios >= 25)
             ")
             ->groupBy('n.cuil')
             ->select(
