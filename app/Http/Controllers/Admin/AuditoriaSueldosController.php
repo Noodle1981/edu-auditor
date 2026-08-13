@@ -1469,4 +1469,219 @@ class AuditoriaSueldosController extends Controller
             'docentes' => $docentesMap
         ]);
     }
+
+    /**
+     * Obtiene el listado de personas únicas en edad de jubilación (agrupado por CUIL).
+     */
+    public function getPotencialesJubilaciones(Request $request)
+    {
+        $search = $request->query('search');
+        $estado = $request->query('estado'); // PENDIENTE, ACTIVO, JUBILADO, EN_TRAMITE
+        $perPage = $request->query('per_page', 25);
+
+        $query = DB::table('nomina_sueldo_registros as n')
+            ->leftJoin('jubilaciones_seguimiento as js', 'js.cuil', '=', 'n.cuil')
+            ->whereNotNull('n.fecha_nacimiento')
+            ->whereRaw("
+                (
+                    (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 57)
+                    OR
+                    (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) NOT IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 60)
+                    OR
+                    (n.antiguedad_anios >= 25)
+                )
+            ");
+
+        if ($search) {
+            $s = mb_strtolower($search);
+            $query->where(function($q) use ($s) {
+                $q->whereRaw("LOWER(n.apellido_nombre) LIKE ?", ["%{$s}%"])
+                  ->orWhereRaw("LOWER(n.cuil) LIKE ?", ["%{$s}%"])
+                  ->orWhereRaw("CAST(n.sector AS TEXT) LIKE ?", ["%{$s}%"])
+                  ->orWhereRaw("CAST(n.centro AS TEXT) LIKE ?", ["%{$s}%"]);
+            });
+        }
+
+        if ($estado) {
+            if ($estado === 'PENDIENTE') {
+                $query->where(function($q) {
+                    $q->whereNull('js.estado_jubilacion')
+                      ->orWhere('js.estado_jubilacion', 'PENDIENTE');
+                });
+            } else {
+                $query->where('js.estado_jubilacion', $estado);
+            }
+        }
+
+        $registraCobro = $request->query('registra_cobro'); // con_cobro, sin_cobro
+
+        $query->groupBy('n.cuil')
+            ->select(
+                'n.cuil',
+                DB::raw("MAX(n.apellido_nombre) as apellido_nombre"),
+                DB::raw("MAX(n.fecha_nacimiento) as fecha_nacimiento"),
+                DB::raw("MAX(n.antiguedad_anios) as antiguedad_anios"),
+                DB::raw("COUNT(n.id) as total_liquidaciones"),
+                DB::raw("SUM(COALESCE(n.a01_basico, 0) + COALESCE(n.a04_radio, 0)) as total_monto"),
+                DB::raw("GROUP_CONCAT(DISTINCT n.centro) as centros_list"),
+                DB::raw("GROUP_CONCAT(DISTINCT n.sector) as sectores_list"),
+                DB::raw("COALESCE(MAX(js.estado_jubilacion), 'PENDIENTE') as estado_jubilacion"),
+                DB::raw("MAX(js.observaciones) as observaciones_jubilacion"),
+                DB::raw("(2026 - CAST(SUBSTR(MAX(n.fecha_nacimiento), 7, 4) AS INTEGER)) as edad_calculada"),
+                DB::raw("CASE WHEN SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) IN ('27', '23', '24') THEN 'F' ELSE 'M' END as genero_deducido")
+            );
+
+        if ($registraCobro === 'con_cobro') {
+            $query->havingRaw("SUM(COALESCE(n.a01_basico, 0) + COALESCE(n.a04_radio, 0)) > 0");
+        } elseif ($registraCobro === 'sin_cobro') {
+            $query->havingRaw("SUM(COALESCE(n.a01_basico, 0) + COALESCE(n.a04_radio, 0)) <= 0");
+        }
+
+        $sortBy = $request->query('sort_by', 'edad');
+        $sortDir = strtolower($request->query('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if ($sortBy === 'edad') {
+            $query->orderBy(DB::raw("(2026 - CAST(SUBSTR(MAX(n.fecha_nacimiento), 7, 4) AS INTEGER))"), $sortDir);
+        } elseif ($sortBy === 'antiguedad') {
+            $query->orderBy(DB::raw("MAX(n.antiguedad_anios)"), $sortDir);
+        } elseif ($sortBy === 'cargos') {
+            $query->orderBy(DB::raw("COUNT(n.id)"), $sortDir);
+        } elseif ($sortBy === 'monto') {
+            $query->orderBy(DB::raw("SUM(COALESCE(n.a01_basico, 0) + COALESCE(n.a04_radio, 0))"), $sortDir);
+        } elseif ($sortBy === 'apellido_nombre') {
+            $query->orderBy(DB::raw("MAX(n.apellido_nombre)"), $sortDir);
+        } else {
+            $query->orderBy(DB::raw("MAX(n.apellido_nombre)"), 'asc');
+        }
+
+        $totalPersonasQuery = DB::table(DB::raw("({$query->toSql()}) as sub"))
+            ->mergeBindings($query);
+
+        $resultado = $query->paginate($perPage);
+
+        // Conteo de KPI de Jubilaciones por Personas Únicas y desglose con/sin cobro
+        $baseJubilablesGroup = DB::table('nomina_sueldo_registros as n')
+            ->whereNotNull('n.fecha_nacimiento')
+            ->whereRaw("
+                (
+                    (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 57)
+                    OR
+                    (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) NOT IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 60)
+                    OR
+                    (n.antiguedad_anios >= 25)
+                )
+            ")
+            ->groupBy('n.cuil')
+            ->select(
+                'n.cuil',
+                DB::raw("SUM(COALESCE(n.a01_basico, 0) + COALESCE(n.a04_radio, 0)) as total_monto")
+            );
+
+        $personasWithCobro = DB::table(DB::raw("({$baseJubilablesGroup->toSql()}) as sub"))
+            ->mergeBindings($baseJubilablesGroup)
+            ->where('total_monto', '>', 0)
+            ->count();
+
+        $personasSinCobro = DB::table(DB::raw("({$baseJubilablesGroup->toSql()}) as sub"))
+            ->mergeBindings($baseJubilablesGroup)
+            ->where('total_monto', '<=', 0)
+            ->count();
+
+        $kpis = [
+            'total' => $personasWithCobro + $personasSinCobro,
+            'con_cobro' => $personasWithCobro,
+            'sin_cobro' => $personasSinCobro,
+            'pendientes' => DB::table('jubilaciones_seguimiento')->where('estado_jubilacion', 'PENDIENTE')->count(),
+            'activos' => DB::table('jubilaciones_seguimiento')->where('estado_jubilacion', 'ACTIVO')->count(),
+            'jubilados' => DB::table('jubilaciones_seguimiento')->where('estado_jubilacion', 'JUBILADO')->count(),
+            'en_tramite' => DB::table('jubilaciones_seguimiento')->where('estado_jubilacion', 'EN_TRAMITE')->count(),
+            'sin_registro' => DB::table('jubilaciones_seguimiento')->where('estado_jubilacion', 'SIN_REGISTRO')->count(),
+        ];
+
+        return response()->json([
+            'data' => $resultado->items(),
+            'current_page' => $resultado->currentPage(),
+            'last_page' => $resultado->lastPage(),
+            'total' => $resultado->total(),
+            'kpis' => $kpis
+        ]);
+    }
+
+    /**
+     * Obtiene todos los cargos/liquidaciones detalladas de una persona por CUIL.
+     */
+    public function getDetalleCargosPersona(Request $request)
+    {
+        $cuil = $request->query('cuil');
+
+        if (!$cuil) {
+            return response()->json(['error' => 'CUIL requerido'], 400);
+        }
+
+        $cargos = DB::table('nomina_sueldo_registros as n')
+            ->leftJoin('depuracion_centros_sectores as d', function($j) {
+                $j->on('d.centro', '=', 'n.centro')
+                  ->on('d.sector', '=', 'n.sector');
+            })
+            ->leftJoin('establecimientos as e', 'e.id', '=', 'd.establecimiento_id')
+            ->where('n.cuil', $cuil)
+            ->select(
+                'n.id',
+                'n.cuil',
+                'n.apellido_nombre',
+                'n.centro',
+                'n.sector',
+                'n.clase',
+                'n.zona',
+                'n.a01_basico',
+                'n.a04_radio',
+                'n.porcentaje_calculado',
+                'n.radio_deducido',
+                'd.nom_centro',
+                'd.nom_sector',
+                'd.nivel',
+                'd.gestion',
+                'e.cue as cue_vinculado',
+                'e.nombre as nom_escuela_vinculada'
+            )
+            ->orderBy('n.centro')
+            ->orderBy('n.sector')
+            ->get();
+
+        return response()->json([
+            'cuil' => $cuil,
+            'apellido_nombre' => $cargos->first()->apellido_nombre ?? '',
+            'total_liquidaciones' => $cargos->count(),
+            'cargos' => $cargos
+        ]);
+    }
+
+    /**
+     * Actualiza el estado de seguimiento de jubilación de un agente (por CUIL).
+     */
+    public function updateEstadoJubilacion(Request $request)
+    {
+        $request->validate([
+            'cuil' => 'required|string',
+            'estado_jubilacion' => 'required|string|in:PENDIENTE,ACTIVO,JUBILADO,EN_TRAMITE,SIN_REGISTRO',
+            'observaciones' => 'nullable|string'
+        ]);
+
+        DB::table('jubilaciones_seguimiento')->updateOrInsert(
+            [
+                'cuil' => $request->cuil
+            ],
+            [
+                'estado_jubilacion' => $request->estado_jubilacion,
+                'observaciones' => $request->observaciones,
+                'updated_at' => now(),
+                'created_at' => now()
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Estado de jubilación actualizado correctamente',
+            'estado_jubilacion' => $request->estado_jubilacion
+        ]);
+    }
 }

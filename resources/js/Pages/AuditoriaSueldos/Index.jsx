@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Head, router } from '@inertiajs/react';
 import SIAMELayout from '../../Layouts/SIAMELayout';
 import { GlassCard } from '../../Components/GlassCard';
@@ -118,6 +118,123 @@ export default function AuditoriaSueldosIndex({
       console.error(err);
     }).finally(() => {
       setModalDocentesLoading(false);
+    });
+  };
+
+  // Local State para Potenciales Jubilaciones
+  const [jubilacionesData, setJubilacionesData] = useState([]);
+  const [jubilacionesLoading, setJubilacionesLoading] = useState(false);
+  const [jubilacionesSearch, setJubilacionesSearch] = useState('');
+  const [jubilacionesEstado, setJubilacionesEstado] = useState('');
+  const [jubilacionesRegistraCobro, setJubilacionesRegistraCobro] = useState('');
+  const [jubilacionesPage, setJubilacionesPage] = useState(1);
+  const [jubilacionesSortBy, setJubilacionesSortBy] = useState('edad');
+  const [jubilacionesSortDir, setJubilacionesSortDir] = useState('desc');
+  const [jubilacionesLastPage, setJubilacionesLastPage] = useState(1);
+  const [jubilacionesTotal, setJubilacionesTotal] = useState(0);
+  const [jubilacionesKpis, setJubilacionesKpis] = useState({ total: 0, con_cobro: 0, sin_cobro: 0, pendientes: 0, activos: 0, jubilados: 0, en_tramite: 0 });
+
+  const fetchJubilaciones = useCallback((page = 1, search = jubilacionesSearch, estado = jubilacionesEstado, registraCobro = jubilacionesRegistraCobro, sortBy = jubilacionesSortBy, sortDir = jubilacionesSortDir) => {
+    setJubilacionesLoading(true);
+    axios.get('/api/auditoria-sueldos/potenciales-jubilaciones', {
+      params: { page, search, estado, registra_cobro: registraCobro, sort_by: sortBy, sort_dir: sortDir }
+    }).then(res => {
+      setJubilacionesData(res.data.data || []);
+      setJubilacionesPage(res.data.current_page || 1);
+      setJubilacionesLastPage(res.data.last_page || 1);
+      setJubilacionesTotal(res.data.total || 0);
+      if (res.data.kpis) {
+        setJubilacionesKpis(res.data.kpis);
+      }
+    }).catch(err => {
+      console.error('Error al cargar potenciales jubilaciones:', err);
+    }).finally(() => {
+      setJubilacionesLoading(false);
+    });
+  }, [jubilacionesSearch, jubilacionesEstado, jubilacionesRegistraCobro, jubilacionesSortBy, jubilacionesSortDir]);
+
+  const handleJubilacionesSort = (col) => {
+    let newDir = 'desc';
+    if (jubilacionesSortBy === col) {
+      newDir = jubilacionesSortDir === 'desc' ? 'asc' : 'desc';
+    }
+    setJubilacionesSortBy(col);
+    setJubilacionesSortDir(newDir);
+    fetchJubilaciones(1, jubilacionesSearch, jubilacionesEstado, jubilacionesRegistraCobro, col, newDir);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'jubilaciones') {
+      fetchJubilaciones(1, jubilacionesSearch, jubilacionesEstado, jubilacionesRegistraCobro, jubilacionesSortBy, jubilacionesSortDir);
+    }
+  }, [activeTab, jubilacionesEstado, jubilacionesRegistraCobro, jubilacionesSearch, jubilacionesSortBy, jubilacionesSortDir, fetchJubilaciones]);
+
+  const renderJubilacionesSortIcon = (col) => {
+    if (jubilacionesSortBy !== col) {
+      return <i className="fa-solid fa-sort ml-1 text-white/50 text-[10px]"></i>;
+    }
+    return jubilacionesSortDir === 'asc' 
+      ? <i className="fa-solid fa-sort-up ml-1 text-white text-xs"></i>
+      : <i className="fa-solid fa-sort-down ml-1 text-white text-xs"></i>;
+  };
+
+  const handleKpiFilterJubilaciones = (tipo, valor) => {
+    if (tipo === 'todos') {
+      setJubilacionesEstado('');
+      setJubilacionesRegistraCobro('');
+      fetchJubilaciones(1, jubilacionesSearch, '', '', jubilacionesSortBy, jubilacionesSortDir);
+    } else if (tipo === 'cobro') {
+      const nuevoCobro = jubilacionesRegistraCobro === valor ? '' : valor;
+      setJubilacionesRegistraCobro(nuevoCobro);
+      fetchJubilaciones(1, jubilacionesSearch, jubilacionesEstado, nuevoCobro, jubilacionesSortBy, jubilacionesSortDir);
+    } else if (tipo === 'estado') {
+      const nuevoEstado = jubilacionesEstado === valor ? '' : valor;
+      setJubilacionesEstado(nuevoEstado);
+      fetchJubilaciones(1, jubilacionesSearch, nuevoEstado, jubilacionesRegistraCobro, jubilacionesSortBy, jubilacionesSortDir);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'jubilaciones') {
+      fetchJubilaciones(1, jubilacionesSearch, jubilacionesEstado, jubilacionesSortBy, jubilacionesSortDir);
+    }
+  }, [activeTab, jubilacionesEstado, jubilacionesSearch, jubilacionesSortBy, jubilacionesSortDir, fetchJubilaciones]);
+
+  // State para Modal de Detalle de Cargos de la Persona
+  const [modalDetallePersonaSueldos, setModalDetallePersonaSueldos] = useState(null);
+  const [modalDetalleCargosData, setModalDetalleCargosData] = useState([]);
+  const [modalDetalleCargosLoading, setModalDetalleCargosLoading] = useState(false);
+
+  const abrirModalDetallePersona = (cuil, nombre) => {
+    setModalDetallePersonaSueldos({ cuil, nombre });
+    setModalDetalleCargosLoading(true);
+    setModalDetalleCargosData([]);
+    axios.get('/api/auditoria-sueldos/detalle-cargos-persona', {
+      params: { cuil }
+    }).then(res => {
+      setModalDetalleCargosData(res.data.cargos || []);
+    }).catch(err => {
+      console.error('Error al cargar cargos de persona:', err);
+    }).finally(() => {
+      setModalDetalleCargosLoading(false);
+    });
+  };
+
+  const handleCambiarEstadoJubilacion = (cuil, nuevoEstado) => {
+    axios.post('/api/auditoria-sueldos/actualizar-jubilacion', {
+      cuil,
+      estado_jubilacion: nuevoEstado
+    }).then(() => {
+      setJubilacionesData(prev => prev.map(item => {
+        if (item.cuil === cuil) {
+          return { ...item, estado_jubilacion: nuevoEstado };
+        }
+        return item;
+      }));
+      fetchJubilaciones(jubilacionesPage, jubilacionesSearch, jubilacionesEstado);
+    }).catch(err => {
+      console.error('Error al actualizar jubilación:', err);
+      alert('Ocurrió un error al actualizar el estado de jubilación.');
     });
   };
 
@@ -1029,6 +1146,27 @@ export default function AuditoriaSueldosIndex({
               <span>Otros Sectores</span>
               <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
                 {unlinkedResultados.length + unlinkedViejos.length}
+              </span>
+            </>
+          )}
+        </button>
+
+        {/* TAB: POTENCIALES JUBILACIONES */}
+        <button
+          onClick={() => setActiveTab('jubilaciones')}
+          className={`py-2 transition-all duration-300 shrink-0 flex items-center justify-center cursor-pointer rounded-xl ${
+            activeTab === 'jubilaciones'
+              ? 'px-4 bg-[#FE8204] text-white border border-[#FE8204] shadow-md shadow-[#FE8204]/20 font-black text-xs gap-2'
+              : 'w-9 h-9 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-xs'
+          }`}
+          title="Potenciales Jubilaciones"
+        >
+          <i className={`fa-solid fa-person-cane text-sm ${activeTab === 'jubilaciones' ? 'text-white' : 'text-[#FE8204]'}`}></i>
+          {activeTab === 'jubilaciones' && (
+            <>
+              <span>Potenciales Jubilaciones</span>
+              <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-white/20 text-white">
+                {jubilacionesKpis.total || 0}
               </span>
             </>
           )}
@@ -2722,8 +2860,16 @@ export default function AuditoriaSueldosIndex({
                             <span className="text-gray-400 italic whitespace-nowrap">No Vinculado</span>
                           )}
                         </td>
-                        <td className="px-2.5 py-2 text-center font-black text-xs whitespace-nowrap">
-                          {d.cantidad_liquidaciones}
+                        <td className="px-2.5 py-2 text-center whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => abrirModalDocentes(d.centro, d.sector, d.radio_sige ?? null)}
+                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-900 border border-blue-200 hover:border-blue-300 rounded-lg font-black text-xs transition-all inline-flex items-center gap-1.5 cursor-pointer group shadow-2xs"
+                            title={`Ver las ${d.cantidad_liquidaciones} personas/agentes en esta liquidación del Centro ${d.centro} Sector ${d.sector}`}
+                          >
+                            <i className="fa-solid fa-users text-[10px] text-blue-600 group-hover:scale-110 transition-transform"></i>
+                            <span>{d.cantidad_liquidaciones}</span>
+                          </button>
                         </td>
                         <td className="px-2.5 py-2 text-center whitespace-nowrap">
                           {d.estado_depuracion === 'CENTRO_SIN_USO' && (
@@ -2849,8 +2995,16 @@ export default function AuditoriaSueldosIndex({
                               <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]" title="No registra bonificación por zona (Radio Urbano)">R1 (0%)</span>
                             )}
                           </td>
-                          <td className={`px-3 py-3 text-right font-bold ${isDadoDeBaja ? 'text-red-950' : 'text-gray-900'}`}>
-                            {s.total_filas_docentes} docentes
+                          <td className="px-3 py-3 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => abrirModalDocentes(s.centro, s.sector, s.radio_sueldo ?? s.radio_sige ?? null)}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-900 border border-blue-200 hover:border-blue-300 rounded-lg font-black text-xs transition-all inline-flex items-center gap-1.5 cursor-pointer group shadow-2xs"
+                              title={`Ver docentes / agentes del Centro ${s.centro} Sector ${s.sector}`}
+                            >
+                              <i className="fa-solid fa-users text-[10px] text-blue-600 group-hover:scale-110 transition-transform"></i>
+                              <span>{s.total_filas_docentes} docentes</span>
+                            </button>
                           </td>
                           <td className="px-3 py-3 text-center">
                             <button
@@ -2966,6 +3120,387 @@ export default function AuditoriaSueldosIndex({
               </div>
             </GlassCard>
           )}
+        </div>
+      )}
+
+      {/* TAB: POTENCIALES JUBILACIONES */}
+      {activeTab === 'jubilaciones' && (
+        <div className="space-y-6">
+          {/* Tarjetas KPI de Jubilaciones */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2.5">
+            <button
+              type="button"
+              onClick={() => handleKpiFilterJubilaciones('todos', '')}
+              className={`rounded-2xl p-3 border text-left flex items-center justify-between transition-all cursor-pointer group ${
+                !jubilacionesEstado && !jubilacionesRegistraCobro
+                  ? 'bg-orange-50/40 border-[#FE8204] ring-2 ring-[#FE8204]/30 shadow-sm'
+                  : 'bg-white border-gray-200 hover:border-[#FE8204] hover:shadow-sm'
+              }`}
+              title="Mostrar todas las personas (Limpiar filtros)"
+            >
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Potenciales Jubilados</p>
+                <p className="text-lg font-black text-gray-900 mt-0.5">{jubilacionesKpis.total || 0}</p>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-[#FE8204] group-hover:scale-110 transition-transform">
+                <i className="fa-solid fa-person-cane text-sm"></i>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleKpiFilterJubilaciones('cobro', 'con_cobro')}
+              className={`rounded-2xl p-3 border text-left flex items-center justify-between transition-all cursor-pointer group ${
+                jubilacionesRegistraCobro === 'con_cobro'
+                  ? 'bg-emerald-50/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-sm'
+                  : 'bg-white border-gray-200 hover:border-emerald-500 hover:shadow-sm'
+              }`}
+              title="Filtrar docentes con cobro activo monetario ($ > 0)"
+            >
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Con Cobro Activo</p>
+                <p className="text-lg font-black text-emerald-700 mt-0.5">{jubilacionesKpis.con_cobro || 0}</p>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+                <i className="fa-solid fa-money-bill-wave text-sm"></i>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleKpiFilterJubilaciones('cobro', 'sin_cobro')}
+              className={`rounded-2xl p-3 border text-left flex items-center justify-between transition-all cursor-pointer group ${
+                jubilacionesRegistraCobro === 'sin_cobro'
+                  ? 'bg-slate-100 border-slate-500 ring-2 ring-slate-500/30 shadow-sm'
+                  : 'bg-white border-gray-200 hover:border-slate-400 hover:shadow-sm'
+              }`}
+              title="Filtrar docentes sin cobro ($ = 0 / registros residuales)"
+            >
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Sin Cobro ($0)</p>
+                <p className="text-lg font-black text-slate-600 mt-0.5">{jubilacionesKpis.sin_cobro || 0}</p>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 group-hover:scale-110 transition-transform">
+                <i className="fa-solid fa-circle-minus text-sm"></i>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleKpiFilterJubilaciones('estado', 'ACTIVO')}
+              className={`rounded-2xl p-3 border text-left flex items-center justify-between transition-all cursor-pointer group ${
+                jubilacionesEstado === 'ACTIVO'
+                  ? 'bg-blue-50/40 border-blue-500 ring-2 ring-blue-500/30 shadow-sm'
+                  : 'bg-white border-gray-200 hover:border-blue-500 hover:shadow-sm'
+              }`}
+              title="Filtrar auditados como Activos en SIGE"
+            >
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Activos en SIGE</p>
+                <p className="text-lg font-black text-blue-600 mt-0.5">{jubilacionesKpis.activos || 0}</p>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                <i className="fa-solid fa-circle-check text-sm"></i>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleKpiFilterJubilaciones('estado', 'JUBILADO')}
+              className={`rounded-2xl p-3 border text-left flex items-center justify-between transition-all cursor-pointer group ${
+                jubilacionesEstado === 'JUBILADO'
+                  ? 'bg-red-50/40 border-red-500 ring-2 ring-red-500/30 shadow-sm'
+                  : 'bg-white border-gray-200 hover:border-red-500 hover:shadow-sm'
+              }`}
+              title="Filtrar auditados como Jubilados / Bajas"
+            >
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Jubilados / Bajas</p>
+                <p className="text-lg font-black text-red-600 mt-0.5">{jubilacionesKpis.jubilados || 0}</p>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 group-hover:scale-110 transition-transform">
+                <i className="fa-solid fa-user-xmark text-sm"></i>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleKpiFilterJubilaciones('estado', 'EN_TRAMITE')}
+              className={`rounded-2xl p-3 border text-left flex items-center justify-between transition-all cursor-pointer group ${
+                jubilacionesEstado === 'EN_TRAMITE'
+                  ? 'bg-amber-50/40 border-amber-500 ring-2 ring-amber-500/30 shadow-sm'
+                  : 'bg-white border-gray-200 hover:border-amber-500 hover:shadow-sm'
+              }`}
+              title="Filtrar auditados En Revisión"
+            >
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">En Revisión</p>
+                <p className="text-lg font-black text-amber-600 mt-0.5">{jubilacionesKpis.en_tramite || 0}</p>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+                <i className="fa-solid fa-spinner text-sm"></i>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleKpiFilterJubilaciones('estado', 'SIN_REGISTRO')}
+              className={`rounded-2xl p-3 border text-left flex items-center justify-between transition-all cursor-pointer group ${
+                jubilacionesEstado === 'SIN_REGISTRO'
+                  ? 'bg-purple-50/40 border-purple-500 ring-2 ring-purple-500/30 shadow-sm'
+                  : 'bg-white border-gray-200 hover:border-purple-500 hover:shadow-sm'
+              }`}
+              title="Filtrar docentes sin registro conocido en SIGE"
+            >
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Sin Registro SIGE</p>
+                <p className="text-lg font-black text-purple-600 mt-0.5">{jubilacionesKpis.sin_registro || 0}</p>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
+                <i className="fa-solid fa-user-slash text-sm"></i>
+              </div>
+            </button>
+          </div>
+
+          {/* Tabla de Jubilaciones */}
+          <GlassCard className="p-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4 pb-3 border-b border-gray-200">
+              <div>
+                <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <i className="fa-solid fa-person-cane text-[#FE8204]"></i>
+                  Listado de Potenciales Jubilaciones (Régimen Docente por Personas Únicas)
+                </h3>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Personal con edad &ge; 57 (Mujeres) o &ge; 60 (Hombres) o antigüedad &ge; 25 años con liquidación de haberes.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, CUIL, centro o sector..."
+                  value={jubilacionesSearch}
+                  onChange={(e) => {
+                    setJubilacionesSearch(e.target.value);
+                    fetchJubilaciones(1, e.target.value, jubilacionesEstado, jubilacionesRegistraCobro);
+                  }}
+                  className="w-full sm:w-64 bg-gray-50 border border-gray-300 rounded-xl px-3 py-1.5 text-xs text-gray-900 focus:ring-[#FE8204] outline-none"
+                />
+
+                <select
+                  value={jubilacionesRegistraCobro}
+                  onChange={(e) => {
+                    setJubilacionesRegistraCobro(e.target.value);
+                    fetchJubilaciones(1, jubilacionesSearch, jubilacionesEstado, e.target.value);
+                  }}
+                  className="bg-white border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-semibold text-gray-800 focus:ring-[#FE8204] cursor-pointer"
+                >
+                  <option value="">Todos los Cobros</option>
+                  <option value="con_cobro">💵 Con Cobro Activo ($ &gt; 0)</option>
+                  <option value="sin_cobro">⚪ Sin Cobro ($ = 0 / Residual)</option>
+                </select>
+
+                <select
+                  value={jubilacionesEstado}
+                  onChange={(e) => {
+                    setJubilacionesEstado(e.target.value);
+                    fetchJubilaciones(1, jubilacionesSearch, e.target.value, jubilacionesRegistraCobro);
+                  }}
+                  className="bg-white border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-semibold text-gray-800 focus:ring-[#FE8204] cursor-pointer"
+                >
+                  <option value="">Todos los Estados</option>
+                  <option value="PENDIENTE">⚪ Pendientes</option>
+                  <option value="ACTIVO">🟢 Activos en SIGE</option>
+                  <option value="JUBILADO">🔴 Jubilados / Bajas</option>
+                  <option value="EN_TRAMITE">🟡 En Revisión</option>
+                  <option value="SIN_REGISTRO">🟣 Sin Registro en SIGE</option>
+                </select>
+              </div>
+            </div>
+
+            {jubilacionesLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <i className="fa-solid fa-spinner text-2xl text-[#FE8204] animate-spin"></i>
+                <span className="text-xs text-gray-500 font-semibold">Cargando registros de jubilación...</span>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow-xs">
+                  <table className="w-full text-xs text-left text-gray-700">
+                    <thead className="text-[11px] uppercase tracking-wider text-white font-black sticky top-0 z-10 select-none shadow-xs">
+                      <tr className="bg-[#FE8204]">
+                        <th 
+                          onClick={() => handleJubilacionesSort('apellido_nombre')}
+                          className="px-3.5 py-3 font-black text-white bg-[#FE8204] hover:bg-[#E07000] cursor-pointer transition"
+                          title="Ordenar por Nombre de Agente"
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Agente / CUIL</span>
+                            {renderJubilacionesSortIcon('apellido_nombre')}
+                          </div>
+                        </th>
+                        <th className="px-3 py-3 text-center font-black text-white bg-[#FE8204]">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleJubilacionesSort('edad')}
+                              className="hover:bg-[#E07000] px-1.5 py-0.5 rounded transition flex items-center gap-1 cursor-pointer"
+                              title="Ordenar por Mayor/Menor Edad"
+                            >
+                              <span>Edad</span>
+                              {renderJubilacionesSortIcon('edad')}
+                            </button>
+                            <span className="text-white/40">/</span>
+                            <button
+                              type="button"
+                              onClick={() => handleJubilacionesSort('antiguedad')}
+                              className="hover:bg-[#E07000] px-1.5 py-0.5 rounded transition flex items-center gap-1 cursor-pointer"
+                              title="Ordenar por Mayor/Menor Antigüedad"
+                            >
+                              <span>Antigüedad</span>
+                              {renderJubilacionesSortIcon('antiguedad')}
+                            </button>
+                          </div>
+                        </th>
+                        <th 
+                          onClick={() => handleJubilacionesSort('cargos')}
+                          className="px-3 py-3 text-center font-black text-white bg-[#FE8204] hover:bg-[#E07000] cursor-pointer transition whitespace-nowrap"
+                          title="Ordenar por Mayor/Menor Cantidad de Cargos Liquidados"
+                        >
+                          <div className="flex items-center justify-center gap-1">
+                            <span>Cargos</span>
+                            {renderJubilacionesSortIcon('cargos')}
+                          </div>
+                        </th>
+                        <th 
+                          onClick={() => handleJubilacionesSort('monto')}
+                          className="px-3 py-3 text-center font-black text-white bg-[#FE8204] hover:bg-[#E07000] cursor-pointer transition whitespace-nowrap"
+                          title="Ordenar por Monto Liquidado Mayor/Menor"
+                        >
+                          <div className="flex items-center justify-center gap-1">
+                            <span>Monto Liquidado</span>
+                            {renderJubilacionesSortIcon('monto')}
+                          </div>
+                        </th>
+                        <th className="px-3 py-3 text-center font-black text-white bg-[#FE8204]">Centros y Sectores Afectados</th>
+                        <th className="px-3 py-3 text-center font-black text-white bg-[#FE8204]">Detalle</th>
+                        <th className="px-3 py-3 text-center font-black text-white bg-[#FE8204]">Estado SIGE / Tilde</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {jubilacionesData.map((item, idx) => {
+                        let estadoBadge = 'bg-gray-100 text-gray-700 border-gray-300';
+                        if (item.estado_jubilacion === 'ACTIVO') estadoBadge = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                        if (item.estado_jubilacion === 'JUBILADO') estadoBadge = 'bg-red-100 text-red-800 border-red-300';
+                        if (item.estado_jubilacion === 'EN_TRAMITE') estadoBadge = 'bg-amber-100 text-amber-800 border-amber-300';
+                        if (item.estado_jubilacion === 'SIN_REGISTRO') estadoBadge = 'bg-purple-100 text-purple-800 border-purple-300';
+
+                        return (
+                          <tr key={idx} className="hover:bg-orange-50/30 transition">
+                            <td className="px-3.5 py-3 font-bold text-gray-950">
+                              <div className="text-gray-900 font-black text-xs">{item.apellido_nombre}</div>
+                              <div className="font-mono text-[11px] text-gray-500 font-semibold mt-0.5">{item.cuil}</div>
+                            </td>
+                            <td className="px-3 py-3 text-center whitespace-nowrap">
+                              <div className="font-black text-gray-900 text-xs">
+                                🎂 {item.edad_calculada ? `${item.edad_calculada} años` : 'S/D'} 
+                                <span className="ml-1 text-[10px] text-gray-500 font-bold">({item.genero_deducido})</span>
+                              </div>
+                              <div className="text-[11px] font-bold text-blue-700 mt-0.5">
+                                🎖️ {item.antiguedad_anios !== null ? `${item.antiguedad_anios} años antig.` : 'Sin dato antig.'}
+                              </div>
+                            </td>
+                            <td className="px-3 py-3 text-center whitespace-nowrap">
+                              <span className="px-2.5 py-1 bg-orange-50 text-orange-800 rounded-lg border border-orange-200 font-black text-xs inline-flex items-center gap-1 shadow-2xs">
+                                <i className="fa-solid fa-layer-group text-[10px]"></i>
+                                {item.total_liquidaciones} {item.total_liquidaciones === 1 ? 'cargo' : 'cargos'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 text-center whitespace-nowrap">
+                              {item.total_monto > 0 ? (
+                                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200 font-black text-xs inline-flex items-center gap-1 shadow-2xs">
+                                  <i className="fa-solid fa-money-bill-wave text-emerald-600 text-[10px]"></i>
+                                  ${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(item.total_monto)}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md border border-slate-200 font-bold text-[11px] inline-flex items-center gap-1" title="Sin cobro abonado en haberes ($0)">
+                                  ⚪ $0 (Sin cobro)
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              <div className="text-xs font-semibold text-gray-800">
+                                <b>Centros:</b> {item.centros_list || 'S/D'}
+                              </div>
+                              <div className="text-[10px] text-gray-500 truncate max-w-[220px] mx-auto mt-0.5" title={`Sectores: ${item.sectores_list}`}>
+                                <b>Sectores:</b> {item.sectores_list || 'S/D'}
+                              </div>
+                            </td>
+                            <td className="px-3 py-3 text-center whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => abrirModalDetallePersona(item.cuil, item.apellido_nombre)}
+                                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-900 border border-blue-200 hover:border-blue-300 rounded-xl font-black text-xs transition-all inline-flex items-center gap-1.5 cursor-pointer group shadow-2xs"
+                                title={`Ver el desglose completo de las ${item.total_liquidaciones} liquidaciones`}
+                              >
+                                <i className="fa-solid fa-magnifying-glass text-xs text-blue-600 group-hover:scale-110 transition-transform"></i>
+                                <span>Ver Detalle ({item.total_liquidaciones})</span>
+                              </button>
+                            </td>
+                            <td className="px-3 py-3 text-center whitespace-nowrap">
+                              <select
+                                value={item.estado_jubilacion || 'PENDIENTE'}
+                                onChange={(e) => handleCambiarEstadoJubilacion(item.cuil, e.target.value)}
+                                className={`text-xs font-black rounded-xl px-3 py-1.5 border cursor-pointer transition outline-none ${estadoBadge}`}
+                              >
+                                <option value="PENDIENTE">⚪ Pendiente</option>
+                                <option value="ACTIVO">🟢 Activo en SIGE</option>
+                                <option value="JUBILADO">🔴 Jubilado / Baja</option>
+                                <option value="EN_TRAMITE">🟡 En Revisión</option>
+                                <option value="SIN_REGISTRO">🟣 Sin Registro en SIGE</option>
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {jubilacionesData.length === 0 && (
+                        <tr>
+                          <td colSpan="7" className="px-3 py-8 text-center text-gray-400 font-medium italic">
+                            No se encontraron personas en edad de jubilación para este filtro.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Paginador */}
+                {jubilacionesLastPage > 1 && (
+                  <div className="flex items-center justify-between border-t border-gray-200 pt-4 mt-4 text-xs">
+                    <span className="text-gray-600 font-semibold">
+                      Página <b>{jubilacionesPage}</b> de <b>{jubilacionesLastPage}</b> ({jubilacionesTotal} registros)
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        disabled={jubilacionesPage <= 1}
+                        onClick={() => fetchJubilaciones(jubilacionesPage - 1, jubilacionesSearch, jubilacionesEstado)}
+                        className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl font-bold text-gray-700 disabled:opacity-40 transition cursor-pointer"
+                      >
+                        ‹ Anterior
+                      </button>
+                      <button
+                        disabled={jubilacionesPage >= jubilacionesLastPage}
+                        onClick={() => fetchJubilaciones(jubilacionesPage + 1, jubilacionesSearch, jubilacionesEstado)}
+                        className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl font-bold text-gray-700 disabled:opacity-40 transition cursor-pointer"
+                      >
+                        Siguiente ›
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </GlassCard>
         </div>
       )}
 
@@ -3490,13 +4025,26 @@ export default function AuditoriaSueldosIndex({
       {sanearDepuracionModalItem && (
         <Modal show={Boolean(sanearDepuracionModalItem)} onClose={() => setSanearDepuracionModalItem(null)}>
           <div className="p-6">
-            <h3 className="text-lg font-black text-gray-900 mb-2 flex items-center gap-2">
-              <i className="fa-solid fa-file-pen text-[#FE8204]"></i>
-              Sanear Depuración: Centro {sanearDepuracionModalItem.centro} / Sector {sanearDepuracionModalItem.sector}
-            </h3>
-            <p className="text-xs text-gray-600 mb-4">
-              Vinculá esta combinación a una Escuela/CUE oficial o actualizá su estado de depuración u observaciones.
-            </p>
+            <div className="flex items-start justify-between gap-3 mb-3 border-b pb-3">
+              <div>
+                <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <i className="fa-solid fa-file-pen text-[#FE8204]"></i>
+                  Sanear Depuración: Centro {sanearDepuracionModalItem.centro} / Sector {sanearDepuracionModalItem.sector}
+                </h3>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Vinculá esta combinación a una Escuela/CUE oficial o actualizá su estado de depuración u observaciones.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => abrirModalDocentes(sanearDepuracionModalItem.centro, sanearDepuracionModalItem.sector, sanearDepuracionModalItem.radio_sueldo ?? null)}
+                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-900 border border-blue-200 rounded-xl text-xs font-black shrink-0 flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+                title="Ver docentes / agentes de este sector"
+              >
+                <i className="fa-solid fa-users text-blue-600"></i>
+                <span>Ver personas ({sanearDepuracionModalItem.cantidad_liquidaciones})</span>
+              </button>
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -3723,57 +4271,54 @@ export default function AuditoriaSueldosIndex({
 
       {/* MODAL DESGLOSE INDIVIDUAL DE DOCENTES */}
       {modalDocentesSector && (
-        <Modal show={Boolean(modalDocentesSector)} onClose={() => setModalDocentesSector(null)} maxWidth="4xl">
-          <div className="p-6">
-            <div className="flex items-center justify-between border-b pb-3 mb-4">
-              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
-                <i className="fa-solid fa-users text-[#0284c7]"></i>
-                Desglose de Docentes: Sector {modalDocentesSector.sector} 
+        <Modal show={Boolean(modalDocentesSector)} onClose={() => setModalDocentesSector(null)} maxWidth="2xl">
+          <div className="p-4 space-y-3">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
+                <i className="fa-solid fa-users text-blue-600"></i>
+                Personas en Sector {modalDocentesSector.sector}
                 {modalDocentesSector.centro && ` (Centro ${modalDocentesSector.centro})`}
               </h3>
               <button 
                 onClick={() => setModalDocentesSector(null)} 
-                className="text-gray-400 hover:text-gray-600 font-bold text-lg cursor-pointer"
+                className="text-gray-400 hover:text-gray-600 font-bold text-base cursor-pointer px-1"
               >
                 &times;
               </button>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
-              <div className="text-xs font-semibold text-gray-600">
-                Radio Oficial SIGE: <span className="text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">R{modalDocentesSector.radioSige || '-'}</span>
-              </div>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+              <span className="text-[11px] font-bold text-gray-600">
+                Radio SIGE: <b className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">R{modalDocentesSector.radioSige || '-'}</b>
+              </span>
               <input
                 type="text"
-                placeholder="Buscar docente por nombre o CUIL..."
+                placeholder="Buscar por nombre o CUIL..."
                 value={modalDocentesSearch}
                 onChange={(e) => setModalDocentesSearch(e.target.value)}
-                className="w-full sm:w-72 bg-gray-50 border border-gray-300 rounded-xl px-3 py-1.5 text-xs text-gray-900 focus:ring-[#0284c7] outline-none"
+                className="w-full sm:w-60 bg-gray-50 border border-gray-300 rounded-lg px-2.5 py-1 text-xs text-gray-900 focus:ring-blue-500 outline-none"
               />
             </div>
 
             {modalDocentesLoading ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <i className="fa-solid fa-spinner text-2xl text-[#0284c7] animate-spin"></i>
-                <span className="text-xs text-gray-500 font-semibold">Cargando legajos docentes...</span>
+              <div className="flex flex-col items-center justify-center py-8 gap-2">
+                <i className="fa-solid fa-spinner text-xl text-blue-600 animate-spin"></i>
+                <span className="text-xs text-gray-500 font-medium">Cargando personas...</span>
               </div>
             ) : (
-              <div className="overflow-x-auto max-h-[400px] border border-gray-200 rounded-xl custom-scrollbar">
+              <div className="overflow-x-auto max-h-[280px] border border-gray-200 rounded-lg custom-scrollbar">
                 <table className="w-full text-xs text-left text-gray-700 border-collapse">
-                  <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
+                  <thead className="text-[10px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
                     <tr>
-                      <th className="px-3 py-2.5 font-black text-white">CUIL</th>
-                      <th className="px-3 py-2.5 font-black text-white">Apellido y Nombre</th>
-                      <th className="px-3 py-2.5 text-center font-black text-white">Clase</th>
-                      <th className="px-3 py-2.5 text-center font-black text-white">Zona</th>
-                      <th className="px-3 py-2.5 text-right font-black text-white">Asig. Básico (A01)</th>
-                      <th className="px-3 py-2.5 text-right font-black text-white">Asig. Radio (A04)</th>
-                      <th className="px-3 py-2.5 text-center font-black text-white">% Calculado</th>
-                      <th className="px-3 py-2.5 text-center font-black text-white">Radio Cobrado</th>
-                      <th className="px-3 py-2.5 text-center font-black text-white">Estado Desvío</th>
+                      <th className="px-2.5 py-1.5 font-black text-white">CUIL</th>
+                      <th className="px-2.5 py-1.5 font-black text-white">Apellido y Nombre</th>
+                      <th className="px-2.5 py-1.5 text-center font-black text-white">Clase</th>
+                      <th className="px-2.5 py-1.5 text-right font-black text-white">Básico (A01)</th>
+                      <th className="px-2.5 py-1.5 text-center font-black text-white">Radio Cobrado</th>
+                      <th className="px-2.5 py-1.5 text-center font-black text-white">Estado</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-200 text-[11px]">
                     {modalDocentesData.filter(d => {
                       if (!modalDocentesSearch) return true;
                       const term = modalDocentesSearch.toLowerCase();
@@ -3784,7 +4329,6 @@ export default function AuditoriaSueldosIndex({
                     }).map((d, idx) => {
                       const formatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
                       const basico = d.a01_basico ? formatter.format(d.a01_basico) : '-';
-                      const radio = d.a04_radio ? formatter.format(d.a04_radio) : '-';
 
                       let badgeClass = 'bg-gray-50 text-gray-700 border-gray-200';
                       let badgeText = 'COINCIDE';
@@ -3805,18 +4349,15 @@ export default function AuditoriaSueldosIndex({
 
                       return (
                         <tr key={idx} className="hover:bg-gray-50/50">
-                          <td className="px-3 py-2.5 font-mono text-gray-500 font-semibold">{d.cuil || '-'}</td>
-                          <td className="px-3 py-2.5 font-bold text-gray-950">{d.apellido_nombre || '-'}</td>
-                          <td className="px-3 py-2.5 text-center font-bold text-gray-500">{d.clase || '-'}</td>
-                          <td className="px-3 py-2.5 text-center font-bold text-gray-500">{d.zona || '-'}</td>
-                          <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{basico}</td>
-                          <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{radio}</td>
-                          <td className="px-3 py-2.5 text-center font-bold text-gray-900">{d.porcentaje_calculado ? `${d.porcentaje_calculado}%` : '-'}</td>
-                          <td className="px-3 py-2.5 text-center font-black text-purple-700">
+                          <td className="px-2.5 py-1.5 font-mono text-gray-500 font-semibold">{d.cuil || '-'}</td>
+                          <td className="px-2.5 py-1.5 font-bold text-gray-950">{d.apellido_nombre || '-'}</td>
+                          <td className="px-2.5 py-1.5 text-center font-bold text-gray-500">{d.clase || '-'}</td>
+                          <td className="px-2.5 py-1.5 text-right font-semibold text-gray-900">{basico}</td>
+                          <td className="px-2.5 py-1.5 text-center font-black text-purple-700">
                             {d.radio_deducido ? `R${d.radio_deducido}` : <span className="text-gray-400 italic">No cobra</span>}
                           </td>
-                          <td className="px-3 py-2.5 text-center">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass}`}>
+                          <td className="px-2.5 py-1.5 text-center">
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${badgeClass}`}>
                               {badgeText}
                             </span>
                           </td>
@@ -3825,8 +4366,8 @@ export default function AuditoriaSueldosIndex({
                     })}
                     {modalDocentesData.length === 0 && (
                       <tr>
-                        <td colSpan="9" className="px-3 py-8 text-center text-gray-400 italic">
-                          No se encontraron registros de liquidaciones individuales en este sector.
+                        <td colSpan="6" className="px-3 py-6 text-center text-gray-400 italic">
+                          No se encontraron personas en este sector.
                         </td>
                       </tr>
                     )}
@@ -3835,13 +4376,108 @@ export default function AuditoriaSueldosIndex({
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-3 mt-6 border-t pt-4">
+            <div className="flex items-center justify-end border-t pt-2">
               <button
                 type="button"
                 onClick={() => setModalDocentesSector(null)}
-                className="px-4 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition cursor-pointer"
+                className="px-3 py-1 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition cursor-pointer"
               >
-                Cerrar Desglose
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* MODAL DETALLE DE CARGOS DE LA PERSONA */}
+      {modalDetallePersonaSueldos && (
+        <Modal show={Boolean(modalDetallePersonaSueldos)} onClose={() => setModalDetallePersonaSueldos(null)} maxWidth="2xl">
+          <div className="p-4 space-y-3">
+            <div className="flex items-center justify-between border-b pb-2">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
+                  <i className="fa-solid fa-magnifying-glass text-[#FE8204]"></i>
+                  Detalle de Liquidaciones: {modalDetallePersonaSueldos.nombre}
+                </h3>
+                <p className="text-[11px] font-mono text-gray-500 mt-0.5">
+                  CUIL: <b>{modalDetallePersonaSueldos.cuil}</b> | Total Cargos: <b>{modalDetalleCargosData.length}</b>
+                </p>
+              </div>
+              <button 
+                onClick={() => setModalDetallePersonaSueldos(null)} 
+                className="text-gray-400 hover:text-gray-600 font-bold text-base cursor-pointer px-1"
+              >
+                &times;
+              </button>
+            </div>
+
+            {modalDetalleCargosLoading ? (
+              <div className="flex flex-col items-center justify-center py-8 gap-2">
+                <i className="fa-solid fa-spinner text-xl text-[#FE8204] animate-spin"></i>
+                <span className="text-xs text-gray-500 font-medium">Cargando cargos de la persona...</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-h-[280px] border border-gray-200 rounded-lg custom-scrollbar">
+                <table className="w-full text-xs text-left text-gray-700">
+                  <thead className="text-[10px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
+                    <tr>
+                      <th className="px-2.5 py-1.5 text-center font-black text-white">Centro</th>
+                      <th className="px-2.5 py-1.5 text-center font-black text-white">Sector</th>
+                      <th className="px-2.5 py-1.5 text-center font-black text-white">Nivel / Gestión</th>
+                      <th className="px-2.5 py-1.5 font-black text-white">Establecimiento / CUE</th>
+                      <th className="px-2.5 py-1.5 text-center font-black text-white">Clase</th>
+                      <th className="px-2.5 py-1.5 text-right font-black text-white">Básico (A01)</th>
+                      <th className="px-2.5 py-1.5 text-right font-black text-white">Radio (A04)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 text-[11px]">
+                    {modalDetalleCargosData.map((c, idx) => {
+                      const formatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+                      const basico = c.a01_basico ? formatter.format(c.a01_basico) : '-';
+                      const radio = c.a04_radio ? formatter.format(c.a04_radio) : '-';
+
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50/70">
+                          <td className="px-2.5 py-1.5 text-center font-bold text-gray-900">
+                            <span className="px-2 py-0.5 bg-slate-100 rounded text-[11px]">{c.centro}</span>
+                            <div className="text-[10px] text-gray-500 font-normal truncate max-w-[100px]" title={c.nom_centro}>{c.nom_centro || 'S/D'}</div>
+                          </td>
+                          <td className="px-2.5 py-1.5 text-center font-bold">
+                            <span className="px-2 py-0.5 bg-orange-50 text-orange-800 rounded border border-orange-200 text-[11px]">Sector {c.sector}</span>
+                            <div className="text-[10px] text-gray-500 font-normal truncate max-w-[120px]" title={c.nom_sector}>{c.nom_sector || 'S/D'}</div>
+                          </td>
+                          <td className="px-2.5 py-1.5 text-center">
+                            <span className="font-semibold text-gray-800">{c.nivel || 'S/N'}</span>
+                            <div className="text-[10px] text-gray-500">({c.gestion || 'S/G'})</div>
+                          </td>
+                          <td className="px-2.5 py-1.5">
+                            {c.cue_vinculado ? (
+                              <div>
+                                <span className="text-emerald-700 font-black">CUE {c.cue_vinculado}</span>
+                                <div className="text-[10px] text-gray-600 font-medium truncate max-w-[160px]" title={c.nom_escuela_vinculada}>{c.nom_escuela_vinculada}</div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 italic">No vinculado</span>
+                            )}
+                          </td>
+                          <td className="px-2.5 py-1.5 text-center font-bold text-gray-700">Clase {c.clase}</td>
+                          <td className="px-2.5 py-1.5 text-right font-mono font-semibold text-gray-900">{basico}</td>
+                          <td className="px-2.5 py-1.5 text-right font-mono font-semibold text-gray-900">{radio}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end border-t pt-2">
+              <button
+                type="button"
+                onClick={() => setModalDetallePersonaSueldos(null)}
+                className="px-3 py-1 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition cursor-pointer"
+              >
+                Cerrar Detalle
               </button>
             </div>
           </div>
