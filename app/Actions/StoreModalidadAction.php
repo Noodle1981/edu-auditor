@@ -56,6 +56,7 @@ class StoreModalidadAction
                 'nivel_educativo' => $data['nivel_educativo'],
                 'sector' => $data['sector'] ?? null,
                 'radio' => $data['radio'] ?? null,
+                'radio_sige' => $data['radio_sige'] ?? $data['radio'] ?? null,
                 'zona' => $data['zona'] ?? null,
                 'ambito' => $data['ambito'],
                 'validado' => false,

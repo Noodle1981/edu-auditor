@@ -45,6 +45,7 @@ class UpdateModalidadAction
                 'direccion_area' => $data['direccion_area'],
                 'validado' => $data['validado'],
                 'radio' => $data['radio'] ?? null,
+                'radio_sige' => $data['radio_sige'] ?? $modalidad->radio_sige ?? $data['radio'] ?? null,
                 'sector' => $data['sector'] ?? null,
                 'ambito' => $data['ambito'],
                 'categoria' => $data['categoria'] ?? null,
