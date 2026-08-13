@@ -41,7 +41,52 @@ export default function AuditoriaSueldosIndex({
   depuracionCentros = [],
   sectoresDistintos = []
 }) {
-  const [activeTab, setActiveTab] = useState('kpi');
+  // Inicialización persistente de pestañas desde URL params o sessionStorage para evitar reseteos en router.reload()
+  const getInitialTab = () => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlTab = params.get('tab');
+      if (urlTab) return urlTab;
+      const storedTab = sessionStorage.getItem('auditoria_active_tab');
+      if (storedTab) return storedTab;
+    }
+    return 'kpi';
+  };
+
+  const getInitialSubTab = () => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlSubTab = params.get('subtab');
+      if (urlSubTab) return urlSubTab;
+      const storedSubTab = sessionStorage.getItem('auditoria_sub_tab');
+      if (storedSubTab) return storedSubTab;
+    }
+    return 'depuracion';
+  };
+
+  const [activeTab, setActiveTabState] = useState(getInitialTab);
+  const [subTabOtrosSectores, setSubTabOtrosSectoresState] = useState(getInitialSubTab);
+
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('auditoria_active_tab', tab);
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
+  const setSubTabOtrosSectores = (subtab) => {
+    setSubTabOtrosSectoresState(subtab);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('auditoria_sub_tab', subtab);
+      const url = new URL(window.location.href);
+      url.searchParams.set('subtab', subtab);
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
   const [search, setSearch] = useState('');
   const [filtroNivel, setFiltroNivel] = useState('');
   const [filtroGestion, setFiltroGestion] = useState('');
@@ -64,7 +109,6 @@ export default function AuditoriaSueldosIndex({
 
   const [depuracionFiltroEstado, setDepuracionFiltroEstado] = useState('TODOS');
   const [depuracionBusqueda, setDepuracionBusqueda] = useState('');
-  const [subTabOtrosSectores, setSubTabOtrosSectores] = useState('depuracion');
 
   const [sanearDepuracionModalItem, setSanearDepuracionModalItem] = useState(null);
   const [sanearDepEstId, setSanearDepEstId] = useState('');
@@ -405,7 +449,14 @@ export default function AuditoriaSueldosIndex({
         setSanearDepuracionModalItem(null);
         setSaneamientoAnexos([]);
         setShowAddAnexoSearch(false);
-        router.reload({ preserveScroll: true });
+        router.reload({ 
+          preserveScroll: true,
+          preserveState: true,
+          onSuccess: () => {
+            setActiveTab('sin_escuela');
+            setSubTabOtrosSectores('depuracion');
+          }
+        });
       } else {
         alert('Ocurrió un error al actualizar la depuración.');
       }
