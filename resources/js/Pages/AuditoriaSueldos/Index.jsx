@@ -2837,16 +2837,16 @@ export default function AuditoriaSueldosIndex({
                     {paginatedDepuracion.map((d) => (
                       <tr key={`dep-${d.centro}-${d.sector}-${d.id}`} className="hover:bg-slate-50">
                         <td className="px-2.5 py-2 text-center font-black text-slate-900 bg-slate-100/80 rounded-lg whitespace-nowrap">{d.centro}</td>
-                        <td className="px-2.5 py-2 font-bold text-gray-900 whitespace-nowrap">{d.nom_centro || 'S/D'}</td>
+                        <td className="px-2.5 py-2 font-bold text-gray-900 leading-snug max-w-[180px] min-w-[130px] break-words" title={d.nom_centro}>{d.nom_centro || 'S/D'}</td>
                         <td className="px-2.5 py-2 text-center font-black text-gray-900 whitespace-nowrap">{d.sector}</td>
-                        <td className="px-2.5 py-2 font-semibold text-gray-800 whitespace-nowrap">{d.nom_sector || 'S/D'}</td>
-                        <td className="px-2.5 py-2 text-gray-600 font-medium whitespace-nowrap">
+                        <td className="px-2.5 py-2 font-semibold text-gray-800 leading-snug max-w-[210px] min-w-[150px] break-words" title={d.nom_sector}>{d.nom_sector || 'S/D'}</td>
+                        <td className="px-2.5 py-2 text-gray-600 font-medium leading-snug max-w-[140px] break-words">
                           {d.nivel || 'S/N'} {d.gestion ? `(${d.gestion})` : ''}
                         </td>
                         <td className="px-2.5 py-2">
                           {d.cue_vinculado ? (
                             <div>
-                              <div className="font-extrabold text-slate-950 leading-tight">{d.nom_establecimiento_vinculado}</div>
+                              <div className="font-extrabold text-slate-950 leading-snug max-w-[220px] min-w-[160px] break-words">{d.nom_establecimiento_vinculado}</div>
                               <div className="text-[10px] text-gray-500 font-semibold mt-0.5 flex items-center gap-1.5 whitespace-nowrap">
                                 <span>CUE: {d.cue_vinculado}</span>
                                 {d.nivel_educativo_vinculado && (
