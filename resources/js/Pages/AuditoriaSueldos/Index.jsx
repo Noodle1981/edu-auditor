@@ -3474,30 +3474,13 @@ export default function AuditoriaSueldosIndex({
                   </table>
                 </div>
 
-                {/* Paginador */}
-                {jubilacionesLastPage > 1 && (
-                  <div className="flex items-center justify-between border-t border-gray-200 pt-4 mt-4 text-xs">
-                    <span className="text-gray-600 font-semibold">
-                      Página <b>{jubilacionesPage}</b> de <b>{jubilacionesLastPage}</b> ({jubilacionesTotal} registros)
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        disabled={jubilacionesPage <= 1}
-                        onClick={() => fetchJubilaciones(jubilacionesPage - 1, jubilacionesSearch, jubilacionesEstado)}
-                        className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl font-bold text-gray-700 disabled:opacity-40 transition cursor-pointer"
-                      >
-                        ‹ Anterior
-                      </button>
-                      <button
-                        disabled={jubilacionesPage >= jubilacionesLastPage}
-                        onClick={() => fetchJubilaciones(jubilacionesPage + 1, jubilacionesSearch, jubilacionesEstado)}
-                        className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl font-bold text-gray-700 disabled:opacity-40 transition cursor-pointer"
-                      >
-                        Siguiente ›
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Paginación completa con salto directo de página */}
+                <Pagination
+                  currentPage={jubilacionesPage}
+                  totalPages={jubilacionesLastPage}
+                  onPageChange={(targetPage) => fetchJubilaciones(targetPage, jubilacionesSearch, jubilacionesEstado, jubilacionesRegistraCobro, jubilacionesSortBy, jubilacionesSortDir)}
+                  totalItems={jubilacionesTotal}
+                />
               </>
             )}
           </GlassCard>
