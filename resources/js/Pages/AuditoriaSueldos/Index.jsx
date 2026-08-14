@@ -238,11 +238,6 @@ export default function AuditoriaSueldosIndex({
     }
   };
 
-  useEffect(() => {
-    if (activeTab === 'jubilaciones') {
-      fetchJubilaciones(1, jubilacionesSearch, jubilacionesEstado, jubilacionesSortBy, jubilacionesSortDir);
-    }
-  }, [activeTab, jubilacionesEstado, jubilacionesSearch, jubilacionesSortBy, jubilacionesSortDir, fetchJubilaciones]);
 
   // State para Modal de Detalle de Cargos de la Persona
   const [modalDetallePersonaSueldos, setModalDetallePersonaSueldos] = useState(null);
@@ -3322,7 +3317,7 @@ export default function AuditoriaSueldosIndex({
                   Listado de Potenciales Jubilaciones (Régimen Docente por Personas Únicas)
                 </h3>
                 <p className="text-xs text-gray-600 mt-0.5">
-                  Personal con edad &ge; 57 (Mujeres) o &ge; 60 (Hombres) <b>y con antigüedad &ge; 25 años</b> con liquidación de haberes.
+                  Personal con <b>antigüedad &ge; 25 años</b> con liquidación de haberes.
                 </p>
               </div>
 
@@ -4425,92 +4420,196 @@ export default function AuditoriaSueldosIndex({
 
       {/* MODAL DETALLE DE CARGOS DE LA PERSONA */}
       {modalDetallePersonaSueldos && (
-        <Modal show={Boolean(modalDetallePersonaSueldos)} onClose={() => setModalDetallePersonaSueldos(null)} maxWidth="2xl">
-          <div className="p-4 space-y-3">
-            <div className="flex items-center justify-between border-b pb-2">
-              <div>
-                <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
-                  <i className="fa-solid fa-magnifying-glass text-[#FE8204]"></i>
-                  Detalle de Liquidaciones: {modalDetallePersonaSueldos.nombre}
-                </h3>
-                <p className="text-[11px] font-mono text-gray-500 mt-0.5">
-                  CUIL: <b>{modalDetallePersonaSueldos.cuil}</b> | Total Cargos: <b>{modalDetalleCargosData.length}</b>
-                </p>
+        <Modal show={Boolean(modalDetallePersonaSueldos)} onClose={() => setModalDetallePersonaSueldos(null)} maxWidth="5xl">
+          <div className="flex flex-col max-h-[85vh]">
+            {/* Header Institucional */}
+            <div className="px-6 py-4 bg-[#FE8204] text-white flex items-center justify-between border-b border-[#E07000] shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-white shrink-0">
+                  <i className="fa-solid fa-file-invoice-dollar text-lg"></i>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
+                      {modalDetallePersonaSueldos.nombre}
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-md bg-white/20 text-white font-mono font-bold text-xs border border-white/20">
+                      CUIL: {modalDetallePersonaSueldos.cuil}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-md bg-white text-[#FE8204] font-black text-xs shadow-xs">
+                      {modalDetalleCargosData.length} {modalDetalleCargosData.length === 1 ? 'Cargo Liquidado' : 'Cargos Liquidados'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-orange-100 mt-0.5">
+                    Detalle completo de haberes y establecimientos asociados en la nómina sueldo
+                  </p>
+                </div>
               </div>
+
               <button 
+                type="button"
                 onClick={() => setModalDetallePersonaSueldos(null)} 
-                className="text-gray-400 hover:text-gray-600 font-bold text-base cursor-pointer px-1"
+                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white transition flex items-center justify-center cursor-pointer shrink-0"
+                title="Cerrar modal"
               >
-                &times;
+                <i className="fa-solid fa-xmark text-sm"></i>
               </button>
             </div>
 
-            {modalDetalleCargosLoading ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-2">
-                <i className="fa-solid fa-spinner text-xl text-[#FE8204] animate-spin"></i>
-                <span className="text-xs text-gray-500 font-medium">Cargando cargos de la persona...</span>
-              </div>
-            ) : (
-              <div className="overflow-x-auto max-h-[280px] border border-gray-200 rounded-lg custom-scrollbar">
-                <table className="w-full text-xs text-left text-gray-700">
-                  <thead className="text-[10px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40 sticky top-0 shadow-xs">
-                    <tr>
-                      <th className="px-2.5 py-1.5 text-center font-black text-white">Centro</th>
-                      <th className="px-2.5 py-1.5 text-center font-black text-white">Sector</th>
-                      <th className="px-2.5 py-1.5 text-center font-black text-white">Nivel / Gestión</th>
-                      <th className="px-2.5 py-1.5 font-black text-white">Establecimiento / CUE</th>
-                      <th className="px-2.5 py-1.5 text-center font-black text-white">Clase</th>
-                      <th className="px-2.5 py-1.5 text-right font-black text-white">Básico (A01)</th>
-                      <th className="px-2.5 py-1.5 text-right font-black text-white">Radio (A04)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 text-[11px]">
-                    {modalDetalleCargosData.map((c, idx) => {
-                      const formatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
-                      const basico = c.a01_basico ? formatter.format(c.a01_basico) : '-';
-                      const radio = c.a04_radio ? formatter.format(c.a04_radio) : '-';
+            {/* Body / Tabla */}
+            <div className="p-6 overflow-y-auto custom-scrollbar space-y-4">
+              {modalDetalleCargosLoading ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <i className="fa-solid fa-spinner text-3xl text-[#FE8204] animate-spin"></i>
+                  <span className="text-xs text-slate-500 font-bold">Cargando desglose de haberes del docente...</span>
+                </div>
+              ) : modalDetalleCargosData.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-200">
+                  <i className="fa-solid fa-folder-open text-3xl text-slate-300 mb-2"></i>
+                  <p className="text-xs font-bold text-slate-600">No se encontraron liquidaciones de haberes registradas para esta persona.</p>
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs bg-white">
+                  <table className="w-full text-xs text-left text-slate-700">
+                    <thead className="text-[11px] uppercase tracking-wider bg-[#FE8204] text-white font-black border-b border-[#E07000]/40">
+                      <tr>
+                        <th className="px-4 py-3 text-center font-black">Centro</th>
+                        <th className="px-4 py-3 text-left font-black">Sector Salarial</th>
+                        <th className="px-4 py-3 text-center font-black">Nivel / Gestión</th>
+                        <th className="px-4 py-3 text-left font-black">Establecimiento / CUE Vinculado</th>
+                        <th className="px-3 py-3 text-center font-black">Clase</th>
+                        <th className="px-4 py-3 text-right font-black">Básico (A01)</th>
+                        <th className="px-4 py-3 text-right font-black">Radio (A04)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {modalDetalleCargosData.map((c, idx) => {
+                        const formatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+                        const hasBasico = c.a01_basico && Number(c.a01_basico) > 0;
+                        const hasRadio = c.a04_radio && Number(c.a04_radio) > 0;
+                        const basicoStr = hasBasico ? formatter.format(c.a01_basico) : '-';
+                        const radioStr = hasRadio ? formatter.format(c.a04_radio) : '-';
 
-                      return (
-                        <tr key={idx} className="hover:bg-gray-50/70">
-                          <td className="px-2.5 py-1.5 text-center font-bold text-gray-900">
-                            <span className="px-2 py-0.5 bg-slate-100 rounded text-[11px]">{c.centro}</span>
-                            <div className="text-[10px] text-gray-500 font-normal truncate max-w-[100px]" title={c.nom_centro}>{c.nom_centro || 'S/D'}</div>
-                          </td>
-                          <td className="px-2.5 py-1.5 text-center font-bold">
-                            <span className="px-2 py-0.5 bg-orange-50 text-orange-800 rounded border border-orange-200 text-[11px]">Sector {c.sector}</span>
-                            <div className="text-[10px] text-gray-500 font-normal truncate max-w-[120px]" title={c.nom_sector}>{c.nom_sector || 'S/D'}</div>
-                          </td>
-                          <td className="px-2.5 py-1.5 text-center">
-                            <span className="font-semibold text-gray-800">{c.nivel || 'S/N'}</span>
-                            <div className="text-[10px] text-gray-500">({c.gestion || 'S/G'})</div>
-                          </td>
-                          <td className="px-2.5 py-1.5">
-                            {c.cue_vinculado ? (
-                              <div>
-                                <span className="text-emerald-700 font-black">CUE {c.cue_vinculado}</span>
-                                <div className="text-[10px] text-gray-600 font-medium truncate max-w-[160px]" title={c.nom_escuela_vinculada}>{c.nom_escuela_vinculada}</div>
+                        return (
+                          <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                            {/* Centro */}
+                            <td className="px-4 py-3 text-center align-top">
+                              <span className="px-2.5 py-1 bg-[#FE8204] text-white font-black text-xs rounded-lg shadow-2xs inline-block">
+                                Centro {c.centro}
+                              </span>
+                              {c.nom_centro && (
+                                <div className="text-[11px] text-slate-500 font-medium mt-1 leading-tight max-w-[140px] mx-auto">
+                                  {c.nom_centro}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Sector */}
+                            <td className="px-4 py-3 align-top">
+                              <span className="inline-flex items-center px-2.5 py-0.5 bg-orange-50 text-orange-800 font-extrabold text-xs rounded-md border border-orange-200 mb-1">
+                                Sector {c.sector}
+                              </span>
+                              <div className="text-xs text-slate-800 font-semibold leading-snug">
+                                {c.nom_sector || 'Sector no especificado'}
                               </div>
-                            ) : (
-                              <span className="text-gray-400 italic">No vinculado</span>
-                            )}
-                          </td>
-                          <td className="px-2.5 py-1.5 text-center font-bold text-gray-700">Clase {c.clase}</td>
-                          <td className="px-2.5 py-1.5 text-right font-mono font-semibold text-gray-900">{basico}</td>
-                          <td className="px-2.5 py-1.5 text-right font-mono font-semibold text-gray-900">{radio}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                            </td>
 
-            <div className="flex items-center justify-end border-t pt-2">
+                            {/* Nivel / Gestión */}
+                            <td className="px-4 py-3 text-center align-top">
+                              <div className="inline-flex flex-col items-center gap-1">
+                                <span className="px-2.5 py-0.5 bg-slate-100 text-slate-800 font-bold text-xs rounded-md border border-slate-200/60">
+                                  {c.nivel && c.nivel !== 'SIN DECLARAR' ? c.nivel : 'S/N'}
+                                </span>
+                                {c.gestion && c.gestion !== 'SIN DECLARAR' && (
+                                  <span className="text-[10px] text-slate-500 font-medium">
+                                    {c.gestion}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Establecimiento / CUE */}
+                            <td className="px-4 py-3 align-top">
+                              {c.cue_vinculado ? (
+                                <div className="space-y-0.5">
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 text-emerald-800 font-black text-xs rounded-md border border-emerald-200">
+                                    <i className="fa-solid fa-school text-emerald-600 text-[10px]"></i>
+                                    CUE {c.cue_vinculado}
+                                  </span>
+                                  <div className="text-xs text-slate-900 font-bold leading-snug">
+                                    {c.nom_escuela_vinculada || 'Establecimiento sin nombre'}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-500 font-semibold text-xs rounded-md italic">
+                                  <i className="fa-solid fa-link-slash text-slate-400 text-[10px]"></i>
+                                  Sin escuela vinculada
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Clase */}
+                            <td className="px-3 py-3 text-center align-top">
+                              <span className="px-2.5 py-1 bg-slate-100 text-slate-800 font-extrabold text-xs rounded-lg border border-slate-200 inline-block">
+                                Clase {c.clase}
+                              </span>
+                            </td>
+
+                            {/* Básico */}
+                            <td className="px-4 py-3 text-right align-top font-mono text-xs">
+                              {hasBasico ? (
+                                <span className="font-bold text-slate-900">{basicoStr}</span>
+                              ) : (
+                                <span className="text-slate-400 font-normal">-</span>
+                              )}
+                            </td>
+
+                            {/* Radio */}
+                            <td className="px-4 py-3 text-right align-top font-mono text-xs">
+                              {hasRadio ? (
+                                <span className="font-bold text-slate-900">{radioStr}</span>
+                              ) : (
+                                <span className="text-slate-400 font-normal">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {/* Summary Footer */}
+                    <tfoot className="bg-slate-100/90 border-t-2 border-slate-300 font-black text-xs text-slate-900">
+                      <tr>
+                        <td colSpan={5} className="px-4 py-3 text-right uppercase tracking-wider text-slate-600">
+                          Total Haberes Liquidados:
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono font-black text-slate-900">
+                          {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(
+                            modalDetalleCargosData.reduce((acc, curr) => acc + (Number(curr.a01_basico) || 0), 0)
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono font-black text-slate-900">
+                          {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(
+                            modalDetalleCargosData.reduce((acc, curr) => acc + (Number(curr.a04_radio) || 0), 0)
+                          )}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Institucional */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+              <div className="text-xs text-slate-500 font-medium">
+                Mostrando <b className="text-slate-800">{modalDetalleCargosData.length}</b> liquidación(es) registrada(s)
+              </div>
               <button
                 type="button"
                 onClick={() => setModalDetallePersonaSueldos(null)}
-                className="px-3 py-1 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition cursor-pointer"
+                className="px-4 py-2 bg-[#FE8204] hover:bg-[#E07000] text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
               >
+                <i className="fa-solid fa-xmark text-xs"></i>
                 Cerrar Detalle
               </button>
             </div>

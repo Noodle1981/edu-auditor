@@ -1483,19 +1483,17 @@ class AuditoriaSueldosController extends Controller
             ->leftJoin('jubilaciones_seguimiento as js', 'js.cuil', '=', 'n.cuil')
             ->whereNotNull('n.fecha_nacimiento')
             ->whereRaw("
-                (
-                    (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 57)
-                    OR
-                    (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) NOT IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 60)
-                )
-                AND (n.antiguedad_anios >= 25)
+                (n.antiguedad_anios >= 25)
             ");
 
         if ($search) {
             $s = mb_strtolower($search);
-            $query->where(function($q) use ($s) {
+            $sCleanCuil = str_replace('-', '', $s);
+            $query->where(function($q) use ($s, $sCleanCuil) {
                 $q->whereRaw("LOWER(n.apellido_nombre) LIKE ?", ["%{$s}%"])
-                  ->orWhereRaw("LOWER(n.cuil) LIKE ?", ["%{$s}%"])
+                  ->orWhereRaw("UPPER(n.apellido_nombre) LIKE ?", ["%" . mb_strtoupper($s) . "%"])
+                  ->orWhereRaw("n.cuil LIKE ?", ["%{$s}%"])
+                  ->orWhereRaw("REPLACE(n.cuil, '-', '') LIKE ?", ["%{$sCleanCuil}%"])
                   ->orWhereRaw("CAST(n.sector AS TEXT) LIKE ?", ["%{$s}%"])
                   ->orWhereRaw("CAST(n.centro AS TEXT) LIKE ?", ["%{$s}%"]);
             });
@@ -1562,12 +1560,7 @@ class AuditoriaSueldosController extends Controller
         $baseJubilablesGroup = DB::table('nomina_sueldo_registros as n')
             ->whereNotNull('n.fecha_nacimiento')
             ->whereRaw("
-                (
-                    (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 57)
-                    OR
-                    (SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) NOT IN ('27', '23', '24') AND (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= 60)
-                )
-                AND (n.antiguedad_anios >= 25)
+                (n.antiguedad_anios >= 25)
             ")
             ->groupBy('n.cuil')
             ->select(
