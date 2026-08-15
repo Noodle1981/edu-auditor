@@ -447,10 +447,6 @@ export default function AuditoriaSueldosIndex({
         router.reload({ 
           preserveScroll: true,
           preserveState: true,
-          onSuccess: () => {
-            setActiveTab('sin_escuela');
-            setSubTabOtrosSectores('depuracion');
-          }
         });
       } else {
         alert('Ocurrió un error al actualizar la depuración.');
@@ -968,10 +964,9 @@ export default function AuditoriaSueldosIndex({
         setSaneamientoAnexos([]);
         setShowAddAnexoSearch(false);
         setSaneamientoEstadoGestion('EN_INVESTIGACION');
-        const targetTab = (saneamientoEstadoGestion === 'DADO_DE_BAJA' || !saneamientoEstId) ? 'sin_escuela' : 'tracking';
-        setActiveTab(targetTab);
         router.reload({
-          onSuccess: () => setActiveTab(targetTab)
+          preserveScroll: true,
+          preserveState: true,
         });
       } else {
         alert(data.message || 'Error al actualizar sector');
@@ -4114,10 +4109,14 @@ export default function AuditoriaSueldosIndex({
               {sanearDepEstId && (
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
-                    <span>Nivel / Modalidad Educativa:</span>
+                    <span>
+                      {sanearDepModalidades.some(m => m.direccion_area === 'ADMINISTRACIÓN')
+                        ? 'Repartición Administrativa:'
+                        : 'Nivel / Modalidad Educativa:'}
+                    </span>
                     {sanearDepLoadingModalidades && (
                       <span className="text-[10px] text-[#FE8204] font-medium animate-pulse flex items-center gap-1">
-                        <i className="fa-solid fa-spinner animate-spin"></i> Cargando niveles...
+                        <i className="fa-solid fa-spinner animate-spin"></i> Cargando opciones...
                       </span>
                     )}
                   </label>
@@ -4127,16 +4126,25 @@ export default function AuditoriaSueldosIndex({
                       onChange={(e) => setSanearDepModalidadId(e.target.value)}
                       className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-[#FE8204]"
                     >
-                      <option value="">-- Seleccionar Nivel / Modalidad --</option>
-                      {sanearDepModalidades.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          Nivel: {m.nivel_educativo || 'GENERAL'} {m.direccion_area ? `(${m.direccion_area})` : ''} | Sector SIGE: {m.sector} | Radio: R{m.radio_sige ?? m.radio ?? 'S/D'}
-                        </option>
-                      ))}
+                      <option value="">
+                        {sanearDepModalidades.some(m => m.direccion_area === 'ADMINISTRACIÓN')
+                          ? '-- Seleccionar Repartición Administrativa --'
+                          : '-- Seleccionar Nivel / Modalidad --'}
+                      </option>
+                      {sanearDepModalidades.map((m) => {
+                        const isAdm = m.direccion_area === 'ADMINISTRACIÓN';
+                        return (
+                          <option key={m.id} value={m.id}>
+                            {isAdm
+                              ? `🏢 Repartición: ${m.nivel_educativo || 'ADMINISTRATIVO'} | Sector SIGE: ${m.sector || 'S/D'} | Radio: R${m.radio_sige ?? m.radio ?? '1'}`
+                              : `🎓 Nivel: ${m.nivel_educativo || 'GENERAL'} ${m.direccion_area ? `(${m.direccion_area})` : ''} | Sector SIGE: ${m.sector || 'S/D'} | Radio: R${m.radio_sige ?? m.radio ?? 'S/D'}`}
+                          </option>
+                        );
+                      })}
                     </select>
                   ) : !sanearDepLoadingModalidades ? (
                     <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2 font-medium">
-                      ⚠️ Esta escuela no posee niveles/modalidades cargados previamente. El vínculo se registrará a nivel de CUE sin asociar modalidad específica.
+                      ⚠️ Esta dependencia no posee opciones cargadas previamente. El vínculo se registrará a nivel general de CUE.
                     </p>
                   ) : null}
                 </div>

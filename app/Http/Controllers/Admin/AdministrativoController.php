@@ -41,7 +41,17 @@ class AdministrativoController extends Controller
 
         $options = $this->queryService->getFilterOptions();
         $options['areas'] = ['ADMINISTRACIÓN'];
-        $options['niveles'] = ['JUNTA DE CLASIFICACIÓN', 'SUPERVISIÓN', 'ADMINISTRATIVO'];
+
+        $adminNiveles = Modalidad::where('direccion_area', 'ADMINISTRACIÓN')
+            ->whereNotNull('nivel_educativo')
+            ->where('nivel_educativo', '<>', '')
+            ->distinct()
+            ->orderBy('nivel_educativo')
+            ->pluck('nivel_educativo')
+            ->toArray();
+
+        $defaultNiveles = ['ADMINISTRATIVO', 'JUNTA DE CLASIFICACIÓN', 'SUPERVISIÓN', 'BIBLIOTECA DEL MAGISTERIO', 'MINISTERIO'];
+        $options['niveles'] = array_values(array_unique(array_merge($defaultNiveles, $adminNiveles)));
         $options['ambitos'] = ['PUBLICO', 'PRIVADO'];
 
         return Inertia::render('Admin/Oficinas/Index', [

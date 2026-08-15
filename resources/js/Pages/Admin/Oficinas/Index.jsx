@@ -213,7 +213,7 @@ export default function Index({
                                 }
                             />
                             <FilterSelect
-                                label="Nivel Educativo"
+                                label="Categoría Administrativa"
                                 value={filters.nivel_educativo}
                                 options={options.niveles}
                                 onChange={(v) =>
@@ -305,7 +305,7 @@ export default function Index({
                                         </th>
                                         <th className="px-6 py-2">Edificio</th>
                                         <th className="px-6 py-2">
-                                            Nivel / Área
+                                            Categoría / Área
                                         </th>
                                         <th className="px-6 py-2 text-center">
                                             Radio / SiGE
@@ -704,6 +704,7 @@ function EditModalidadModal({
         departamento: '',
         cabecera: '',
     });
+    const [isCustomCategoria, setIsCustomCategoria] = useState(false);
 
     useEffect(() => {
         if (show && modalidad) {
@@ -722,12 +723,15 @@ function EditModalidadModal({
                 observaciones: modalidad.observaciones || '',
             });
 
+            const existsInList = (options?.niveles || []).includes(modalidad.nivel_educativo);
+            setIsCustomCategoria(Boolean(modalidad.nivel_educativo && !existsInList));
+
             setEdificioInfo({
                 departamento: modalidad.establecimiento.edificio?.zona_departamento || '',
                 cabecera: nombresEdificios[modalidad.establecimiento.edificio_id] || 'Sin Nombre',
             });
         }
-    }, [modalidad, show, nombresEdificios, setData]);
+    }, [modalidad, show, nombresEdificios, options?.niveles, setData]);
 
     useEffect(() => {
         const cuiStr = String(data.cui).trim();
@@ -855,19 +859,60 @@ function EditModalidadModal({
                             </div>
 
                             <div>
-                                <InputLabel value="Categoría Administrativa" />
-                                <select
-                                    className="mt-1 w-full rounded-xl border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
-                                    value={data.nivel_educativo}
-                                    onChange={(e) => setData('nivel_educativo', e.target.value)}
-                                >
-                                    <option value="">Seleccione Categoría...</option>
-                                    {(options?.niveles || []).map((n) => (
-                                        <option key={n} value={n}>
-                                            {n}
+                                <div className="flex items-center justify-between mb-1">
+                                    <InputLabel value="Categoría Administrativa" />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const next = !isCustomCategoria;
+                                            setIsCustomCategoria(next);
+                                            if (next) {
+                                                setData('nivel_educativo', '');
+                                            }
+                                        }}
+                                        className="text-[11px] font-bold text-brand-orange hover:text-orange-700 transition-colors cursor-pointer flex items-center gap-1"
+                                    >
+                                        <i className={`fa-solid ${isCustomCategoria ? 'fa-list' : 'fa-plus'}`}></i>
+                                        {isCustomCategoria ? 'Elegir de la lista' : '+ Nueva categoría'}
+                                    </button>
+                                </div>
+                                {isCustomCategoria ? (
+                                    <div className="relative">
+                                        <TextInput
+                                            className="w-full text-sm font-semibold uppercase focus:border-brand-orange focus:ring-brand-orange"
+                                            placeholder="Ej: BIBLIOTECA DEL MAGISTERIO..."
+                                            value={data.nivel_educativo}
+                                            onChange={(e) => setData('nivel_educativo', e.target.value.toUpperCase())}
+                                            autoFocus
+                                        />
+                                        <span className="text-[10px] text-gray-400 mt-1 block">
+                                            Escriba el nombre libremente para esta repartición administrativa.
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <select
+                                        className="w-full rounded-xl border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
+                                        value={data.nivel_educativo}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__NEW__') {
+                                                setIsCustomCategoria(true);
+                                                setData('nivel_educativo', '');
+                                            } else {
+                                                setData('nivel_educativo', e.target.value);
+                                            }
+                                        }}
+                                    >
+                                        <option value="">Seleccione Categoría...</option>
+                                        {(options?.niveles || []).map((n) => (
+                                            <option key={n} value={n}>
+                                                {n}
+                                            </option>
+                                        ))}
+                                        <option value="__NEW__" className="font-bold text-brand-orange">
+                                            + Escribir nueva categoría personalizada...
                                         </option>
-                                    ))}
-                                </select>
+                                    </select>
+                                )}
                                 <InputError message={errors.nivel_educativo} />
                             </div>
 
@@ -948,11 +993,11 @@ function EditModalidadModal({
 }
 
 function CreateModalidadModal({ show, onClose, options }) {
-    const { data, setData, post, processing, errors, reset } = useForm({
-        nombre_establecimiento: '',
-        cue: '',
-        cui: '',
-        establecimiento_cabecera: '',
+    const defaultValues = {
+        nombre_establecimiento: 'Administración Central',
+        cue: '700000000',
+        cui: '7000000',
+        establecimiento_cabecera: '700000000',
         nivel_educativo: '',
         direccion_area: 'ADMINISTRACIÓN',
         ambito: 'PUBLICO',
@@ -962,17 +1007,13 @@ function CreateModalidadModal({ show, onClose, options }) {
         calle: '',
         localidad: '',
         zona_departamento: '',
-    });
+    };
+
+    const { data, setData, post, processing, errors, reset } = useForm(defaultValues);
 
     const [cabeceraNombre, setCabeceraNombre] = useState('');
     const [isExistingEdificio, setIsExistingEdificio] = useState(false);
-
-    useEffect(() => {
-        if (!show) {
-            setCabeceraNombre('');
-            setIsExistingEdificio(false);
-        }
-    }, [show]);
+    const [isCustomCategoria, setIsCustomCategoria] = useState(false);
 
     const lookupCUI = (cuiStr) => {
         const cui = String(cuiStr).trim();
@@ -991,7 +1032,7 @@ function CreateModalidadModal({ show, onClose, options }) {
                         calle: res.calle || '',
                         localidad: res.localidad || '',
                         zona_departamento: res.zona_departamento || '',
-                        establecimiento_cabecera: res.cabecera_cue || prev.cue || '',
+                        establecimiento_cabecera: res.cabecera_cue || prev.cue || '700000000',
                     }));
                     if (res.cabecera_nombre) {
                         setCabeceraNombre(res.cabecera_nombre);
@@ -1003,7 +1044,7 @@ function CreateModalidadModal({ show, onClose, options }) {
                     setData((prev) => ({
                         ...prev,
                         cui,
-                        establecimiento_cabecera: prev.cue || '',
+                        establecimiento_cabecera: prev.cue || '700000000',
                     }));
                     setCabeceraNombre('Edificio nuevo');
                 }
@@ -1013,6 +1054,17 @@ function CreateModalidadModal({ show, onClose, options }) {
                 setIsExistingEdificio(false);
             });
     };
+
+    useEffect(() => {
+        if (show) {
+            lookupCUI('7000000');
+        } else {
+            setCabeceraNombre('');
+            setIsExistingEdificio(false);
+            setIsCustomCategoria(false);
+            reset();
+        }
+    }, [show]);
 
     const submit = (e) => {
         e.preventDefault();
@@ -1135,19 +1187,60 @@ function CreateModalidadModal({ show, onClose, options }) {
                             </div>
 
                             <div>
-                                <InputLabel value="Categoría Administrativa" />
-                                <select
-                                    className="mt-1 w-full rounded-xl border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
-                                    value={data.nivel_educativo}
-                                    onChange={(e) => setData('nivel_educativo', e.target.value)}
-                                >
-                                    <option value="">Seleccione Categoría...</option>
-                                    {(options?.niveles || []).map((n) => (
-                                        <option key={n} value={n}>
-                                            {n}
+                                <div className="flex items-center justify-between mb-1">
+                                    <InputLabel value="Categoría Administrativa" />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const next = !isCustomCategoria;
+                                            setIsCustomCategoria(next);
+                                            if (next) {
+                                                setData('nivel_educativo', '');
+                                            }
+                                        }}
+                                        className="text-[11px] font-bold text-brand-orange hover:text-orange-700 transition-colors cursor-pointer flex items-center gap-1"
+                                    >
+                                        <i className={`fa-solid ${isCustomCategoria ? 'fa-list' : 'fa-plus'}`}></i>
+                                        {isCustomCategoria ? 'Elegir de la lista' : '+ Nueva categoría'}
+                                    </button>
+                                </div>
+                                {isCustomCategoria ? (
+                                    <div className="relative">
+                                        <TextInput
+                                            className="w-full text-sm font-semibold uppercase focus:border-brand-orange focus:ring-brand-orange"
+                                            placeholder="Ej: BIBLIOTECA DEL MAGISTERIO..."
+                                            value={data.nivel_educativo}
+                                            onChange={(e) => setData('nivel_educativo', e.target.value.toUpperCase())}
+                                            autoFocus
+                                        />
+                                        <span className="text-[10px] text-gray-400 mt-1 block">
+                                            Escriba el nombre libremente (se guardará y quedará disponible para futuras búsquedas).
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <select
+                                        className="w-full rounded-xl border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
+                                        value={data.nivel_educativo}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__NEW__') {
+                                                setIsCustomCategoria(true);
+                                                setData('nivel_educativo', '');
+                                            } else {
+                                                setData('nivel_educativo', e.target.value);
+                                            }
+                                        }}
+                                    >
+                                        <option value="">Seleccione Categoría...</option>
+                                        {(options?.niveles || []).map((n) => (
+                                            <option key={n} value={n}>
+                                                {n}
+                                            </option>
+                                        ))}
+                                        <option value="__NEW__" className="font-bold text-brand-orange">
+                                            + Escribir nueva categoría personalizada...
                                         </option>
-                                    ))}
-                                </select>
+                                    </select>
+                                )}
                                 <InputError message={errors.nivel_educativo} />
                             </div>
 

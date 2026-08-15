@@ -11,10 +11,6 @@ export const Header = () => {
       return { title: 'Mapa Salarial (Sueldos vs SIGE)' };
     } else if (url.startsWith('/mapa')) {
       return { title: 'Mapa Escolar (Geográfico)' };
-    } else if (url.startsWith('/establecimientos')) {
-      return { title: 'Establecimientos Educativos' };
-    } else if (url.startsWith('/auditoria-automatizada')) {
-      return { title: 'Auditoría Automatizada' };
     } else if (url.startsWith('/admin/importar')) {
       return { title: 'Carga y Actualización de Datos' };
     } else {

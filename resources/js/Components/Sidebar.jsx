@@ -10,19 +10,15 @@ export const Sidebar = () => {
         { href: '/auditoria-sueldos', label: 'Auditoría de Sueldos', icon: 'fa-solid fa-file-invoice-dollar' },
         { href: '/mapa', label: 'Mapa Escolar (Geográfico)', icon: 'fa-solid fa-map-location-dot' },
         { href: '/mapa-sueldos', label: 'Mapa Salarial (Sueldos)', icon: 'fa-solid fa-money-bill-transfer' },
-        { href: '/establecimientos', label: 'Establecimientos', icon: 'fa-solid fa-school' },
         { href: '/admin/importar', label: 'Cargar Datos', icon: 'fa-solid fa-cloud-arrow-up' },
         { href: '/admin/edificios', label: 'Gestión Edificios', icon: 'fa-solid fa-building' },
         { href: '/admin/establecimientos', label: 'Gestión Establecimientos', icon: 'fa-solid fa-school-flag' },
         { href: '/admin/oficinas-centrales', label: 'Gestión Oficinas', icon: 'fa-solid fa-briefcase' },
-        { href: '/auditoria-automatizada', label: 'Auditoría Automatizada', icon: 'fa-solid fa-wand-magic-sparkles' }
       ]
     : [
         { href: '/auditoria-sueldos', label: 'Auditoría de Sueldos', icon: 'fa-solid fa-file-invoice-dollar' },
         { href: '/mapa', label: 'Mapa Escolar (Geográfico)', icon: 'fa-solid fa-map-location-dot' },
         { href: '/mapa-sueldos', label: 'Mapa Salarial (Sueldos)', icon: 'fa-solid fa-money-bill-transfer' },
-        { href: '/establecimientos', label: 'Establecimientos', icon: 'fa-solid fa-school' },
-        { href: '/auditoria-automatizada', label: 'Auditoría Automatizada', icon: 'fa-solid fa-wand-magic-sparkles' },
       ];
 
   const isActive = (href) => {

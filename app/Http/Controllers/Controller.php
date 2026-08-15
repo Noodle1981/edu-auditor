@@ -15,8 +15,11 @@ abstract class Controller
             return $requestedYear;
         }
 
-        $latestYearRow = DB::selectOne('SELECT MAX(anio) as max_year FROM agente_cargos');
+        $latestPeriod = DB::table('nominas_sueldos')->orderBy('periodo', 'desc')->value('periodo');
+        if ($latestPeriod) {
+            return (int) substr($latestPeriod, 0, 4);
+        }
 
-        return $latestYearRow && $latestYearRow->max_year ? (int) $latestYearRow->max_year : 2026;
+        return (int) date('Y');
     }
 }

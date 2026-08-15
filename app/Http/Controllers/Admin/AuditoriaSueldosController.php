@@ -1483,7 +1483,12 @@ class AuditoriaSueldosController extends Controller
             ->leftJoin('jubilaciones_seguimiento as js', 'js.cuil', '=', 'n.cuil')
             ->whereNotNull('n.fecha_nacimiento')
             ->whereRaw("
-                (n.antiguedad_anios >= 25)
+                (
+                    n.antiguedad_anios >= 25 
+                    OR (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= (
+                        CASE WHEN SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) IN ('27', '23', '24') THEN 57 ELSE 60 END
+                    )
+                )
             ");
 
         if ($search) {
@@ -1560,7 +1565,12 @@ class AuditoriaSueldosController extends Controller
         $baseJubilablesGroup = DB::table('nomina_sueldo_registros as n')
             ->whereNotNull('n.fecha_nacimiento')
             ->whereRaw("
-                (n.antiguedad_anios >= 25)
+                (
+                    n.antiguedad_anios >= 25 
+                    OR (2026 - CAST(SUBSTR(n.fecha_nacimiento, 7, 4) AS INTEGER)) >= (
+                        CASE WHEN SUBSTR(REPLACE(n.cuil, '-', ''), 1, 2) IN ('27', '23', '24') THEN 57 ELSE 60 END
+                    )
+                )
             ")
             ->groupBy('n.cuil')
             ->select(

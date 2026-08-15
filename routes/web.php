@@ -4,8 +4,6 @@ use App\Http\Controllers\Admin\AdministrativoController;
 use App\Http\Controllers\Admin\AuditoriaSueldosController;
 use App\Http\Controllers\Admin\EdificioController;
 use App\Http\Controllers\Admin\ModalidadController;
-use App\Http\Controllers\AgenteController;
-use App\Http\Controllers\EstablecimientoController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\MapaController;
 use App\Http\Controllers\ProfileController;
@@ -40,20 +38,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/auditoria-sueldos/potenciales-jubilaciones', [AuditoriaSueldosController::class, 'getPotencialesJubilaciones'])->name('auditoria-sueldos.potenciales-jubilaciones');
     Route::get('/api/auditoria-sueldos/detalle-cargos-persona', [AuditoriaSueldosController::class, 'getDetalleCargosPersona'])->name('auditoria-sueldos.detalle-cargos-persona');
     Route::post('/api/auditoria-sueldos/actualizar-jubilacion', [AuditoriaSueldosController::class, 'updateEstadoJubilacion'])->name('auditoria-sueldos.actualizar-jubilacion');
-
-    Route::get('/auditoria-automatizada', [AgenteController::class, 'auditoriaAutomatizadaPage'])->name('auditoria-automatizada');
-    Route::get('/api/agentes', [AgenteController::class, 'search']);
-    Route::get('/api/agentes/{dni}', [AgenteController::class, 'detail']);
-    Route::get('/api/agentes/{dni}/analisis-local', [AgenteController::class, 'getLocalAnalysis']);
-
-    // Establecimientos
-    Route::get('/establecimientos', [EstablecimientoController::class, 'index'])->name('establecimientos');
-    Route::get('/api/establecimientos', [EstablecimientoController::class, 'search']);
-    Route::get('/api/establecimientos/filters', [EstablecimientoController::class, 'getFilters']);
-    Route::get('/api/establecimientos/reporte-pdf', [EstablecimientoController::class, 'exportPdf']);
-    Route::get('/api/establecimientos/{id}/reporte-pdf', [EstablecimientoController::class, 'exportSinglePdf']);
-    Route::put('/api/establecimientos/{id}/radio', [EstablecimientoController::class, 'updateRadio']);
-    Route::get('/api/establecimientos/{id}', [EstablecimientoController::class, 'detail']);
 
     // Mapa Escolar y Mapa de Sueldos
     Route::get('/mapa', [MapaController::class, 'index'])->name('mapa');

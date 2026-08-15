@@ -1,6 +1,5 @@
 import { Sidebar } from '../Components/Sidebar';
 import { Header } from '../Components/Header';
-import { AgentModal } from '../Components/AgentModal';
 
 export default function SIAMELayout({ children, fullWidth = false, hideHeader = false }) {
   return (
@@ -18,9 +17,6 @@ export default function SIAMELayout({ children, fullWidth = false, hideHeader = 
           {children}
         </main>
       </div>
-
-      {/* Global Agent Modal */}
-      <AgentModal />
     </div>
   );
 }
