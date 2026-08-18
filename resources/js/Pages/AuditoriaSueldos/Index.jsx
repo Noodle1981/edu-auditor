@@ -293,14 +293,46 @@ export default function AuditoriaSueldosIndex({
     };
   }, []);
 
+  // Sincronización silenciosa entre ventanas/pestañas (Background Sync)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.BroadcastChannel) return;
+
+    const channel = new BroadcastChannel('auditoria_sueldos_sync_channel');
+    channel.onmessage = (event) => {
+      if (event.data?.type === 'AUDITORIA_DATA_CHANGED') {
+        router.reload({
+          preserveScroll: true,
+          preserveState: true,
+        });
+      }
+    };
+
+    return () => {
+      channel.close();
+    };
+  }, []);
+
+  const notifyDataChanged = () => {
+    try {
+      if (typeof window !== 'undefined' && window.BroadcastChannel) {
+        const channel = new BroadcastChannel('auditoria_sueldos_sync_channel');
+        channel.postMessage({ type: 'AUDITORIA_DATA_CHANGED', timestamp: Date.now() });
+        channel.close();
+      }
+    } catch {
+      // silent fallback
+    }
+  };
+
   const depuracionStats = useMemo(() => {
     const total = depuracionList.length;
     const centroSinUso = depuracionList.filter(d => d.estado_depuracion === 'CENTRO_SIN_USO').length;
     const sectorSinUso = depuracionList.filter(d => d.estado_depuracion === 'SECTOR_SIN_USO').length;
+    const inactivos = depuracionList.filter(d => d.estado_depuracion === 'INACTIVO').length;
     const noCatalogado = depuracionList.filter(d => d.estado_depuracion === 'SUELDO_NO_CATALOGADO').length;
     const activos = depuracionList.filter(d => d.estado_depuracion === 'ACTIVO' || d.estado_depuracion === 'BAJA_VOLUMETRÍA').length;
 
-    return { total, centroSinUso, sectorSinUso, noCatalogado, activos };
+    return { total, centroSinUso, sectorSinUso, inactivos, noCatalogado, activos };
   }, [depuracionList]);
 
   const statusDistribution = useMemo(() => {
@@ -444,6 +476,7 @@ export default function AuditoriaSueldosIndex({
         setSanearDepuracionModalItem(null);
         setSaneamientoAnexos([]);
         setShowAddAnexoSearch(false);
+        notifyDataChanged();
         router.reload({ 
           preserveScroll: true,
           preserveState: true,
@@ -873,6 +906,7 @@ export default function AuditoriaSueldosIndex({
           )
         );
         setEditingItem(null);
+        notifyDataChanged();
       }
     } catch (err) {
       console.error(err);
@@ -908,6 +942,7 @@ export default function AuditoriaSueldosIndex({
               : i
           )
         );
+        notifyDataChanged();
       }
     } catch (err) {
       console.error(err);
@@ -964,6 +999,7 @@ export default function AuditoriaSueldosIndex({
         setSaneamientoAnexos([]);
         setShowAddAnexoSearch(false);
         setSaneamientoEstadoGestion('EN_INVESTIGACION');
+        notifyDataChanged();
         router.reload({
           preserveScroll: true,
           preserveState: true,
@@ -2769,21 +2805,34 @@ export default function AuditoriaSueldosIndex({
                     </button>
 
                     <button
+                      onClick={() => setDepuracionFiltroEstado(depuracionFiltroEstado === 'INACTIVO' ? 'TODOS' : 'INACTIVO')}
+                      className={`py-1 px-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                        depuracionFiltroEstado === 'INACTIVO'
+                          ? 'bg-zinc-700 text-white shadow-xs border border-zinc-700'
+                          : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 border border-zinc-300'
+                      }`}
+                      title="Inactivos (Agentes registrados pero sin cobro / $0)"
+                    >
+                      <i className={`fa-solid fa-circle-pause text-[10px] ${depuracionFiltroEstado === 'INACTIVO' ? 'text-white' : 'text-zinc-500'}`}></i>
+                      <span>Inactivos (Sin Cobro)</span>
+                      <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-black ${
+                        depuracionFiltroEstado === 'INACTIVO' ? 'bg-white/20 text-white' : 'bg-zinc-200 text-zinc-900'
+                      }`}>
+                        {depuracionStats.inactivos}
+                      </span>
+                    </button>
+
+                    <button
                       onClick={() => setDepuracionFiltroEstado(depuracionFiltroEstado === 'ACTIVO' ? 'TODOS' : 'ACTIVO')}
                       className={`py-1 px-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
                         depuracionFiltroEstado === 'ACTIVO'
                           ? 'bg-emerald-600 text-white shadow-xs border border-emerald-600'
                           : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
                       }`}
-                      title="Activos"
+                      title="Activos (Con Cobro Efectivo)"
                     >
                       <i className={`fa-solid fa-circle text-[10px] ${depuracionFiltroEstado === 'ACTIVO' ? 'text-white' : 'text-emerald-500'}`}></i>
-                      <span>Activos</span>
-                      <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-black ${
-                        depuracionFiltroEstado === 'ACTIVO' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
-                      }`}>
-                        {depuracionStats.activos}
-                      </span>
+                      <span>Activos ({depuracionStats.activos})</span>
                     </button>
                   </div>
                 </div>
@@ -2839,7 +2888,7 @@ export default function AuditoriaSueldosIndex({
                     <option value="nom_centro">Nombre del Centro</option>
                     <option value="sector">Número de Sector</option>
                     <option value="centro">Número de Centro</option>
-                    <option value="cantidad_liquidaciones">Cantidad de Liquidaciones</option>
+                    <option value="cantidad_liquidaciones">Liquidaciones con Cobro</option>
                     <option value="estado_depuracion">Estado Depuración</option>
                   </select>
                 </div>
@@ -2865,7 +2914,7 @@ export default function AuditoriaSueldosIndex({
                       <th className="px-2.5 py-2.5 font-black text-white whitespace-nowrap">Nivel / Gestión</th>
                       <th className="px-2.5 py-2.5 font-black text-white whitespace-nowrap">Establecimiento Vinculado</th>
                       <th onClick={() => handleDepuracionSort('cantidad_liquidaciones')} className="px-2.5 py-2.5 text-center font-black text-white cursor-pointer hover:bg-[#e07203] whitespace-nowrap">
-                        Liquidaciones {renderDepuracionSortIcon('cantidad_liquidaciones')}
+                        Cobran / Liq. {renderDepuracionSortIcon('cantidad_liquidaciones')}
                       </th>
                       <th onClick={() => handleDepuracionSort('estado_depuracion')} className="px-2.5 py-2.5 text-center font-black text-white cursor-pointer hover:bg-[#e07203] whitespace-nowrap">
                         Estado Depuración {renderDepuracionSortIcon('estado_depuracion')}
@@ -2902,15 +2951,34 @@ export default function AuditoriaSueldosIndex({
                           )}
                         </td>
                         <td className="px-2.5 py-2 text-center whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => abrirModalDocentes(d.centro, d.sector, d.radio_sige ?? null)}
-                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-900 border border-blue-200 hover:border-blue-300 rounded-lg font-black text-xs transition-all inline-flex items-center gap-1.5 cursor-pointer group shadow-2xs"
-                            title={`Ver las ${d.cantidad_liquidaciones} personas/agentes en esta liquidación del Centro ${d.centro} Sector ${d.sector}`}
-                          >
-                            <i className="fa-solid fa-users text-[10px] text-blue-600 group-hover:scale-110 transition-transform"></i>
-                            <span>{d.cantidad_liquidaciones}</span>
-                          </button>
+                          {d.cantidad_con_cobro > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => abrirModalDocentes(d.centro, d.sector, d.radio_sige ?? null)}
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 hover:text-emerald-900 border border-emerald-300 hover:border-emerald-400 rounded-lg font-black text-xs transition-all inline-flex items-center gap-1.5 cursor-pointer group shadow-2xs"
+                              title={`Ver ${d.cantidad_con_cobro} agentes con cobro activo${d.cantidad_sin_cobro > 0 ? ` (+${d.cantidad_sin_cobro} en $0)` : ''} en Centro ${d.centro} Sector ${d.sector}`}
+                            >
+                              <i className="fa-solid fa-user-check text-[10px] text-emerald-600 group-hover:scale-110 transition-transform"></i>
+                              <span>{d.cantidad_con_cobro}</span>
+                              {d.cantidad_sin_cobro > 0 && (
+                                <span className="text-[9px] font-bold text-slate-500 bg-white/80 px-1 py-0.2 rounded border border-slate-200" title={`${d.cantidad_sin_cobro} agentes sin pago efectivo`}>
+                                  +{d.cantidad_sin_cobro} $0
+                                </span>
+                              )}
+                            </button>
+                          ) : d.cantidad_sin_cobro > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => abrirModalDocentes(d.centro, d.sector, d.radio_sige ?? null)}
+                              className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 rounded-lg font-bold text-[10px] transition-all inline-flex items-center gap-1 cursor-pointer"
+                              title={`Ver los ${d.cantidad_sin_cobro} agentes registrados sin cobro ($0) en Centro ${d.centro} Sector ${d.sector}`}
+                            >
+                              <i className="fa-solid fa-user-xmark text-[9px] text-slate-400"></i>
+                              <span>0 cobran ({d.cantidad_sin_cobro} $0)</span>
+                            </button>
+                          ) : (
+                            <span className="text-slate-300 font-bold">-</span>
+                          )}
                         </td>
                         <td className="px-2.5 py-2 text-center whitespace-nowrap">
                           {d.estado_depuracion === 'CENTRO_SIN_USO' && (
@@ -2922,8 +2990,11 @@ export default function AuditoriaSueldosIndex({
                           {d.estado_depuracion === 'SECTOR_SIN_USO' && (
                             <span className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-yellow-100 text-yellow-900 border border-yellow-300 inline-flex items-center gap-1 whitespace-nowrap">🟡 SECTOR SIN USO</span>
                           )}
+                          {d.estado_depuracion === 'INACTIVO' && (
+                            <span className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-slate-200 text-slate-800 border border-slate-400 inline-flex items-center gap-1 whitespace-nowrap">⏸️ INACTIVO</span>
+                          )}
                           {(d.estado_depuracion === 'ACTIVO' || d.estado_depuracion === 'BAJA_VOLUMETRÍA') && (
-                            <span className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1 whitespace-nowrap">🟢 ACTIVO</span>
+                            <span className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1 whitespace-nowrap">🟢 ACTIVO ({d.cantidad_con_cobro ?? d.cantidad_liquidaciones})</span>
                           )}
                         </td>
                         <td className="px-2.5 py-2 font-medium text-gray-600 text-[11px] max-w-[280px] xl:max-w-[400px] whitespace-normal leading-snug break-words">
@@ -4157,7 +4228,8 @@ export default function AuditoriaSueldosIndex({
                   onChange={(e) => setSanearDepEstado(e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs font-bold text-gray-900 focus:ring-[#FE8204]"
                 >
-                  <option value="ACTIVO">🟢 ACTIVO (Saneado)</option>
+                  <option value="ACTIVO">🟢 ACTIVO (Saneado / Con Cobro)</option>
+                  <option value="INACTIVO">⏸️ INACTIVO (Sin Cobro / $0)</option>
                   <option value="SUELDO_NO_CATALOGADO">⚠️ SUELDO NO CATALOGADO</option>
                   <option value="SECTOR_SIN_USO">🟡 SECTOR SIN USO</option>
                   <option value="CENTRO_SIN_USO">🔴 CENTRO SIN USO</option>
@@ -4350,6 +4422,7 @@ export default function AuditoriaSueldosIndex({
                       <th className="px-2.5 py-1.5 font-black text-white">CUIL</th>
                       <th className="px-2.5 py-1.5 font-black text-white">Apellido y Nombre</th>
                       <th className="px-2.5 py-1.5 text-center font-black text-white">Clase</th>
+                      <th className="px-2.5 py-1.5 text-center font-black text-white">Haberes</th>
                       <th className="px-2.5 py-1.5 text-right font-black text-white">Básico (A01)</th>
                       <th className="px-2.5 py-1.5 text-center font-black text-white">Radio Cobrado</th>
                       <th className="px-2.5 py-1.5 text-center font-black text-white">Estado</th>
@@ -4389,6 +4462,17 @@ export default function AuditoriaSueldosIndex({
                           <td className="px-2.5 py-1.5 font-mono text-gray-500 font-semibold">{d.cuil || '-'}</td>
                           <td className="px-2.5 py-1.5 font-bold text-gray-950">{d.apellido_nombre || '-'}</td>
                           <td className="px-2.5 py-1.5 text-center font-bold text-gray-500">{d.clase || '-'}</td>
+                          <td className="px-2.5 py-1.5 text-center whitespace-nowrap">
+                            {d.registra_cobro ? (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                🟢 Cobra
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
+                                ⚪ Sin cobro ($0)
+                              </span>
+                            )}
+                          </td>
                           <td className="px-2.5 py-1.5 text-right font-semibold text-gray-900">{basico}</td>
                           <td className="px-2.5 py-1.5 text-center font-black text-purple-700">
                             {d.radio_deducido ? `R${d.radio_deducido}` : <span className="text-gray-400 italic">No cobra</span>}
@@ -4403,7 +4487,7 @@ export default function AuditoriaSueldosIndex({
                     })}
                     {modalDocentesData.length === 0 && (
                       <tr>
-                        <td colSpan="6" className="px-3 py-6 text-center text-gray-400 italic">
+                        <td colSpan="7" className="px-3 py-6 text-center text-gray-400 italic">
                           No se encontraron personas en este sector.
                         </td>
                       </tr>

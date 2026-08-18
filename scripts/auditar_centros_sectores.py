@@ -77,8 +77,12 @@ def ejecutar_auditoria():
 
     c_s_idx = header_s.index('CENTRO')
     s_s_idx = header_s.index('SECTOR')
+    neto_idx = header_s.index('NETO') if 'NETO' in header_s else -1
+    a01_idx = header_s.index('A01') if 'A01' in header_s else -1
+    a04_idx = header_s.index('A04') if 'A04' in header_s else -1
+    asig_idx = header_s.index('TOTAL DE ASIG CON APORTES') if 'TOTAL DE ASIG CON APORTES' in header_s else -1
 
-    sueldo_counts = {}
+    sueldo_stats = {} # (c, s) -> {'total': 0, 'con_cobro': 0, 'sin_cobro': 0}
     sueldo_centros = set()
     total_sueldos_rows = 0
 
@@ -93,13 +97,28 @@ def ejecutar_auditoria():
             s = int(s_raw)
             pair = (c, s)
             sueldo_centros.add(c)
-            sueldo_counts[pair] = sueldo_counts.get(pair, 0) + 1
+
+            a01 = float(r[a01_idx] or 0) if a01_idx >= 0 else 0.0
+            a04 = float(r[a04_idx] or 0) if a04_idx >= 0 else 0.0
+
+            # Cobro efectivo de cargo docente / radio: Básico (A01) > 0 o Adicional de Radio (A04) > 0
+            con_cobro = (a01 > 0 or a04 > 0)
+
+            if pair not in sueldo_stats:
+                sueldo_stats[pair] = {'total': 0, 'con_cobro': 0, 'sin_cobro': 0}
+            
+            sueldo_stats[pair]['total'] += 1
+            if con_cobro:
+                sueldo_stats[pair]['con_cobro'] += 1
+            else:
+                sueldo_stats[pair]['sin_cobro'] += 1
+
         except (ValueError, TypeError):
             continue
 
     wb_s.close()
     print(f"   -> Procesados {total_sueldos_rows} registros de sueldo.")
-    print(f"   -> Encontradas {len(sueldo_counts)} combinaciones (Centro, Sector) con liquidación ({len(sueldo_centros)} centros únicos).")
+    print(f"   -> Encontradas {len(sueldo_stats)} combinaciones (Centro, Sector) con liquidación ({len(sueldo_centros)} centros únicos).")
 
     # 3. Clasificación de Depuración
     print("\n[3/5] Ejecutando algoritmo de taxonomía y depuración...")
@@ -110,7 +129,6 @@ def ejecutar_auditoria():
         try:
             conn = sqlite3.connect(f_db)
             cursor = conn.cursor()
-            # Validar si existe la columna establecimiento_id antes de consultar
             cursor.execute("PRAGMA table_info(depuracion_centros_sectores)")
             cols = [r[1] for r in cursor.fetchall()]
             if 'establecimiento_id' in cols:
@@ -136,26 +154,30 @@ def ejecutar_auditoria():
 
     # A. Procesar todas las combinaciones del maestro
     for (c, s), m_info in master_dict.items():
-        liq = sueldo_counts.get((c, s), 0)
+        st = sueldo_stats.get((c, s), {'total': 0, 'con_cobro': 0, 'sin_cobro': 0})
+        total_liq = st['total']
+        con_cobro = st['con_cobro']
+        sin_cobro = st['sin_cobro']
 
         ext_saneamiento = existing_saneamientos.get((c, s))
-        if ext_saneamiento:
-            estado = ext_saneamiento['estado_depuracion']
-            obs = ext_saneamiento['observaciones']
-            est_id = ext_saneamiento['establecimiento_id']
-            mod_id = ext_saneamiento.get('modalidad_id')
+        est_id = ext_saneamiento['establecimiento_id'] if ext_saneamiento else None
+        mod_id = ext_saneamiento.get('modalidad_id') if ext_saneamiento else None
+
+        if c not in sueldo_centros:
+            estado = 'CENTRO_SIN_USO'
+            obs = f"El Centro {c} ({m_info['nom_centro']}) no registra liquidaciones de sueldo en el período."
+        elif total_liq == 0:
+            estado = 'SECTOR_SIN_USO'
+            obs = f"El Sector {s} ({m_info['nom_sector']}) en Centro {c} no tuvo liquidaciones en el período."
+        elif con_cobro == 0:
+            estado = 'INACTIVO'
+            obs = f"Inactivo / Sin Cobro: {total_liq} agentes registrados pero ninguno percibe Básico ni Radio ($0)."
         else:
-            est_id = None
-            mod_id = None
-            if c not in sueldo_centros:
-                estado = 'CENTRO_SIN_USO'
-                obs = f"El Centro {c} ({m_info['nom_centro']}) no registra liquidaciones de sueldo en el período."
-            elif liq == 0:
-                estado = 'SECTOR_SIN_USO'
-                obs = f"El Sector {s} ({m_info['nom_sector']}) en Centro {c} no tuvo liquidaciones en el período."
+            estado = 'ACTIVO'
+            if sin_cobro > 0:
+                obs = f"Uso normal: {con_cobro} agente(s) con cobro activo ({sin_cobro} sin pago en el mes)."
             else:
-                estado = 'ACTIVO'
-                obs = f"Uso normal: {liq} liquidación(es) en el mes."
+                obs = f"Uso normal: {con_cobro} agente(s) con cobro en el mes."
 
         registros_depuracion.append({
             'centro': c,
@@ -164,7 +186,9 @@ def ejecutar_auditoria():
             'nom_sector': m_info['nom_sector'],
             'nivel': m_info['nivel'],
             'gestion': m_info['gestion'],
-            'cantidad_liquidaciones': liq,
+            'cantidad_liquidaciones': con_cobro,
+            'cantidad_con_cobro': con_cobro,
+            'cantidad_sin_cobro': sin_cobro,
             'estado_depuracion': estado,
             'observaciones': obs,
             'establecimiento_id': est_id,
@@ -175,20 +199,23 @@ def ejecutar_auditoria():
 
     # B. Procesar combinaciones de sueldos NO catalogadas en el maestro
     sueldo_no_catalogados = 0
-    for (c, s), liq in sueldo_counts.items():
+    for (c, s), st in sueldo_stats.items():
         if (c, s) not in master_dict:
             sueldo_no_catalogados += 1
+            total_liq = st['total']
+            con_cobro = st['con_cobro']
+            sin_cobro = st['sin_cobro']
+
             ext_saneamiento = existing_saneamientos.get((c, s))
-            if ext_saneamiento:
-                estado = ext_saneamiento['estado_depuracion']
-                obs = ext_saneamiento['observaciones']
-                est_id = ext_saneamiento['establecimiento_id']
-                mod_id = ext_saneamiento.get('modalidad_id')
+            est_id = ext_saneamiento['establecimiento_id'] if ext_saneamiento else None
+            mod_id = ext_saneamiento.get('modalidad_id') if ext_saneamiento else None
+
+            if con_cobro == 0:
+                estado = 'INACTIVO'
+                obs = f"ATENCIÓN: Combinación no catalogada (Centro {c}, Sector {s}) con {total_liq} agentes sin cobro ($0)."
             else:
-                est_id = None
-                mod_id = None
                 estado = 'SUELDO_NO_CATALOGADO'
-                obs = f"ATENCIÓN: Se registraron {liq} haberes pero la combinación (Centro {c}, Sector {s}) NO existe en el catálogo maestro."
+                obs = f"ATENCIÓN: Se registraron {con_cobro} haberes con cobro pero la combinación (Centro {c}, Sector {s}) NO existe en el catálogo maestro."
             
             registros_depuracion.append({
                 'centro': c,
@@ -197,7 +224,9 @@ def ejecutar_auditoria():
                 'nom_sector': f"SECTOR {s} (NO CATALOGADO)",
                 'nivel': 'DESCONOCIDO',
                 'gestion': 'DESCONOCIDO',
-                'cantidad_liquidaciones': liq,
+                'cantidad_liquidaciones': con_cobro,
+                'cantidad_con_cobro': con_cobro,
+                'cantidad_sin_cobro': sin_cobro,
                 'estado_depuracion': estado,
                 'observaciones': obs,
                 'establecimiento_id': est_id,
@@ -211,7 +240,7 @@ def ejecutar_auditoria():
     conteo_estados = df_result['estado_depuracion'].value_counts()
     print("\n=== RESUMEN DE CLASIFICACIÓN DE DEPURACIÓN ===")
     for est, cnt in conteo_estados.items():
-        print(f" - {est:20s}: {cnt:5d} combinaciones")
+        print(f" - {est:22s}: {cnt:5d} combinaciones")
 
     # 4. Guardar en SQLite database/database.sqlite
     print(f"\n[4/5] Guardando resultados en la base de datos SQLite '{f_db}'...")
@@ -229,6 +258,8 @@ def ejecutar_auditoria():
         nivel TEXT,
         gestion TEXT,
         cantidad_liquidaciones INTEGER DEFAULT 0,
+        cantidad_con_cobro INTEGER DEFAULT 0,
+        cantidad_sin_cobro INTEGER DEFAULT 0,
         estado_depuracion TEXT NOT NULL,
         observaciones TEXT,
         establecimiento_id INTEGER,
@@ -243,10 +274,12 @@ def ejecutar_auditoria():
     cursor.executemany("""
     INSERT INTO depuracion_centros_sectores (
         centro, sector, nom_centro, nom_sector, nivel, gestion,
-        cantidad_liquidaciones, estado_depuracion, observaciones, establecimiento_id, modalidad_id, created_at, updated_at
+        cantidad_liquidaciones, cantidad_con_cobro, cantidad_sin_cobro,
+        estado_depuracion, observaciones, establecimiento_id, modalidad_id, created_at, updated_at
     ) VALUES (
         :centro, :sector, :nom_centro, :nom_sector, :nivel, :gestion,
-        :cantidad_liquidaciones, :estado_depuracion, :observaciones, :establecimiento_id, :modalidad_id, :created_at, :updated_at
+        :cantidad_liquidaciones, :cantidad_con_cobro, :cantidad_sin_cobro,
+        :estado_depuracion, :observaciones, :establecimiento_id, :modalidad_id, :created_at, :updated_at
     )
     """, registros_depuracion)
 
@@ -262,15 +295,17 @@ def ejecutar_auditoria():
             df_result.to_excel(writer, sheet_name='Depuración Completa', index=False)
             
             # Hojas resumidas
+            df_result[df_result['estado_depuracion'] == 'ACTIVO'].to_excel(writer, sheet_name='Activos con Cobro', index=False)
+            df_result[df_result['estado_depuracion'] == 'INACTIVO'].to_excel(writer, sheet_name='Inactivos Sin Cobro', index=False)
             df_result[df_result['estado_depuracion'] == 'CENTRO_SIN_USO'].to_excel(writer, sheet_name='Centros Sin Uso', index=False)
-            df_result[df_result['estado_depuracion'] == 'SUELDO_NO_CATALOGADO'].to_excel(writer, sheet_name='Sueldos No Catalogados', index=False)
             df_result[df_result['estado_depuracion'] == 'SECTOR_SIN_USO'].to_excel(writer, sheet_name='Sectores Sin Uso', index=False)
+            df_result[df_result['estado_depuracion'] == 'SUELDO_NO_CATALOGADO'].to_excel(writer, sheet_name='Sueldos No Catalogados', index=False)
         print(f"   -> Reporte Excel generado exitosamente.")
     except Exception as e:
         print(f"   -> AVISO: No se pudo sobrescribir el Excel ({e}). Si está abierto en Excel, ciérrelo para actualizarlo.")
 
     print("======================================================================")
-    print("=== SPRINT 1 COMPLETADO EXITOSAMENTE ===")
+    print("=== AUDITORÍA Y DEPURACIÓN COMPLETADA EXITOSAMENTE ===")
     print("======================================================================")
 
 if __name__ == '__main__':

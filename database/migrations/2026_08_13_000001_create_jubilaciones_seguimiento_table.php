@@ -11,17 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('jubilaciones_seguimiento', function (Blueprint $table) {
-            $table->id();
-            $table->string('cuil')->index();
-            $table->integer('centro')->nullable()->index();
-            $table->integer('sector')->nullable()->index();
-            $table->string('estado_jubilacion')->default('PENDIENTE')->index(); // PENDIENTE, ACTIVO, JUBILADO, EN_TRAMITE
-            $table->text('observaciones')->nullable();
-            $table->timestamps();
+        if (!Schema::hasTable('jubilaciones_seguimiento')) {
+            Schema::create('jubilaciones_seguimiento', function (Blueprint $table) {
+                $table->id();
+                $table->string('cuil')->index();
+                $table->integer('centro')->nullable()->index();
+                $table->integer('sector')->nullable()->index();
+                $table->string('estado_jubilacion')->default('PENDIENTE')->index(); // PENDIENTE, ACTIVO, JUBILADO, EN_TRAMITE
+                $table->text('observaciones')->nullable();
+                $table->timestamps();
 
-            $table->unique(['cuil', 'centro', 'sector'], 'uniq_cuil_centro_sector');
-        });
+                $table->unique(['cuil', 'centro', 'sector'], 'uniq_cuil_centro_sector');
+            });
+        }
 
         if (Schema::hasTable('nomina_sueldo_registros')) {
             Schema::table('nomina_sueldo_registros', function (Blueprint $table) {

@@ -1448,6 +1448,9 @@ class AuditoriaSueldosController extends Controller
                 $estadoDesvio = 'NO_COBRA';
             }
 
+            $montoTotal = floatval($d->a01_basico ?? 0) + floatval($d->a04_radio ?? 0);
+            $registraCobro = ($montoTotal > 0 || floatval($d->a01_basico ?? 0) > 0 || floatval($d->a04_radio ?? 0) > 0);
+
             return [
                 'cuil' => $d->cuil,
                 'apellido_nombre' => $d->apellido_nombre,
@@ -1458,7 +1461,9 @@ class AuditoriaSueldosController extends Controller
                 'porcentaje_calculado' => $d->porcentaje_calculado,
                 'radio_deducido' => $rDeducido,
                 'radio_sige' => $rSige,
-                'estado_desvio' => $estadoDesvio
+                'estado_desvio' => $estadoDesvio,
+                'registra_cobro' => $registraCobro,
+                'monto_total' => $montoTotal
             ];
         });
 
