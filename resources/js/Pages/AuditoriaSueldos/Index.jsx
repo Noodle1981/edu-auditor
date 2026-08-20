@@ -4141,6 +4141,95 @@ export default function AuditoriaSueldosIndex({
               </button>
             </div>
 
+            {/* Ficha Informativa: Establecimiento, Nivel y Zona */}
+            <div className="mb-4 p-3 bg-gradient-to-br from-orange-50/90 via-amber-50/50 to-orange-50/40 border border-orange-200/80 rounded-2xl space-y-2.5 shadow-2xs">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                {/* Establecimiento / Sector */}
+                <div className="md:col-span-3 bg-white/90 p-2.5 rounded-xl border border-orange-100/90 shadow-2xs">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wide text-orange-950 flex items-center gap-1.5 mb-1">
+                    <i className="fa-solid fa-school text-[#FE8204]"></i>
+                    <span>Nombre de Establecimiento / Sector:</span>
+                  </div>
+                  <div className="font-black text-gray-900 text-sm leading-snug break-words">
+                    {sanearDepuracionModalItem.nom_sector || sanearDepuracionModalItem.nom_centro || 'Sin denominación'}
+                  </div>
+                  {sanearDepuracionModalItem.nom_centro && sanearDepuracionModalItem.nom_sector && sanearDepuracionModalItem.nom_centro !== sanearDepuracionModalItem.nom_sector && (
+                    <div className="text-[11px] text-gray-600 font-medium mt-1 flex items-center gap-1 flex-wrap">
+                      <span className="font-bold text-gray-700">Centro ({sanearDepuracionModalItem.centro}):</span>
+                      <span>{sanearDepuracionModalItem.nom_centro}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Nivel y Gestión */}
+                <div className="bg-white/90 p-2.5 rounded-xl border border-orange-100/90 shadow-2xs flex flex-col justify-between">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wide text-orange-950 flex items-center gap-1.5 mb-1">
+                    <i className="fa-solid fa-graduation-cap text-[#FE8204]"></i>
+                    <span>Nivel / Gestión:</span>
+                  </div>
+                  <div className="font-black text-gray-900 text-xs leading-tight">
+                    {sanearDepuracionModalItem.nivel || 'S/N'}
+                    {sanearDepuracionModalItem.gestion && (
+                      <span className="text-gray-600 font-semibold text-[11px] ml-1">
+                        ({sanearDepuracionModalItem.gestion})
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Zona / Radio Sueldo */}
+                <div className="bg-white/90 p-2.5 rounded-xl border border-orange-100/90 shadow-2xs flex flex-col justify-between">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wide text-orange-950 flex items-center gap-1.5 mb-1">
+                    <i className="fa-solid fa-location-dot text-[#FE8204]"></i>
+                    <span>Zona / Radio Sueldo:</span>
+                  </div>
+                  <div className="font-bold text-gray-900 text-xs leading-tight flex items-center gap-1.5 flex-wrap">
+                    {sanearDepuracionModalItem.zona_sueldo && (
+                      <span className="px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded font-black text-[11px] border border-purple-200 shadow-2xs">
+                        Zona {sanearDepuracionModalItem.zona_sueldo}
+                      </span>
+                    )}
+                    {sanearDepuracionModalItem.radio_sueldo !== undefined && sanearDepuracionModalItem.radio_sueldo !== null ? (
+                      <span className="px-1.5 py-0.5 bg-amber-100 text-amber-900 rounded font-black text-[11px] border border-amber-200 shadow-2xs">
+                        Radio {sanearDepuracionModalItem.radio_sueldo} {sanearDepuracionModalItem.porc_radio !== undefined && sanearDepuracionModalItem.porc_radio !== null ? `(${sanearDepuracionModalItem.porc_radio}%)` : ''}
+                      </span>
+                    ) : !sanearDepuracionModalItem.zona_sueldo ? (
+                      <span className="text-gray-400 italic text-[11px]">S/D</span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* Agentes / Cobro */}
+                <div className="bg-white/90 p-2.5 rounded-xl border border-orange-100/90 shadow-2xs flex flex-col justify-between">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wide text-orange-950 flex items-center gap-1.5 mb-1">
+                    <i className="fa-solid fa-users text-[#FE8204]"></i>
+                    <span>Personal Liquidado:</span>
+                  </div>
+                  <div className="font-bold text-gray-900 text-xs leading-tight">
+                    <span className="text-emerald-700 font-black">
+                      {sanearDepuracionModalItem.cantidad_con_cobro ?? sanearDepuracionModalItem.cantidad_liquidaciones ?? 0} con cobro
+                    </span>
+                    {sanearDepuracionModalItem.cantidad_sin_cobro > 0 && (
+                      <span className="text-gray-500 font-semibold text-[11px] ml-1">
+                        (+{sanearDepuracionModalItem.cantidad_sin_cobro} $0)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Si ya está vinculado a un CUE actualmente, indicarlo */}
+              {sanearDepuracionModalItem.cue_vinculado && (
+                <div className="text-[11px] bg-emerald-50 border border-emerald-300 rounded-xl px-2.5 py-1.5 text-emerald-950 flex items-center gap-2">
+                  <i className="fa-solid fa-circle-check text-emerald-600 shrink-0"></i>
+                  <span>
+                    <b>Actualmente Vinculado:</b> {sanearDepuracionModalItem.nom_establecimiento_vinculado} <span className="font-mono font-bold">(CUE {sanearDepuracionModalItem.cue_vinculado})</span>
+                    {sanearDepuracionModalItem.nivel_educativo_vinculado && ` - ${sanearDepuracionModalItem.nivel_educativo_vinculado}`}
+                  </span>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Buscar y Seleccionar Escuela (CUE):</label>

@@ -430,14 +430,32 @@ class AuditoriaSueldosController extends Controller
             ->orderBy('d.sector')
             ->get();
 
+        $subSueldos = DB::table('nomina_sueldo_registros')
+            ->where('nomina_id', $nominaSeleccionada->id)
+            ->select(
+                'centro',
+                'sector',
+                DB::raw('MAX(zona) as zona_sueldo'),
+                DB::raw('MAX(radio_deducido) as radio_sueldo'),
+                DB::raw('MAX(porcentaje_calculado) as porc_radio')
+            )
+            ->groupBy('centro', 'sector');
+
         $depuracionCentros = DB::table('depuracion_centros_sectores as d')
             ->leftJoin('establecimientos as e', 'e.id', '=', 'd.establecimiento_id')
             ->leftJoin('modalidades as m', 'm.id', '=', 'd.modalidad_id')
+            ->leftJoinSub($subSueldos, 's', function ($join) {
+                $join->on('s.centro', '=', 'd.centro')
+                     ->on('s.sector', '=', 'd.sector');
+            })
             ->select(
                 'd.*',
                 'e.cue as cue_vinculado',
                 'e.nombre as nom_establecimiento_vinculado',
-                'm.nivel_educativo as nivel_educativo_vinculado'
+                'm.nivel_educativo as nivel_educativo_vinculado',
+                's.zona_sueldo',
+                's.radio_sueldo',
+                's.porc_radio'
             )
             ->orderBy('d.estado_depuracion', 'asc')
             ->orderBy('d.centro', 'asc')
@@ -681,14 +699,40 @@ class AuditoriaSueldosController extends Controller
         });
 
         // Obtener registro refrescado con datos de la escuela para reactualizar el listado en frontend
-        $updatedItem = DB::table('depuracion_centros_sectores as d')
+        $lastNomina = NominaSueldo::orderBy('periodo', 'desc')->first();
+        $subSueldos = null;
+        if ($lastNomina) {
+            $subSueldos = DB::table('nomina_sueldo_registros')
+                ->where('nomina_id', $lastNomina->id)
+                ->select(
+                    'centro',
+                    'sector',
+                    DB::raw('MAX(zona) as zona_sueldo'),
+                    DB::raw('MAX(radio_deducido) as radio_sueldo'),
+                    DB::raw('MAX(porcentaje_calculado) as porc_radio')
+                )
+                ->groupBy('centro', 'sector');
+        }
+
+        $query = DB::table('depuracion_centros_sectores as d')
             ->leftJoin('establecimientos as e', 'e.id', '=', 'd.establecimiento_id')
-            ->leftJoin('modalidades as m', 'm.id', '=', 'd.modalidad_id')
-            ->select(
+            ->leftJoin('modalidades as m', 'm.id', '=', 'd.modalidad_id');
+
+        if ($subSueldos) {
+            $query->leftJoinSub($subSueldos, 's', function ($join) {
+                $join->on('s.centro', '=', 'd.centro')
+                     ->on('s.sector', '=', 'd.sector');
+            });
+        }
+
+        $updatedItem = $query->select(
                 'd.*',
                 'e.cue as cue_vinculado',
                 'e.nombre as nom_establecimiento_vinculado',
-                'm.nivel_educativo as nivel_educativo_vinculado'
+                'm.nivel_educativo as nivel_educativo_vinculado',
+                's.zona_sueldo',
+                's.radio_sueldo',
+                's.porc_radio'
             )
             ->where('d.id', $item->id)
             ->first();
