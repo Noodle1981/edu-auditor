@@ -42,16 +42,28 @@ class AdministrativoController extends Controller
         $options = $this->queryService->getFilterOptions();
         $options['areas'] = ['ADMINISTRACIÓN'];
 
-        $adminNiveles = Modalidad::where('direccion_area', 'ADMINISTRACIÓN')
+        $adminNivelesMap = Modalidad::where('direccion_area', 'ADMINISTRACIÓN')
             ->whereNotNull('nivel_educativo')
             ->where('nivel_educativo', '<>', '')
-            ->distinct()
-            ->orderBy('nivel_educativo')
-            ->pluck('nivel_educativo')
+            ->select('nivel_educativo', DB::raw('COUNT(*) as total'))
+            ->groupBy('nivel_educativo')
+            ->pluck('total', 'nivel_educativo')
             ->toArray();
 
         $defaultNiveles = ['ADMINISTRATIVO', 'JUNTA DE CLASIFICACIÓN', 'SUPERVISIÓN', 'BIBLIOTECA DEL MAGISTERIO', 'MINISTERIO'];
-        $options['niveles'] = array_values(array_unique(array_merge($defaultNiveles, $adminNiveles)));
+        $allNiveles = array_values(array_unique(array_merge($defaultNiveles, array_keys($adminNivelesMap))));
+        sort($allNiveles);
+
+        $categoriasDetalle = [];
+        foreach ($allNiveles as $cat) {
+            $categoriasDetalle[] = [
+                'nombre' => $cat,
+                'total' => (int) ($adminNivelesMap[$cat] ?? 0),
+            ];
+        }
+
+        $options['niveles'] = $allNiveles;
+        $options['categorias_detalle'] = $categoriasDetalle;
         $options['ambitos'] = ['PUBLICO', 'PRIVADO'];
 
         return Inertia::render('Admin/Oficinas/Index', [
@@ -139,5 +151,62 @@ class AdministrativoController extends Controller
         $this->exportService->autoSizeColumns($sheet, count($headers));
 
         return $this->exportService->download($spreadsheet, 'oficinas_centrales.xlsx');
+    }
+
+    /**
+     * Rename an administrative category across all administrative offices.
+     */
+    public function renameCategoria(Request $request, ActivityLogService $activityLogger)
+    {
+        $validated = $request->validate([
+            'nombre_actual' => 'required|string|max:150',
+            'nuevo_nombre' => 'required|string|max:150',
+        ]);
+
+        $nombreActual = trim($validated['nombre_actual']);
+        $nuevoNombre = mb_strtoupper(trim($validated['nuevo_nombre']), 'UTF-8');
+
+        if ($nombreActual === $nuevoNombre) {
+            return back()->with('info', 'El nuevo nombre es idéntico al actual.');
+        }
+
+        $count = DB::transaction(function () use ($nombreActual, $nuevoNombre) {
+            $modalidades = Modalidad::where('direccion_area', 'ADMINISTRACIÓN')
+                ->where('nivel_educativo', $nombreActual)
+                ->get();
+
+            $updatedCount = 0;
+            foreach ($modalidades as $mod) {
+                $mod->nivel_educativo = $nuevoNombre;
+                $mod->save();
+                $updatedCount++;
+            }
+
+            return $updatedCount;
+        });
+
+        return back()->with('success', "Categoría '{$nombreActual}' renombrada a '{$nuevoNombre}' exitosamente ({$count} reparticiones actualizadas).");
+    }
+
+    /**
+     * Delete or reassign an administrative category.
+     */
+    public function deleteCategoria(Request $request, ActivityLogService $activityLogger)
+    {
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:150',
+            'reasignar_a' => 'nullable|string|max:150',
+        ]);
+
+        $nombre = trim($validated['nombre']);
+        $reasignarA = !empty($validated['reasignar_a']) ? mb_strtoupper(trim($validated['reasignar_a']), 'UTF-8') : 'ADMINISTRATIVO';
+
+        $count = DB::transaction(function () use ($nombre, $reasignarA) {
+            return Modalidad::where('direccion_area', 'ADMINISTRACIÓN')
+                ->where('nivel_educativo', $nombre)
+                ->update(['nivel_educativo' => $reasignarA]);
+        });
+
+        return back()->with('success', "Categoría '{$nombre}' eliminada. {$count} reparticiones fueron reasignadas a '{$reasignarA}'.");
     }
 }

@@ -601,8 +601,11 @@ class AuditoriaSueldosController extends Controller
             $updateData['estado_auditoria'] = $estadoAuditoria;
             $updateData['notas_auditor'] = 'Asociado en auditoría a CUE '.$est->cue.': '.$obs;
         } else {
+            $updateData['nombre_establecimiento'] = null;
+            $updateData['cue'] = null;
+            $updateData['radio_sige'] = null;
             $updateData['estado_auditoria'] = $estadoAuditoria;
-            $updateData['notas_auditor'] = 'Dado de baja / Cerrado: '.$obs;
+            $updateData['notas_auditor'] = ($estadoGestion === 'DADO_DE_BAJA' ? 'Dado de baja / Cerrado: ' : 'Sector desvinculado: ').$obs;
         }
 
         $query->update($updateData);

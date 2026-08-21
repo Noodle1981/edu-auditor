@@ -199,4 +199,36 @@ class AdministrativoTest extends TestCase
         // After creation, cache must be invalidated and return "Administración Central"
         $this->assertEquals('Administración Central', Edificio::getNamesMap()[$edificioNuevo->id]);
     }
+
+    public function test_can_rename_administrative_category(): void
+    {
+        $response = $this->actingAs($this->adminUser)
+            ->post('/admin/oficinas-centrales/categorias/renombrar', [
+                'nombre_actual' => 'ADMINISTRATIVO',
+                'nuevo_nombre' => 'ADMINISTRACIÓN CENTRAL',
+            ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('modalidades', [
+            'id' => $this->adminModalidad->id,
+            'direccion_area' => 'ADMINISTRACIÓN',
+            'nivel_educativo' => 'ADMINISTRACIÓN CENTRAL',
+        ]);
+    }
+
+    public function test_can_delete_and_reassign_administrative_category(): void
+    {
+        $response = $this->actingAs($this->adminUser)
+            ->post('/admin/oficinas-centrales/categorias/eliminar', [
+                'nombre' => 'ADMINISTRATIVO',
+                'reasignar_a' => 'SUPERVISIÓN',
+            ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('modalidades', [
+            'id' => $this->adminModalidad->id,
+            'direccion_area' => 'ADMINISTRACIÓN',
+            'nivel_educativo' => 'SUPERVISIÓN',
+        ]);
+    }
 }

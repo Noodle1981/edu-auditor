@@ -78,6 +78,8 @@ Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::patch('/admin/oficinas-centrales/{id}', [AdministrativoController::class, 'update'])->name('admin.oficinas.update');
     Route::delete('/admin/oficinas-centrales/{id}', [AdministrativoController::class, 'destroy'])->name('admin.oficinas.destroy');
     Route::get('/admin/oficinas-centrales/export', [AdministrativoController::class, 'export'])->name('admin.oficinas.export');
+    Route::post('/admin/oficinas-centrales/categorias/renombrar', [AdministrativoController::class, 'renameCategoria'])->name('admin.oficinas.categorias.rename');
+    Route::post('/admin/oficinas-centrales/categorias/eliminar', [AdministrativoController::class, 'deleteCategoria'])->name('admin.oficinas.categorias.delete');
 
     // API Lookups
     Route::get('/api/lookup-edificio/{cui}', [ModalidadController::class, 'lookupEdificio'])->name('api.lookup-edificio');

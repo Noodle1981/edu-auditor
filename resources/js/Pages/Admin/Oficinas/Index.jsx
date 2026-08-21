@@ -40,6 +40,7 @@ export default function Index({
     const [showEditModal, setShowEditModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showCategoriasModal, setShowCategoriasModal] = useState(false);
 
     // Filter handling
     const applyFilters = useMemo(
@@ -160,6 +161,13 @@ export default function Index({
                             <i className="fas fa-plus"></i>
                             <span className="text-sm">Nueva Modalidad</span>
                         </PrimaryButton>
+                        <button
+                            type="button"
+                            onClick={() => setShowCategoriasModal(true)}
+                            className="flex w-full items-center justify-center gap-3 rounded-2xl border border-orange-200 bg-orange-50/70 py-3 text-[10px] font-black uppercase tracking-widest text-brand-orange shadow-xs transition-all hover:bg-brand-orange hover:text-white cursor-pointer"
+                        >
+                            <i className="fas fa-tags"></i> Gestionar Categorías
+                        </button>
                         <a
                             href={route(
                                 'admin.oficinas.export',
@@ -212,14 +220,36 @@ export default function Index({
                                     handleParamChange('direccion_area', v)
                                 }
                             />
-                            <FilterSelect
-                                label="Categoría Administrativa"
-                                value={filters.nivel_educativo}
-                                options={options.niveles}
-                                onChange={(v) =>
-                                    handleParamChange('nivel_educativo', v)
-                                }
-                            />
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                    <InputLabel value="Categoría Administrativa" />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCategoriasModal(true)}
+                                        className="text-[10px] font-black uppercase tracking-wider text-brand-orange hover:underline cursor-pointer flex items-center gap-1"
+                                        title="Gestionar y editar categorías"
+                                    >
+                                        <i className="fas fa-cog text-[9px]"></i> Editar
+                                    </button>
+                                </div>
+                                <select
+                                    value={filters.nivel_educativo || ''}
+                                    onChange={(e) =>
+                                        handleParamChange(
+                                            'nivel_educativo',
+                                            e.target.value,
+                                        )
+                                    }
+                                    className="w-full rounded-xl border-gray-200 text-xs font-bold focus:border-brand-orange focus:ring-brand-orange"
+                                >
+                                    <option value="">Cualquiera</option>
+                                    {(options.niveles || []).map((o) => (
+                                        <option key={o} value={o}>
+                                            {o}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                             <FilterSelect
                                 label="Ámbito"
                                 value={filters.ambito}
@@ -510,10 +540,17 @@ export default function Index({
                 modalidad={selectedModalidad}
                 options={options}
                 nombresEdificios={nombresEdificios}
+                onOpenGestionCategorias={() => setShowCategoriasModal(true)}
             />
             <CreateModalidadModal
                 show={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
+                options={options}
+                onOpenGestionCategorias={() => setShowCategoriasModal(true)}
+            />
+            <GestionCategoriasModal
+                show={showCategoriasModal}
+                onClose={() => setShowCategoriasModal(false)}
                 options={options}
             />
         </SIAMELayout>
@@ -684,6 +721,7 @@ function EditModalidadModal({
     modalidad,
     options,
     nombresEdificios = {},
+    onOpenGestionCategorias,
 }) {
     const { data, setData, patch, processing, errors } = useForm({
         cui: '',
@@ -861,20 +899,32 @@ function EditModalidadModal({
                             <div>
                                 <div className="flex items-center justify-between mb-1">
                                     <InputLabel value="Categoría Administrativa" />
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const next = !isCustomCategoria;
-                                            setIsCustomCategoria(next);
-                                            if (next) {
-                                                setData('nivel_educativo', '');
-                                            }
-                                        }}
-                                        className="text-[11px] font-bold text-brand-orange hover:text-orange-700 transition-colors cursor-pointer flex items-center gap-1"
-                                    >
-                                        <i className={`fa-solid ${isCustomCategoria ? 'fa-list' : 'fa-plus'}`}></i>
-                                        {isCustomCategoria ? 'Elegir de la lista' : '+ Nueva categoría'}
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        {onOpenGestionCategorias && (
+                                            <button
+                                                type="button"
+                                                onClick={onOpenGestionCategorias}
+                                                className="h-6 w-6 rounded-md flex items-center justify-center text-gray-400 hover:text-brand-orange hover:bg-orange-50 transition-colors cursor-pointer"
+                                                title="Editar / Gestionar categorías"
+                                            >
+                                                <i className="fa-solid fa-pen-to-square text-xs"></i>
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const next = !isCustomCategoria;
+                                                setIsCustomCategoria(next);
+                                                if (next) {
+                                                    setData('nivel_educativo', '');
+                                                }
+                                            }}
+                                            className="h-6 w-6 rounded-md flex items-center justify-center text-brand-orange hover:text-orange-700 hover:bg-orange-50 transition-colors cursor-pointer"
+                                            title={isCustomCategoria ? 'Elegir de la lista' : 'Nueva categoría'}
+                                        >
+                                            <i className={`fa-solid ${isCustomCategoria ? 'fa-list' : 'fa-plus'} text-xs`}></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 {isCustomCategoria ? (
                                     <div className="relative">
@@ -897,6 +947,8 @@ function EditModalidadModal({
                                             if (e.target.value === '__NEW__') {
                                                 setIsCustomCategoria(true);
                                                 setData('nivel_educativo', '');
+                                            } else if (e.target.value === '__MANAGE__') {
+                                                onOpenGestionCategorias?.();
                                             } else {
                                                 setData('nivel_educativo', e.target.value);
                                             }
@@ -910,6 +962,9 @@ function EditModalidadModal({
                                         ))}
                                         <option value="__NEW__" className="font-bold text-brand-orange">
                                             + Escribir nueva categoría personalizada...
+                                        </option>
+                                        <option value="__MANAGE__" className="font-bold text-blue-600">
+                                            ⚙️ Editar / Renombrar categorías existentes...
                                         </option>
                                     </select>
                                 )}
@@ -992,7 +1047,7 @@ function EditModalidadModal({
     );
 }
 
-function CreateModalidadModal({ show, onClose, options }) {
+function CreateModalidadModal({ show, onClose, options, onOpenGestionCategorias }) {
     const defaultValues = {
         nombre_establecimiento: 'Administración Central',
         cue: '700000000',
@@ -1189,20 +1244,32 @@ function CreateModalidadModal({ show, onClose, options }) {
                             <div>
                                 <div className="flex items-center justify-between mb-1">
                                     <InputLabel value="Categoría Administrativa" />
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const next = !isCustomCategoria;
-                                            setIsCustomCategoria(next);
-                                            if (next) {
-                                                setData('nivel_educativo', '');
-                                            }
-                                        }}
-                                        className="text-[11px] font-bold text-brand-orange hover:text-orange-700 transition-colors cursor-pointer flex items-center gap-1"
-                                    >
-                                        <i className={`fa-solid ${isCustomCategoria ? 'fa-list' : 'fa-plus'}`}></i>
-                                        {isCustomCategoria ? 'Elegir de la lista' : '+ Nueva categoría'}
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        {onOpenGestionCategorias && (
+                                            <button
+                                                type="button"
+                                                onClick={onOpenGestionCategorias}
+                                                className="h-6 w-6 rounded-md flex items-center justify-center text-gray-400 hover:text-brand-orange hover:bg-orange-50 transition-colors cursor-pointer"
+                                                title="Editar / Gestionar categorías"
+                                            >
+                                                <i className="fa-solid fa-pen-to-square text-xs"></i>
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const next = !isCustomCategoria;
+                                                setIsCustomCategoria(next);
+                                                if (next) {
+                                                    setData('nivel_educativo', '');
+                                                }
+                                            }}
+                                            className="h-6 w-6 rounded-md flex items-center justify-center text-brand-orange hover:text-orange-700 hover:bg-orange-50 transition-colors cursor-pointer"
+                                            title={isCustomCategoria ? 'Elegir de la lista' : 'Nueva categoría'}
+                                        >
+                                            <i className={`fa-solid ${isCustomCategoria ? 'fa-list' : 'fa-plus'} text-xs`}></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 {isCustomCategoria ? (
                                     <div className="relative">
@@ -1225,6 +1292,8 @@ function CreateModalidadModal({ show, onClose, options }) {
                                             if (e.target.value === '__NEW__') {
                                                 setIsCustomCategoria(true);
                                                 setData('nivel_educativo', '');
+                                            } else if (e.target.value === '__MANAGE__') {
+                                                onOpenGestionCategorias?.();
                                             } else {
                                                 setData('nivel_educativo', e.target.value);
                                             }
@@ -1238,6 +1307,9 @@ function CreateModalidadModal({ show, onClose, options }) {
                                         ))}
                                         <option value="__NEW__" className="font-bold text-brand-orange">
                                             + Escribir nueva categoría personalizada...
+                                        </option>
+                                        <option value="__MANAGE__" className="font-bold text-blue-600">
+                                            ⚙️ Editar / Renombrar categorías existentes...
                                         </option>
                                     </select>
                                 )}
@@ -1327,5 +1399,291 @@ function DetailItem({ icon, label, value }) {
                 </p>
             </div>
         </div>
+    );
+}
+
+function GestionCategoriasModal({ show, onClose, options }) {
+    const categorias = options?.categorias_detalle || (options?.niveles || []).map(n => ({ nombre: n, total: 0 }));
+    const [editingCat, setEditingCat] = useState(null);
+    const [deletingCat, setDeletingCat] = useState(null);
+    const [searchFilter, setSearchFilter] = useState('');
+    const [processing, setProcessing] = useState(false);
+
+    const filteredCategorias = useMemo(() => {
+        if (!searchFilter.trim()) return categorias;
+        const term = searchFilter.toLowerCase().trim();
+        return categorias.filter(c => c.nombre.toLowerCase().includes(term));
+    }, [categorias, searchFilter]);
+
+    const handleStartEdit = (cat) => {
+        setEditingCat({
+            nombre_actual: cat.nombre,
+            nuevo_nombre: cat.nombre,
+        });
+        setDeletingCat(null);
+    };
+
+    const handleSaveEdit = (e) => {
+        e?.preventDefault();
+        if (!editingCat || !editingCat.nuevo_nombre.trim()) return;
+
+        setProcessing(true);
+        router.post(
+            route('admin.oficinas.categorias.rename'),
+            {
+                nombre_actual: editingCat.nombre_actual,
+                nuevo_nombre: editingCat.nuevo_nombre.trim().toUpperCase(),
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setEditingCat(null);
+                    setProcessing(false);
+                },
+                onError: () => setProcessing(false),
+            }
+        );
+    };
+
+    const handleStartDelete = (cat) => {
+        const otherCats = categorias.filter(c => c.nombre !== cat.nombre);
+        const defaultReassign = otherCats.find(c => c.nombre === 'ADMINISTRATIVO')?.nombre || otherCats[0]?.nombre || 'ADMINISTRATIVO';
+        setDeletingCat({
+            nombre: cat.nombre,
+            total: cat.total,
+            reasignar_a: defaultReassign,
+        });
+        setEditingCat(null);
+    };
+
+    const handleConfirmDelete = (e) => {
+        e?.preventDefault();
+        if (!deletingCat) return;
+
+        setProcessing(true);
+        router.post(
+            route('admin.oficinas.categorias.delete'),
+            {
+                nombre: deletingCat.nombre,
+                reasignar_a: deletingCat.reasignar_a,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setDeletingCat(null);
+                    setProcessing(false);
+                },
+                onError: () => setProcessing(false),
+            }
+        );
+    };
+
+    return (
+        <Modal show={show} onClose={onClose} maxWidth="xl">
+            <div className="p-6">
+                <div className="flex items-center justify-between border-b pb-4 mb-4">
+                    <div className="flex items-center gap-2.5">
+                        <div className="rounded-xl bg-orange-50 p-2 text-brand-orange">
+                            <i className="fas fa-tags"></i>
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-gray-900">
+                                Gestión de Categorías Administrativas
+                            </h3>
+                            <p className="text-xs text-gray-500">
+                                Edite, renombre o elimine las categorías asignadas a las reparticiones.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-600 rounded-lg p-1.5 transition-colors cursor-pointer"
+                    >
+                        <i className="fas fa-times text-sm"></i>
+                    </button>
+                </div>
+
+                {/* Search / Filter input */}
+                <div className="mb-4">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Buscar categoría..."
+                            value={searchFilter}
+                            onChange={(e) => setSearchFilter(e.target.value)}
+                            className="w-full rounded-xl border-gray-200 py-2 pl-9 pr-4 text-xs font-semibold focus:border-brand-orange focus:ring-brand-orange"
+                        />
+                        <i className="fas fa-search absolute left-3 top-2.5 text-gray-400 text-xs"></i>
+                    </div>
+                </div>
+
+                {/* Deleting Confirmation Box */}
+                {deletingCat && (
+                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50/70 p-4 space-y-3">
+                        <div className="flex items-start gap-2 text-red-800">
+                            <i className="fas fa-exclamation-triangle mt-0.5 text-red-600"></i>
+                            <div>
+                                <h4 className="text-xs font-black">
+                                    Eliminar categoría &quot;{deletingCat.nombre}&quot;
+                                </h4>
+                                {deletingCat.total > 0 ? (
+                                    <p className="text-[11px] text-red-700 mt-0.5">
+                                        Hay <b>{deletingCat.total} repartición(es)</b> asociadas a esta categoría. Seleccione a qué categoría desea reasignarlas:
+                                    </p>
+                                ) : (
+                                    <p className="text-[11px] text-red-700 mt-0.5">
+                                        Esta categoría no tiene reparticiones asociadas actualmente.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {deletingCat.total > 0 && (
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-600 mb-1">
+                                    Reasignar a:
+                                </label>
+                                <select
+                                    value={deletingCat.reasignar_a}
+                                    onChange={(e) => setDeletingCat(prev => ({ ...prev, reasignar_a: e.target.value }))}
+                                    className="w-full rounded-xl border-gray-300 text-xs font-bold focus:border-brand-orange focus:ring-brand-orange"
+                                >
+                                    {categorias
+                                        .filter(c => c.nombre !== deletingCat.nombre)
+                                        .map(c => (
+                                            <option key={c.nombre} value={c.nombre}>
+                                                {c.nombre} ({c.total} oficinas)
+                                            </option>
+                                        ))}
+                                </select>
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                                type="button"
+                                onClick={() => setDeletingCat(null)}
+                                className="px-3 py-1.5 text-xs font-bold text-gray-600 hover:bg-gray-200 rounded-lg transition cursor-pointer"
+                                disabled={processing}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDelete}
+                                className="px-3 py-1.5 text-xs font-black text-white bg-red-600 hover:bg-red-700 rounded-lg transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                                disabled={processing}
+                            >
+                                {processing ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-trash"></i>}
+                                Confirmar Eliminación
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Categories List */}
+                <div className="max-h-80 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                    {filteredCategorias.map((cat) => {
+                        const isEditing = editingCat?.nombre_actual === cat.nombre;
+
+                        if (isEditing) {
+                            return (
+                                <form
+                                    key={cat.nombre}
+                                    onSubmit={handleSaveEdit}
+                                    className="flex items-center gap-2 p-2.5 rounded-xl border-2 border-brand-orange bg-orange-50/50 shadow-xs"
+                                >
+                                    <input
+                                        type="text"
+                                        value={editingCat.nuevo_nombre}
+                                        onChange={(e) => setEditingCat(prev => ({ ...prev, nuevo_nombre: e.target.value }))}
+                                        className="flex-1 rounded-lg border-gray-300 px-2.5 py-1.5 text-xs font-bold uppercase focus:border-brand-orange focus:ring-brand-orange"
+                                        autoFocus
+                                        disabled={processing}
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={processing || !editingCat.nuevo_nombre.trim()}
+                                        className="px-3 py-1.5 text-xs font-black text-white bg-brand-orange hover:bg-orange-600 rounded-lg shadow-xs transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                        title="Guardar nombre"
+                                    >
+                                        {processing ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-check"></i>}
+                                        <span>Guardar</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditingCat(null)}
+                                        className="px-2.5 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-200 rounded-lg transition cursor-pointer"
+                                        title="Cancelar edición"
+                                        disabled={processing}
+                                    >
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                </form>
+                            );
+                        }
+
+                        return (
+                            <div
+                                key={cat.nombre}
+                                className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-orange-50/30 hover:border-orange-100 transition-all group"
+                            >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="h-2 w-2 rounded-full bg-brand-orange shrink-0"></div>
+                                    <div className="truncate">
+                                        <span className="text-xs font-black text-gray-800 block truncate">
+                                            {cat.nombre}
+                                        </span>
+                                    </div>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
+                                        cat.total > 0
+                                            ? 'bg-orange-100 text-brand-orange'
+                                            : 'bg-gray-200/70 text-gray-600'
+                                    }`}>
+                                        {cat.total} {cat.total === 1 ? 'oficina' : 'oficinas'}
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleStartEdit(cat)}
+                                        className="px-2.5 py-1 text-xs font-bold text-brand-orange bg-orange-50 hover:bg-brand-orange hover:text-white rounded-lg transition shadow-2xs flex items-center gap-1 cursor-pointer"
+                                        title={`Editar o renombrar categoría ${cat.nombre}`}
+                                    >
+                                        <i className="fas fa-pen-to-square text-[10px]"></i>
+                                        <span>Editar</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleStartDelete(cat)}
+                                        className="px-2.5 py-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-600 hover:text-white rounded-lg transition shadow-2xs flex items-center gap-1 cursor-pointer"
+                                        title={`Eliminar categoría ${cat.nombre}`}
+                                    >
+                                        <i className="fas fa-trash text-[10px]"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+
+                    {filteredCategorias.length === 0 && (
+                        <p className="text-center py-6 text-xs text-gray-400 font-medium italic">
+                            No se encontraron categorías con ese criterio.
+                        </p>
+                    )}
+                </div>
+
+                <div className="mt-6 border-t pt-4 flex items-center justify-between">
+                    <p className="text-[11px] text-gray-400">
+                        Total: <b>{categorias.length} categorías registradas</b>
+                    </p>
+                    <SecondaryButton onClick={onClose}>
+                        Cerrar
+                    </SecondaryButton>
+                </div>
+            </div>
+        </Modal>
     );
 }
