@@ -147,7 +147,7 @@ export default function Index({
 
     return (
         <SIAMELayout header={null}>
-            <Head title="Establecimientos" />
+            <Head title="Administración Central" />
 
             <div className="grid grid-cols-1 gap-6 pt-2 lg:grid-cols-4">
                 {/* Actions & Filters Sidebar - Sticky */}

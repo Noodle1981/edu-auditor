@@ -150,7 +150,7 @@ export default function MapView({
 
     // Tile layer URLs
     const TILE_STREET =
-        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     const TILE_SAT =
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
@@ -199,9 +199,9 @@ export default function MapView({
                     attribution={
                         isSatellite
                             ? '&copy; <a href="https://www.esri.com">Esri</a> World Imagery'
-                            : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                            : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     }
-                    subdomains={isSatellite ? '' : 'abcd'}
+                    subdomains={isSatellite ? '' : 'abc'}
                     keepBuffer={2}
                     updateWhenIdle={true}
                     updateWhenZooming={false}

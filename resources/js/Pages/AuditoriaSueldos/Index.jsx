@@ -2997,7 +2997,7 @@ export default function AuditoriaSueldosIndex({
                             <span className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-slate-200 text-slate-800 border border-slate-400 inline-flex items-center gap-1 whitespace-nowrap">⏸️ INACTIVO</span>
                           )}
                           {(d.estado_depuracion === 'ACTIVO' || d.estado_depuracion === 'BAJA_VOLUMETRÍA') && (
-                            <span className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1 whitespace-nowrap">🟢 ACTIVO ({d.cantidad_con_cobro ?? d.cantidad_liquidaciones})</span>
+                            <span className="px-2 py-0.5 text-[10px] font-black rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1 whitespace-nowrap">🟢 ACTIVO</span>
                           )}
                         </td>
                         <td className="px-2.5 py-2 font-medium text-gray-600 text-[11px] max-w-[280px] xl:max-w-[400px] whitespace-normal leading-snug break-words">
